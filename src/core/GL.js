@@ -1,5 +1,4 @@
 import { mat4, mat3 } from "gl-matrix";
-import { nanoid } from "nanoid";
 
 import {
   checkWebGL2,
@@ -7,14 +6,17 @@ import {
   checkViewport,
   getWebGLContext,
 } from "../utils";
+import exposeAttributes from "../utils/exposeAttributes";
+import getAndApplyExtension from "../utils/getAndApplyExtension";
+import ExtensionsList from "../utils/ExtensionsList";
 import objectAssign from "object-assign";
 import defaultGLParameters from "./defaultGLParameters";
 
-let _idTable;
+let _idTable = 0;
 
 class GLTool {
   constructor() {
-    this._id = nanoid();
+    this._id = `WebGLContext${_idTable++}`;
     this._viewport = [0, 0, 0, 0];
     this._enabledVertexAttribute = [];
     this.identityMatrix = mat4.create();
@@ -27,6 +29,13 @@ class GLTool {
     this._useWebGL2 = false;
     this._hasArrayInstance = false;
     this._extArrayInstance = false;
+
+    // stats
+    this.shaderCount = 0;
+    this.meshCount = 0;
+    this.bufferCount = 0;
+    this.textureCount = 0;
+    this.frameBufferCount = 0;
 
     this.isMobile = isMobile;
   }
@@ -59,11 +68,54 @@ class GLTool {
   }
 
   // initialize GL from WebGLContext
-  initWithGL(ctx) {
+  initWithGL(gl) {
     if (!this.canvas) {
       this.canvas = ctx.canvas;
     }
-    this.gl = ctx;
+    this.gl = gl;
+
+    // extensions
+    this.extensions = {};
+    for (let i = 0; i < ExtensionsList.length; i++) {
+      this.extensions[ExtensionsList[i]] = this.gl.getExtension(
+        ExtensionsList[i]
+      );
+    }
+
+    exposeAttributes(this);
+    getAndApplyExtension(gl, "OES_vertex_array_object");
+    getAndApplyExtension(gl, "ANGLE_instanced_arrays");
+    getAndApplyExtension(gl, "WEBGL_draw_buffers");
+    if (this.webgl2) {
+      gl.getExtension("EXT_color_buffer_float");
+    }
+
+    this.enable(this.DEPTH_TEST);
+    this.enable(this.CULL_FACE);
+    this.enable(this.BLEND);
+    this.enableAlphaBlending();
+  }
+
+  // enable gl feature
+  enable(mParameter) {
+    this.gl.enable(mParameter);
+  }
+
+  // disable gl feature
+  disable(mParameter) {
+    this.gl.disable(mParameter);
+  }
+
+  // BLEND MODES
+
+  enableAlphaBlending() {
+    const { gl } = this;
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  }
+
+  enableAdditiveBlending() {
+    const { gl } = this;
+    gl.blendFunc(gl.ONE, gl.ONE);
   }
 
   // set GL size
@@ -92,6 +144,26 @@ class GLTool {
       this.gl.viewport(x, y, w, h);
       this._viewport = [x, y, w, h];
     }
+  }
+
+  // show all extensions
+  showExtensions() {
+    console.log("Extensions : ", this.extensions);
+    for (const ext in this.extensions) {
+      if (this.extensions[ext]) {
+        console.log(ext, ":", this.extensions[ext]);
+      }
+    }
+  }
+
+  // check if extensions is available
+  checkExtension(mExtension) {
+    return !!this.extensions[mExtension];
+  }
+
+  // get extension by name
+  getExtension(mExtension) {
+    return this.extensions[mExtension];
   }
 
   // getter & setters

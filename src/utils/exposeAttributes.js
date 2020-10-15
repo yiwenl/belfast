@@ -1,10 +1,9 @@
 // exposeAttributes.js
 
-import GL from "../GLTool";
 import WebglConst from "./WebglConst";
 import WebglNumber from "./WebglNumber";
 
-const exposeAttributes = function () {
+const exposeAttributes = (GL) => {
   for (const s in WebglConst) {
     if (!GL[s]) {
       GL[s] = WebglConst[s];
