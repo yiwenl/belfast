@@ -1,5 +1,8 @@
 import { mat4, mat3 } from "gl-matrix";
 import { checkWebGL2, isMobile } from "../utils";
+import objectAssign from "object-assign";
+import defaultGLParameters from "./defaultGLParameters";
+
 let gl;
 class GLTool {
   constructor() {
@@ -20,6 +23,7 @@ class GLTool {
   }
 
   init(mCanvas, mParameters = {}) {
+    console.log("Init", typeof mCanvas);
     if (mCanvas === null || mCanvas === undefined) {
       console.error("Canvas not exist");
       return;
@@ -32,9 +36,20 @@ class GLTool {
     this.canvas = mCanvas;
     this.setSize(window.innerWidth, window.innerHeight);
     this.webgl2 = !!mParameters.webgl2 && checkWebGL2();
-    console.log("this.webgl2", this.webgl2, mParameters);
+    const params = objectAssign({}, defaultGLParameters, mParameters);
 
     let ctx;
+    if (this.webgl2) {
+      ctx =
+        this.canvas.getContext("experimental-webgl2", params) ||
+        this.canvas.getContext("webgl2", params);
+    } else {
+      ctx =
+        this.canvas.getContext("webgl", params) ||
+        this.canvas.getContext("experimental-webgl", params);
+    }
+
+    this.initWithGL(ctx);
   }
 
   initWithGL(ctx) {
@@ -54,6 +69,12 @@ class GLTool {
     if (gl) {
       this.viewport(0, 0, this._width, this._height);
     }
+  }
+
+  // clear the WebGL context
+  clear(r, g, b, a) {
+    gl.clearColor(r, g, b, a);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   }
 
   // DESTROY
