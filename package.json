@@ -65,6 +65,7 @@
   },
   "dependencies": {
     "gl-matrix": "^3.0.0",
+    "nanoid": "^3.1.12",
     "object-assign": "^4.1.1",
     "parse-dds": "^1.2.1",
     "scheduling": "^1.2.0"

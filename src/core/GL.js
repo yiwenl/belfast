@@ -1,11 +1,20 @@
 import { mat4, mat3 } from "gl-matrix";
-import { checkWebGL2, isMobile } from "../utils";
+import { nanoid } from "nanoid";
+
+import {
+  checkWebGL2,
+  isMobile,
+  checkViewport,
+  getWebGLContext,
+} from "../utils";
 import objectAssign from "object-assign";
 import defaultGLParameters from "./defaultGLParameters";
 
-let gl;
+let _idTable;
+
 class GLTool {
   constructor() {
+    this._id = nanoid();
     this._viewport = [0, 0, 0, 0];
     this._enabledVertexAttribute = [];
     this.identityMatrix = mat4.create();
@@ -22,43 +31,42 @@ class GLTool {
     this.isMobile = isMobile;
   }
 
-  init(mCanvas, mParameters = {}) {
-    console.log("Init", typeof mCanvas);
-    if (mCanvas === null || mCanvas === undefined) {
+  // initialize GL from canvas
+  init(mSource, mParameters = {}) {
+    if (mSource === null || mSource === undefined) {
       console.error("Canvas not exist");
       return;
+    }
+
+    if (mSource instanceof WebGLRenderingContext) {
+      this.initWithGL(mSource);
+    } else if (mSource instanceof WebGL2RenderingContext) {
+      this.webgl2 = true;
+      this.initWithGL(mSource);
     }
 
     if (this.canvas !== undefined && this.canvas !== null) {
       this.destroy();
     }
 
-    this.canvas = mCanvas;
-    this.setSize(window.innerWidth, window.innerHeight);
+    this.canvas = mSource;
     this.webgl2 = !!mParameters.webgl2 && checkWebGL2();
     const params = objectAssign({}, defaultGLParameters, mParameters);
-
-    let ctx;
-    if (this.webgl2) {
-      ctx =
-        this.canvas.getContext("experimental-webgl2", params) ||
-        this.canvas.getContext("webgl2", params);
-    } else {
-      ctx =
-        this.canvas.getContext("webgl", params) ||
-        this.canvas.getContext("experimental-webgl", params);
-    }
+    const ctx = getWebGLContext(this.canvas, params, this.webgl2);
 
     this.initWithGL(ctx);
+    this.setSize(window.innerWidth, window.innerHeight);
   }
 
+  // initialize GL from WebGLContext
   initWithGL(ctx) {
     if (!this.canvas) {
       this.canvas = ctx.canvas;
     }
-    gl = this.gl = ctx;
+    this.gl = ctx;
   }
 
+  // set GL size
   setSize(mWidth, mHeight) {
     this._width = mWidth;
     this._height = mHeight;
@@ -66,19 +74,33 @@ class GLTool {
     this.canvas.height = this._height;
     this._aspectRatio = this._width / this._height;
 
-    if (gl) {
+    if (this.gl) {
       this.viewport(0, 0, this._width, this._height);
     }
   }
 
-  // clear the WebGL context
+  // clear the GL context
   clear(r, g, b, a) {
+    const { gl } = this;
     gl.clearColor(r, g, b, a);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   }
 
-  // DESTROY
+  // set GL Viewport
+  viewport(x, y, w, h) {
+    if (checkViewport(this._viewport, w, y, w, h)) {
+      this.gl.viewport(x, y, w, h);
+      this._viewport = [x, y, w, h];
+    }
+  }
 
+  // getter & setters
+
+  get id() {
+    return this._id;
+  }
+
+  // DESTROY
   destroy() {
     if (this.canvas.parentNode) {
       try {
@@ -94,3 +116,4 @@ class GLTool {
 
 const GL = new GLTool();
 export { GL };
+export { GLTool };
