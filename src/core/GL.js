@@ -11,6 +11,7 @@ import getAndApplyExtension from "../utils/getAndApplyExtension";
 import ExtensionsList from "../utils/ExtensionsList";
 import objectAssign from "object-assign";
 import defaultGLParameters from "./defaultGLParameters";
+import WebglNumber from "../utils/WebglNumber";
 
 let _idTable = 0;
 
@@ -90,8 +91,8 @@ class GLTool {
       gl.getExtension("EXT_color_buffer_float");
     }
 
-    this.enable(this.DEPTH_TEST);
-    this.enable(this.CULL_FACE);
+    // this.enable(this.DEPTH_TEST);
+    // this.enable(this.CULL_FACE);
     this.enable(this.BLEND);
     this.enableAlphaBlending();
   }
@@ -164,6 +165,43 @@ class GLTool {
   // get extension by name
   getExtension(mExtension) {
     return this.extensions[mExtension];
+  }
+
+  // set active shader
+  useShader(mShader) {
+    this.shader = mShader;
+    this.shaderProgram = this.shader.shaderProgram;
+  }
+
+  // draw mesh
+  draw(mMesh) {
+    if (mMesh.length) {
+      mMesh.forEach((m) => this.draw(m));
+      return;
+    }
+
+    mMesh.bind(this.shaderProgram, this);
+    const { drawType } = mMesh;
+    const { gl } = this;
+
+    if (mMesh.isInstanced) {
+      // DRAWING
+      gl.drawElementsInstanced(
+        mMesh.drawType,
+        mMesh.iBuffer.numItems,
+        gl.UNSIGNED_SHORT,
+        0,
+        mMesh.numInstance
+      );
+    } else {
+      if (drawType === gl.POINTS) {
+        gl.drawArrays(drawType, 0, mMesh.vertexSize);
+      } else {
+        gl.drawElements(drawType, mMesh.iBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+      }
+    }
+
+    mMesh.unbind();
   }
 
   // getter & setters

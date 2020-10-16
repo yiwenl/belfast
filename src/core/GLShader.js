@@ -12,13 +12,15 @@ class GLShader {
   // bind Shader to GL
   bind(mGL) {
     this.GL = mGL || GL;
-    console.log("Bind Shader :", this.GL.id);
 
     if (!this.shaderProgram) {
       const vsShader = this._createShaderProgram(this.vertexShader, true);
       const fsShader = this._createShaderProgram(this.fragmentShader, false);
       this._attachShaderProgram(vsShader, fsShader);
     }
+
+    this.GL.useShader(this);
+    this.GL.gl.useProgram(this.shaderProgram);
   }
 
   // create shader program
