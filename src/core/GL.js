@@ -36,7 +36,12 @@ function GLTool() {
       return;
     } else if (mSource instanceof HTMLCanvasElement) {
       this.canvas = mSource;
-      const target = this.webgl2 ? "webgl2" : "webgl1";
+      let target = this.webgl2 ? "webgl2" : "webgl1";
+      if (mParameters.webgl1) {
+        // force using WebGL1
+        target = "webgl1";
+        this.webgl2 = false;
+      }
       this.gl = mSource.getContext(target, params);
     } else {
       if (mSource instanceof WebGL2RenderingContext) {
@@ -64,6 +69,7 @@ function GLTool() {
     this.setSize(this.canvas.width, this.canvas.height);
 
     // Set default blending to alpha blending
+    this.enable(this.BLEND);
     this.enableAlphaBlending();
   };
 
@@ -126,6 +132,22 @@ function GLTool() {
    */
   this.getAspectRatio = function() {
     return _aspectRatio;
+  };
+
+  /**
+   * enable specific WebGL capabilities for this context.
+   * @param {GLenum} the GLenum value of the capability
+   */
+  this.enable = function(mParameter) {
+    this.gl.enable(mParameter);
+  };
+
+  /**
+   * disable specific WebGL capabilities for this context.
+   * @param {GLenum} the GLenum value of the capability
+   */
+  this.enable = function(mParameter) {
+    this.gl.enable(mParameter);
   };
 
   /**

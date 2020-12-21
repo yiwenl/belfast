@@ -15,7 +15,6 @@ const ctx2 = canvas2.getContext("webgl", {
 });
 GL2.init(ctx2);
 GL2.setSize(window.innerWidth / 2, window.innerHeight);
-
 console.log(GL);
 
 document.body.appendChild(canvas1);
