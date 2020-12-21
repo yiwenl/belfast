@@ -71,6 +71,10 @@ function GLTool() {
     // Set default blending to alpha blending
     this.enable(this.BLEND);
     this.enableAlphaBlending();
+
+    // Enable Depth Test & Cull face by default
+    this.enable(this.DEPTH_TEST);
+    this.enable(this.CULL_FACE);
   };
 
   /**
@@ -166,6 +170,14 @@ function GLTool() {
   this.enableAdditiveBlending = function() {
     const { gl } = this;
     gl.blendFunc(gl.ONE, gl.ONE);
+  };
+
+  /**
+   * Destroy WebGL Context
+   *
+   */
+  this.destroy = function() {
+    this.gl.getExtension("WEBGL_lose_context").loseContext();
   };
 
   // PRIVATE METHODS
