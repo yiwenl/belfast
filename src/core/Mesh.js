@@ -5,7 +5,6 @@ import { formBuffer, getBuffer, getAttribLoc } from "../utils/BufferUtils";
 class Mesh {
   constructor(mDrawType = WebglConst.TRIANGLES) {
     this._drawType = mDrawType;
-    console.log("this._drawType", this._drawType, mDrawType);
 
     this._attributes = [];
     this._numInstance = -1;
@@ -133,7 +132,6 @@ class Mesh {
 
   // create buffers
   generateBuffers(mShaderProgram) {
-    console.log("generateBuffers", this.GL.id);
     const { gl } = this.GL;
     if (this._bufferChanged.length == 0) {
       return;
@@ -145,7 +143,6 @@ class Mesh {
       //	CREATE & BIND VAO
       if (!this._vao) {
         this._vao = gl.createVertexArray();
-        console.log(this._vao);
       }
 
       gl.bindVertexArray(this._vao);
@@ -219,12 +216,6 @@ class Mesh {
   _updateIndexBuffer() {
     const { gl } = this.GL;
     if (this._hasIndexBufferChanged) {
-      console.log(
-        "update index buffer : ",
-        this._indices,
-        this._usage,
-        this._numItems
-      );
       if (!this.iBuffer) {
         this.iBuffer = gl.createBuffer();
       }
@@ -235,7 +226,43 @@ class Mesh {
     }
   }
 
-  unbind() {}
+  // unbind buffers
+  unbind() {
+    const { gl } = this.GL;
+    if (this._useVAO) {
+      gl.bindVertexArray(null);
+    }
+
+    this._attributes.forEach((attribute) => {
+      if (attribute.isInstanced) {
+        gl.vertexAttribDivisor(attribute.attrPosition, 0);
+      }
+    });
+  }
+
+  // generate face for touch detection
+  generateFaces() {
+    let ia, ib, ic;
+    let a, b, c;
+    const { vertices } = this;
+
+    for (let i = 0; i < this._indices.length; i += 3) {
+      ia = this._indices[i];
+      ib = this._indices[i + 1];
+      ic = this._indices[i + 2];
+
+      a = vertices[ia];
+      b = vertices[ib];
+      c = vertices[ic];
+
+      const face = {
+        indices: [ia, ib, ic],
+        vertices: [a, b, c],
+      };
+
+      this._faces.push(face);
+    }
+  }
 
   // get attribute by name
   getAttribute(mName) {
@@ -249,7 +276,25 @@ class Mesh {
   }
 
   // destroy
-  destroy() {}
+  destroy() {
+    const { gl } = this.GL;
+    this.attributes.forEach((attr) => {
+      gl.deleteBuffer(attr.buffer);
+      attr.source = [];
+      attr.dataArray = [];
+    });
+    if (this.iBuffer) {
+      gl.deleteBuffer(this.iBuffer);
+    }
+    gl.deleteVertexArray(this._vao);
+
+    // resetting
+    this._attributes = [];
+    this._enabledVertexAttribute = [];
+    this._indices = [];
+    this._faces = [];
+    this._bufferChanged = [];
+  }
 
   // getter & setters
 

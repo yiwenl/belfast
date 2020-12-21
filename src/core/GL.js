@@ -59,6 +59,8 @@ class GLTool {
       this.destroy();
     }
 
+    console.log("checkWebGL2()", checkWebGL2());
+
     this.canvas = mSource;
     this.webgl2 = !!mParameters.webgl2 && checkWebGL2();
     const params = objectAssign({}, defaultGLParameters, mParameters);
@@ -121,8 +123,8 @@ class GLTool {
 
   // set GL size
   setSize(mWidth, mHeight) {
-    this._width = mWidth;
-    this._height = mHeight;
+    this._width = Math.floor(mWidth);
+    this._height = Math.floor(mHeight);
     this.canvas.width = this._width;
     this.canvas.height = this._height;
     this._aspectRatio = this._width / this._height;

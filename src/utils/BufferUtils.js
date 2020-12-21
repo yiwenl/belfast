@@ -1,6 +1,5 @@
 export const getBuffer = function(attr, gl) {
   let buffer;
-  console.log(gl);
 
   if (attr.buffer !== undefined) {
     buffer = attr.buffer;
