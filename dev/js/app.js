@@ -1,7 +1,8 @@
 import "../scss/global.scss";
 
-import { GL, GLTool, GLShader, Mesh } from "../../src/alfrid";
+import { GL, GLTool } from "../../src/alfrid";
 
+/*
 // class test
 import Test1 from "./test1";
 import Test2 from "./test2";
@@ -13,24 +14,31 @@ console.log(test2);
 
 test1.test();
 test2.test();
+*/
 
 const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
+
+// GL.init(canvas1, { alpha: false });
 GL.init(canvas1);
 GL.setSize(window.innerWidth / 2, window.innerHeight);
 
 const GL2 = new GLTool();
-GL2.init(canvas2);
+const ctx2 = canvas2.getContext("webgl", {
+  alpha: true,
+  depth: true,
+  premultipliedAlpha: false,
+});
+GL2.init(ctx2);
 GL2.setSize(window.innerWidth / 2, window.innerHeight);
 
 document.body.appendChild(canvas1);
 document.body.appendChild(canvas2);
 
-console.log("ID 1:", GL.id, "ID 2:", GL2.id);
-
 const g = 0.1;
-GL.clear(g, 0, 0, 1);
-GL2.clear(0, g, 0, 1);
+GL.clear(1, 0, 0, g);
+GL2.clear(0, 1, 0, g);
+/*
 
 const draw1 = false;
 const shader = new GLShader();
@@ -50,6 +58,7 @@ if (draw1) {
 }
 
 mesh.destroy();
+*/
 
 // resize
 window.addEventListener("resize", resize);

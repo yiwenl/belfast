@@ -1,231 +1,141 @@
-import { mat4, mat3 } from "gl-matrix";
-
-import {
-  checkWebGL2,
-  isMobile,
-  checkViewport,
-  getWebGLContext,
-} from "../utils";
-import exposeAttributes from "../utils/exposeAttributes";
-import getAndApplyExtension from "../utils/getAndApplyExtension";
-import ExtensionsList from "../utils/ExtensionsList";
-import objectAssign from "object-assign";
+import EventDispatcher from "events";
+import { checkWebGL2 } from "../utils";
 import defaultGLParameters from "./defaultGLParameters";
-import WebglNumber from "../utils/WebglNumber";
+import objectAssign from "object-assign";
 
 let _idTable = 0;
 
-class GLTool {
-  constructor() {
-    this._id = `WebGLContext${_idTable++}`;
-    this._viewport = [0, 0, 0, 0];
-    this._enabledVertexAttribute = [];
-    this.identityMatrix = mat4.create();
-    this._normalMatrix = mat3.create();
-    this._inverseModelViewMatrix = mat3.create();
-    this._modelMatrix = mat4.create();
-    this._matrix = mat4.create();
-    this._matrixStacks = [];
-    this._lastMesh = null;
-    this._useWebGL2 = false;
-    this._hasArrayInstance = false;
-    this._extArrayInstance = false;
+function GLTool() {
+  // PRIVATE PROPERTIES
+  let _viewport = [0, 0, 0, 0];
+  let _aspectRatio = 0;
 
-    // stats
-    this.shaderCount = 0;
-    this.meshCount = 0;
-    this.bufferCount = 0;
-    this.textureCount = 0;
-    this.frameBufferCount = 0;
+  // PUBLIC PROPERTIES
+  this.id = `WebGLContext${_idTable++}`;
+  this.canvas;
+  this.gl;
+  this.width = 0;
+  this.height = 0;
 
-    this.isMobile = isMobile;
-  }
+  this.webgl2 = checkWebGL2();
 
-  // initialize GL from canvas
-  init(mSource, mParameters = {}) {
-    if (mSource === null || mSource === undefined) {
-      console.error("Canvas not exist");
-      return;
-    }
+  // PUBLIC METHODS
 
-    if (mSource instanceof WebGLRenderingContext) {
-      this.initWithGL(mSource);
-    } else if (mSource instanceof WebGL2RenderingContext) {
-      this.webgl2 = true;
-      this.initWithGL(mSource);
-    }
-
-    if (this.canvas !== undefined && this.canvas !== null) {
-      this.destroy();
-    }
-
-    console.log("checkWebGL2()", checkWebGL2());
-
-    this.canvas = mSource;
-    this.webgl2 = !!mParameters.webgl2 && checkWebGL2();
+  /**
+   * Initialize the WebGL Context
+   *
+   * @param {undefined|Canvas|WebGLRenderingContext|WebGL2RenderingContext} mSource the source element
+   */
+  this.init = function(mSource, mParameters = {}) {
     const params = objectAssign({}, defaultGLParameters, mParameters);
-    const ctx = getWebGLContext(this.canvas, params, this.webgl2);
 
-    this.initWithGL(ctx);
-    this.setSize(window.innerWidth, window.innerHeight);
-  }
-
-  // initialize GL from WebGLContext
-  initWithGL(gl) {
-    if (!this.canvas) {
-      this.canvas = ctx.canvas;
-    }
-    this.gl = gl;
-
-    // extensions
-    this.extensions = {};
-    for (let i = 0; i < ExtensionsList.length; i++) {
-      this.extensions[ExtensionsList[i]] = this.gl.getExtension(
-        ExtensionsList[i]
-      );
-    }
-
-    exposeAttributes(this);
-    getAndApplyExtension(gl, "OES_vertex_array_object");
-    getAndApplyExtension(gl, "ANGLE_instanced_arrays");
-    getAndApplyExtension(gl, "WEBGL_draw_buffers");
-    if (this.webgl2) {
-      gl.getExtension("EXT_color_buffer_float");
+    if (mSource === undefined) {
+      const canvas = document.createElement("canvas");
+      this.init(canvas, params);
+      return;
+    } else if (mSource instanceof HTMLCanvasElement) {
+      this.canvas = mSource;
+      const target = this.webgl2 ? "webgl2" : "webgl1";
+      this.gl = mSource.getContext(target, params);
+    } else {
+      if (mSource instanceof WebGL2RenderingContext) {
+        this.webgl2 = true;
+        this.gl = mSource;
+        this.canvas = mSource.canvas;
+      } else if (mSource instanceof WebGLRenderingContext) {
+        this.webgl2 = false;
+        this.gl = mSource;
+        this.canvas = mSource.canvas;
+      } else {
+        console.error(
+          "The source has to be one of the following : Canvas, WebGLRenderingContext or WebGL2RenderingContext"
+        );
+      }
     }
 
-    // this.enable(this.DEPTH_TEST);
-    // this.enable(this.CULL_FACE);
-    this.enable(this.BLEND);
+    // Set size
+    this.setSize(this.canvas.width, this.canvas.height);
+
+    // Set default blending to alpha blending
     this.enableAlphaBlending();
-  }
+  };
 
-  // enable gl feature
-  enable(mParameter) {
-    this.gl.enable(mParameter);
-  }
-
-  // disable gl feature
-  disable(mParameter) {
-    this.gl.disable(mParameter);
-  }
-
-  // BLEND MODES
-
-  enableAlphaBlending() {
-    const { gl } = this;
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-  }
-
-  enableAdditiveBlending() {
-    const { gl } = this;
-    gl.blendFunc(gl.ONE, gl.ONE);
-  }
-
-  // set GL size
-  setSize(mWidth, mHeight) {
-    this._width = Math.floor(mWidth);
-    this._height = Math.floor(mHeight);
-    this.canvas.width = this._width;
-    this.canvas.height = this._height;
-    this._aspectRatio = this._width / this._height;
-
-    if (this.gl) {
-      this.viewport(0, 0, this._width, this._height);
-    }
-  }
-
-  // clear the GL context
-  clear(r, g, b, a) {
+  /**
+   * Clear WebGL Context
+   *
+   * @param {number} r the red value
+   * @param {number} g the green value
+   * @param {number} b the blue value
+   * @param {number} a the alpha value
+   */
+  this.clear = function(r = 0, g = 0, b = 0, a = 0) {
     const { gl } = this;
     gl.clearColor(r, g, b, a);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  }
+  };
 
-  // set GL Viewport
-  viewport(x, y, w, h) {
-    if (checkViewport(this._viewport, w, y, w, h)) {
-      this.gl.viewport(x, y, w, h);
-      this._viewport = [x, y, w, h];
-    }
-  }
+  /**
+   * Set WebGL size
+   *
+   * @param {number} mWidth the width
+   * @param {number} mHeight the height
+   */
+  this.setSize = function(mWidth, mHeight) {
+    this.width = Math.floor(mWidth);
+    this.height = Math.floor(mHeight);
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
+    _aspectRatio = this.width / this.height;
 
-  // show all extensions
-  showExtensions() {
-    console.log("Extensions : ", this.extensions);
-    for (const ext in this.extensions) {
-      if (this.extensions[ext]) {
-        console.log(ext, ":", this.extensions[ext]);
-      }
-    }
-  }
+    this.viewport(0, 0, this.width, this.height);
+  };
 
-  // check if extensions is available
-  checkExtension(mExtension) {
-    return !!this.extensions[mExtension];
-  }
+  /**
+   * Set WebGL Viewport
+   *
+   * @param {number} x the x value
+   * @param {number} y the y value
+   * @param {number} w the width
+   * @param {number} h the height
+   */
+  this.viewport = function(x, y, w, h) {
+    _viewport = [x, y, w, h];
+    this.gl.viewport(x, y, w, h);
+  };
 
-  // get extension by name
-  getExtension(mExtension) {
-    return this.extensions[mExtension];
-  }
+  /**
+   * Set WebGL size
+   *
+   * @returns {vec4} the WebGL viewport
+   */
+  this.getViewport = function() {
+    return _viewport;
+  };
 
-  // set active shader
-  useShader(mShader) {
-    this.shader = mShader;
-    this.shaderProgram = this.shader.shaderProgram;
-  }
+  /**
+   * Set WebGL size
+   *
+   * @returns {number} the WebGL canvas aspect ratio
+   */
+  this.getAspectRatio = function() {
+    return _aspectRatio;
+  };
 
-  // draw mesh
-  draw(mMesh) {
-    if (mMesh.length) {
-      mMesh.forEach((m) => this.draw(m));
-      return;
-    }
-
-    mMesh.bind(this.shaderProgram, this);
-    const { drawType } = mMesh;
+  this.enableAlphaBlending = function() {
     const { gl } = this;
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  };
 
-    if (mMesh.isInstanced) {
-      // DRAWING
-      gl.drawElementsInstanced(
-        mMesh.drawType,
-        mMesh.iBuffer.numItems,
-        gl.UNSIGNED_SHORT,
-        0,
-        mMesh.numInstance
-      );
-    } else {
-      if (drawType === gl.POINTS) {
-        gl.drawArrays(drawType, 0, mMesh.vertexSize);
-      } else {
-        gl.drawElements(drawType, mMesh.iBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-      }
-    }
+  this.enableAdditiveBlending = function() {
+    const { gl } = this;
+    gl.blendFunc(gl.ONE, gl.ONE);
+  };
 
-    mMesh.unbind();
-  }
-
-  // getter & setters
-
-  get id() {
-    return this._id;
-  }
-
-  // DESTROY
-  destroy() {
-    if (this.canvas.parentNode) {
-      try {
-        this.canvas.parentNode.removeChild(this.canvas);
-      } catch (e) {
-        console.log("Error : ", e);
-      }
-    }
-
-    this.canvas = null;
-  }
+  // PRIVATE METHODS
 }
 
+GLTool.prototype = Object.assign(Object.create(EventDispatcher.prototype), {
+  constructor: GLTool,
+});
 const GL = new GLTool();
-export { GL };
-export { GLTool };
+export { GL, GLTool };
