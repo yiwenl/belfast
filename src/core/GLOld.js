@@ -6,7 +6,7 @@ import {
   checkViewport,
   getWebGLContext,
 } from "../utils";
-import exposeAttributes from "../utils/exposeAttributes";
+import exposeAttributes from "../utils/exposeGLProperties";
 import getAndApplyExtension from "../utils/getAndApplyExtension";
 import ExtensionsList from "../utils/ExtensionsList";
 import objectAssign from "object-assign";

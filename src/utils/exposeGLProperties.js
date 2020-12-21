@@ -1,14 +1,14 @@
-// exposeAttributes.js
-
 import WebglConst from "./WebglConst";
 import WebglNumber from "./WebglNumber";
 
-const exposeAttributes = (GL) => {
+const exposeGLProperties = (GL) => {
+  // console.log(GL);
   for (const s in WebglConst) {
     if (!GL[s]) {
       GL[s] = WebglConst[s];
     } else {
-      if (s !== "FLOAT") console.log("already exist : ", s);
+      // if (s !== "FLOAT") console.log("already exist : ", s);
+      console.log("already exist : ", s);
     }
   }
 
@@ -24,4 +24,4 @@ const exposeAttributes = (GL) => {
   }
 };
 
-export default exposeAttributes;
+export default exposeGLProperties;

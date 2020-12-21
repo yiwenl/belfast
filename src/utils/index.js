@@ -1,6 +1,7 @@
 export { checkWebGL2 } from "./checkWebGL2";
+export { getExtensions } from "./getExtensions";
 export { isMobile } from "./isMobile";
-export { getWebGLContext } from "./getWebGLContext";
+// export { getWebGLContext } from "./getWebGLContext";
 
 export const checkViewport = (viewport, x, y, w, h) => {
   let hasChanged = false;

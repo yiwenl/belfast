@@ -1,7 +1,8 @@
 import EventDispatcher from "events";
-import { checkWebGL2 } from "../utils";
-import defaultGLParameters from "./defaultGLParameters";
 import objectAssign from "object-assign";
+import { checkWebGL2, getExtensions } from "../utils";
+import exposeGLProperties from "../utils/exposeGLProperties";
+import defaultGLParameters from "./defaultGLParameters";
 
 let _idTable = 0;
 
@@ -52,6 +53,12 @@ function GLTool() {
         );
       }
     }
+
+    // Enable extensions
+    this.extensions = getExtensions(this.gl);
+
+    // Expose GL properties
+    exposeGLProperties(this);
 
     // Set size
     this.setSize(this.canvas.width, this.canvas.height);
@@ -113,25 +120,37 @@ function GLTool() {
   };
 
   /**
-   * Set WebGL size
+   * get WebGL canvas aspect ratio
    *
-   * @returns {number} the WebGL canvas aspect ratio
+   * @returns {number} the aspect ratio
    */
   this.getAspectRatio = function() {
     return _aspectRatio;
   };
 
+  /**
+   * Set WebGL blending to Alpha blending
+   *
+   */
   this.enableAlphaBlending = function() {
     const { gl } = this;
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   };
 
+  /**
+   * Set WebGL blending to Additive blending
+   *
+   */
   this.enableAdditiveBlending = function() {
     const { gl } = this;
     gl.blendFunc(gl.ONE, gl.ONE);
   };
 
   // PRIVATE METHODS
+
+  const enableExtensions = () => {
+    console.log("enable extensions");
+  };
 }
 
 GLTool.prototype = Object.assign(Object.create(EventDispatcher.prototype), {

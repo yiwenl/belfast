@@ -1,25 +1,9 @@
 import "../scss/global.scss";
 
 import { GL, GLTool } from "../../src/alfrid";
-
-/*
-// class test
-import Test1 from "./test1";
-import Test2 from "./test2";
-
-const test1 = new Test1();
-const test2 = new Test2();
-console.log(test1);
-console.log(test2);
-
-test1.test();
-test2.test();
-*/
-
 const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
 
-// GL.init(canvas1, { alpha: false });
 GL.init(canvas1);
 GL.setSize(window.innerWidth / 2, window.innerHeight);
 
@@ -31,6 +15,8 @@ const ctx2 = canvas2.getContext("webgl", {
 });
 GL2.init(ctx2);
 GL2.setSize(window.innerWidth / 2, window.innerHeight);
+
+console.log(GL);
 
 document.body.appendChild(canvas1);
 document.body.appendChild(canvas2);
