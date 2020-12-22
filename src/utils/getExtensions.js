@@ -34,6 +34,11 @@ const getExtensions = (gl) => {
   });
 
   if (!isWebGL2) {
+    // only IE not support
+    // caniuse.com/?search=OES_vertex_array_object
+    if (!extensions["OES_vertex_array_object"]) {
+      console.error("OES_vertex_array_object extension is not supported");
+    }
     getAndApplyExtension(gl, "OES_vertex_array_object");
     getAndApplyExtension(gl, "ANGLE_instanced_arrays");
     getAndApplyExtension(gl, "WEBGL_draw_buffers");

@@ -6,3 +6,6 @@ export { Mesh } from "./core/Mesh";
 // utils
 export { checkWebGL2 } from "./utils/checkWebGL2";
 export { getWebGLContext } from "./utils/getWebGLContext";
+
+// polyfill fixes
+import "./utils/polyfixes";
