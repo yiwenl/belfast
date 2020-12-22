@@ -27,7 +27,7 @@ const g = 0.1;
 GL.clear(g, 0, 0, 1);
 GL2.clear(0, g, 0, 1);
 
-const draw1 = false;
+const draw1 = true;
 const shader = new GLShader();
 
 const mesh = new Mesh();
@@ -40,6 +40,7 @@ mesh.bufferVertex(positions).bufferIndex(indices);
 if (draw1) {
   shader.bind();
   GL.draw(mesh);
+  shader.bind(GL2);
 } else {
   shader.bind(GL2);
   GL2.draw(mesh);

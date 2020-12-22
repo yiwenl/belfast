@@ -4,19 +4,10 @@ import vsDefault from "../shader/basic.vert";
 import fsDefault from "../shader/basic.frag";
 
 function GLShader(mVertexShader, mFragmentShader) {
-  /**
-   * Public Properties
-   *
-   */
   this.vertexShader = mVertexShader || vsDefault;
   this.fragmentShader = mFragmentShader || fsDefault;
   this.GL;
   this.shaderProgram;
-
-  /**
-   * Private Properties
-   *
-   */
 
   /**
    * Bind the current shader
@@ -24,8 +15,14 @@ function GLShader(mVertexShader, mFragmentShader) {
    * @param {GL} mGL the GLTool instance
    */
   this.bind = function(mGL) {
+    if (this.GL !== undefined && mGL !== this.GL) {
+      console.error(
+        "this shader has been bind to a different WebGL Rendering Context"
+      );
+      return;
+    }
+
     this.GL = mGL || GL;
-    console.log("Bind shader", this.GL.id);
     if (!this.shaderProgram) {
       const vsShader = createShaderProgram(this.vertexShader, true);
       const fsShader = createShaderProgram(this.fragmentShader, false);
@@ -38,22 +35,24 @@ function GLShader(mVertexShader, mFragmentShader) {
   /**
    * Set the uniform of the shader
    *
+   * @param {string|object} mName the name of the uniform
+   * @param {string} mType the type of the uniform
+   * @param {number|[numbers]} mValue the value of the uniform
    */
-  this.uniform = function() {};
+  this.uniform = function(mName, mType, mValue) {};
 
   /**
    * Destroy the current shader
    *
    */
-  this.destroy = function() {};
+  this.destroy = function() {
+    const { gl } = this.GL;
+    gl.deleteProgram(this.shaderProgram);
+    this.GL.shaderCount--;
+  };
 
   /**
-   * Private Methods
-   *
-   */
-
-  /**
-   * Bind the current shader
+   * Create & Compile shader
    *
    * @param {string} mShaderStr the shader program text
    * @param {boolean} isVertexShader is vertex shader or not
@@ -76,6 +75,12 @@ function GLShader(mVertexShader, mFragmentShader) {
     return shader;
   };
 
+  /**
+   * Attach shader
+   *
+   * @param {glShader} mVertexShader the vertex shader
+   * @param {glShader} mFragmentShader the fragment shader
+   */
   const attachShaderProgram = (mVertexShader, mFragmentShader) => {
     const { gl } = this.GL;
 

@@ -194,7 +194,6 @@ function GLTool() {
   this.useShader = function(mShader) {
     this.shader = mShader;
     this.shaderProgram = this.shader.shaderProgram;
-    console.log("use shader", mShader, this.shaderProgram);
     this.gl.useProgram(this.shaderProgram);
   };
 
