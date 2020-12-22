@@ -17,8 +17,11 @@ function GLTool() {
   this.gl;
   this.width = 0;
   this.height = 0;
-
   this.webgl2 = checkWebGL2();
+
+  // Resources
+  this.shaderCount = 0;
+  this.bufferCount = 0;
 
   // PUBLIC METHODS
 
@@ -75,6 +78,9 @@ function GLTool() {
     // Enable Depth Test & Cull face by default
     this.enable(this.DEPTH_TEST);
     this.enable(this.CULL_FACE);
+
+    // Set the default culling
+    this.cullFace(GL.BACK);
   };
 
   /**
@@ -150,8 +156,16 @@ function GLTool() {
    * disable specific WebGL capabilities for this context.
    * @param {GLenum} the GLenum value of the capability
    */
-  this.enable = function(mParameter) {
-    this.gl.enable(mParameter);
+  this.disable = function(mParameter) {
+    this.gl.disable(mParameter);
+  };
+
+  /**
+   * Set the culling of the WebGL Context
+   * @param {GLenum} the GLenum value of the culling
+   */
+  this.cullFace = function(mValue) {
+    this.gl.cullFace(mValue);
   };
 
   /**
@@ -170,6 +184,53 @@ function GLTool() {
   this.enableAdditiveBlending = function() {
     const { gl } = this;
     gl.blendFunc(gl.ONE, gl.ONE);
+  };
+
+  /**
+   * Set Active Shader
+   *
+   * @param {GLShader} mShader the shader going to be use
+   */
+  this.useShader = function(mShader) {
+    this.shader = mShader;
+    this.shaderProgram = this.shader.shaderProgram;
+    console.log("use shader", mShader, this.shaderProgram);
+    this.gl.useProgram(this.shaderProgram);
+  };
+
+  /**
+   * Draw elements
+   *
+   * @param {Mesh|[Mesh]} mMesh the meshes that is going to be drawn
+   */
+  this.draw = function(mMesh) {
+    if (mMesh.length) {
+      mMesh.forEach((m) => this.draw(m));
+      return;
+    }
+
+    mMesh.bind(this.shaderProgram, this);
+    const { drawType } = mMesh;
+    const { gl } = this;
+
+    if (mMesh.isInstanced) {
+      // DRAWING
+      gl.drawElementsInstanced(
+        mMesh.drawType,
+        mMesh.iBuffer.numItems,
+        gl.UNSIGNED_SHORT,
+        0,
+        mMesh.numInstance
+      );
+    } else {
+      if (drawType === gl.POINTS) {
+        gl.drawArrays(drawType, 0, mMesh.vertexSize);
+      } else {
+        gl.drawElements(drawType, mMesh.iBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+      }
+    }
+
+    mMesh.unbind();
   };
 
   /**

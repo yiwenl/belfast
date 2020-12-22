@@ -1,5 +1,5 @@
 export default {
-  alpha: true,
+  alpha: false,
   depth: true,
   premultipliedAlpha: false,
 };

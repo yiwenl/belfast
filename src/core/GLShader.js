@@ -3,28 +3,62 @@ import { addLineNumbers } from "../utils/ShaderUtils";
 import vsDefault from "../shader/basic.vert";
 import fsDefault from "../shader/basic.frag";
 
-class GLShader {
-  constructor(mVertexShader, mFragmentShader) {
-    this.vertexShader = mVertexShader || vsDefault;
-    this.fragmentShader = mFragmentShader || fsDefault;
-  }
+function GLShader(mVertexShader, mFragmentShader) {
+  /**
+   * Public Properties
+   *
+   */
+  this.vertexShader = mVertexShader || vsDefault;
+  this.fragmentShader = mFragmentShader || fsDefault;
+  this.GL;
+  this.shaderProgram;
 
-  // bind Shader to GL
-  bind(mGL) {
+  /**
+   * Private Properties
+   *
+   */
+
+  /**
+   * Bind the current shader
+   *
+   * @param {GL} mGL the GLTool instance
+   */
+  this.bind = function(mGL) {
     this.GL = mGL || GL;
-
+    console.log("Bind shader", this.GL.id);
     if (!this.shaderProgram) {
-      const vsShader = this._createShaderProgram(this.vertexShader, true);
-      const fsShader = this._createShaderProgram(this.fragmentShader, false);
-      this._attachShaderProgram(vsShader, fsShader);
+      const vsShader = createShaderProgram(this.vertexShader, true);
+      const fsShader = createShaderProgram(this.fragmentShader, false);
+      attachShaderProgram(vsShader, fsShader);
     }
 
     this.GL.useShader(this);
-    this.GL.gl.useProgram(this.shaderProgram);
-  }
+  };
 
-  // create shader program
-  _createShaderProgram(mShaderStr, isVertexShader) {
+  /**
+   * Set the uniform of the shader
+   *
+   */
+  this.uniform = function() {};
+
+  /**
+   * Destroy the current shader
+   *
+   */
+  this.destroy = function() {};
+
+  /**
+   * Private Methods
+   *
+   */
+
+  /**
+   * Bind the current shader
+   *
+   * @param {string} mShaderStr the shader program text
+   * @param {boolean} isVertexShader is vertex shader or not
+   */
+  const createShaderProgram = (mShaderStr, isVertexShader) => {
     const { GL } = this;
     const { gl } = this.GL;
     const shaderType = isVertexShader ? GL.VERTEX_SHADER : GL.FRAGMENT_SHADER;
@@ -40,10 +74,9 @@ class GLShader {
     }
 
     return shader;
-  }
+  };
 
-  // attach shader program
-  _attachShaderProgram(mVertexShader, mFragmentShader) {
+  const attachShaderProgram = (mVertexShader, mFragmentShader) => {
     const { gl } = this.GL;
 
     this.shaderProgram = gl.createProgram();
@@ -54,19 +87,7 @@ class GLShader {
 
     gl.linkProgram(this.shaderProgram);
     this.GL.shaderCount++;
-  }
-
-  // uniform
-  uniform() {
-    // console.log("Uniform", arguments.length);
-  }
-
-  // destroy shader
-  destroy() {
-    const { gl } = this.GL;
-    gl.deleteProgram(this.shaderProgram);
-    this.GL.shaderCount--;
-  }
+  };
 }
 
 export { GLShader };
