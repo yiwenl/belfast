@@ -19,6 +19,10 @@ function GLTool() {
   this.height = 0;
   this.webgl2 = checkWebGL2();
 
+  // EVENTS
+  this.CONTEXT_LOST = "contextLost";
+  this.CONTEXT_RESTORED = "contextRestored";
+
   // Resources
   this.shaderCount = 0;
   this.bufferCount = 0;
@@ -61,6 +65,10 @@ function GLTool() {
         );
       }
     }
+
+    // context event handling
+    this.canvas.addEventListener("webglcontextlost", onContextLost);
+    this.canvas.addEventListener("webglcontextrestored", onContextRestored);
 
     // Enable extensions
     this.extensions = getExtensions(this.gl);
@@ -240,10 +248,23 @@ function GLTool() {
     this.gl.getExtension("WEBGL_lose_context").loseContext();
   };
 
-  // PRIVATE METHODS
+  /**
+   * Event Listener for context lost
+   *
+   */
+  const onContextLost = () => {
+    this.emit(this.CONTEXT_LOST);
+  };
 
-  const enableExtensions = () => {
-    console.log("enable extensions");
+  /**
+   * Event Listener for context restored
+   *
+   */
+  const onContextRestored = () => {
+    this.emit(this.CONTEXT_RESTORED);
+    /*
+    At the point that setupWebGLStateAndResources is called the browser has reset all state to the default WebGL state and all previously allocated resources are invalid. So, you need to re-create textures, buffers, framebuffers, renderbuffers, shaders, programs, and setup your state (clearColor, blendFunc, depthFunc, etc...)
+    */
   };
 }
 

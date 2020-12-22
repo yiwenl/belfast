@@ -7,6 +7,18 @@ const canvas2 = document.createElement("canvas");
 GL.init(canvas1);
 GL.setSize(window.innerWidth / 2, window.innerHeight);
 
+const contextLostTest = true;
+if (contextLostTest) {
+  GL.on(GL.CONTEXT_LOST, () => {
+    console.log("WebGL Context Lost");
+  });
+
+  setTimeout(() => {
+    console.log("Destroy context");
+    GL.destroy();
+  }, 2000);
+}
+
 const GL2 = new GLTool();
 const ctx2 = canvas2.getContext("webgl", {
   alpha: true,
@@ -40,11 +52,11 @@ mesh.bufferVertex(positions).bufferIndex(indices);
 if (draw1) {
   shader.bind();
   GL.draw(mesh);
-  shader.bind(GL2);
 } else {
   shader.bind(GL2);
   GL2.draw(mesh);
 }
+
 /*
 
 mesh.destroy();
