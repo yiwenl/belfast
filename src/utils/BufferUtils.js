@@ -39,3 +39,19 @@ export const getAttribLoc = (gl, shaderProgram, name) => {
 
   return shaderProgram.cacheAttribLoc[name];
 };
+
+export const flatten = (mValues) => {
+  // console.log("flatten", mValues, mValues[0] instanceof Float32Array);
+  if (mValues[0] instanceof Float32Array) {
+    const b = mValues.reduce((total, curr) => {
+      for (let i = 0; i < curr.length; i++) {
+        total.push(curr[i]);
+      }
+      return total;
+    }, []);
+
+    return b;
+  } else {
+    return mValues.flat();
+  }
+};

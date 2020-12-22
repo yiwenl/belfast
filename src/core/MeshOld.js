@@ -98,9 +98,10 @@ class Mesh {
     return this;
   }
 
-  bind(mShaderProgram, mGL) {
+  bind(mGL) {
     this.GL = mGL || GL;
     this._useVAO = !!this.GL.gl.createVertexArray;
+    const mShaderProgram = this.GL.shaderProgram;
 
     const { gl } = this.GL;
     this.generateBuffers(mShaderProgram);

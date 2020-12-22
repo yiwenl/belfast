@@ -217,7 +217,7 @@ function GLTool() {
       return;
     }
 
-    mMesh.bind(this.shaderProgram, this);
+    mMesh.bind(this);
     const { drawType } = mMesh;
     const { gl } = this;
 

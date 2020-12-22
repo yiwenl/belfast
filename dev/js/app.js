@@ -1,6 +1,7 @@
 import "../scss/global.scss";
 
 import { GL, GLTool, GLShader, Mesh } from "../../src/alfrid";
+import { vec3 } from "gl-matrix";
 const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
 
@@ -41,13 +42,20 @@ const shader = new GLShader();
 const mesh = new Mesh();
 
 const s = 0.5;
-const positions = [[0, s, 0], [-s, -s / 2, 0], [s, -s / 2, 0]];
+// const positions = [[0, s, 0], [-s, -s / 2, 0], [s, -s / 2, 0]];
+const positions = [
+  vec3.fromValues(0, s, 0),
+  vec3.fromValues(-s, -s / 2, 0),
+  vec3.fromValues(s, -s / 2, 0),
+];
+// const colors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].flat();
+const colors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 const indices = [0, 1, 2];
 
-mesh.bufferVertex(positions).bufferIndex(indices);
-console.log(mesh);
-
-/*
+mesh
+  .bufferVertex(positions)
+  .bufferData(colors, "aColor")
+  .bufferIndex(indices);
 
 if (draw1) {
   shader.bind();
@@ -56,6 +64,7 @@ if (draw1) {
   shader.bind(GL2);
   GL2.draw(mesh);
 }
+/*
 
 
 mesh.destroy();
