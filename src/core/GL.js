@@ -1,6 +1,6 @@
 import EventDispatcher from "events";
 import objectAssign from "object-assign";
-import { checkWebGL2, getExtensions } from "../utils";
+import { checkWebGL2, isMobile, getExtensions } from "../utils";
 import exposeGLProperties from "../utils/exposeGLProperties";
 import defaultGLParameters from "./defaultGLParameters";
 
@@ -18,6 +18,7 @@ function GLTool() {
   this.width = 0;
   this.height = 0;
   this.webgl2 = checkWebGL2();
+  this.isMobile = isMobile;
 
   // EVENTS
   this.CONTEXT_LOST = "contextLost";
@@ -244,8 +245,11 @@ function GLTool() {
    * Destroy WebGL Context
    *
    */
-  this.destroy = function() {
+  this.destroy = function(mRemove = true) {
     this.gl.getExtension("WEBGL_lose_context").loseContext();
+    if (mRemove && this.canvas.parentNode !== undefined) {
+      this.canvas.parentNode.removeChild(this.canvas);
+    }
   };
 
   /**
