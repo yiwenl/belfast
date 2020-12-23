@@ -1,4 +1,4 @@
-import { glMatrix } from "gl-matrix";
+import { glMatrix, vec3, mat4 } from "gl-matrix";
 
 export const addLineNumbers = (string) => {
   const lines = string.split("\n");
@@ -45,6 +45,10 @@ export const isSame = (array1, array2) => {
 };
 
 export const equals = (a, b) => {
+  if (typeof a === "number") {
+    return glMatrix.equals(a, b);
+  }
+
   if (a.length !== b.length) {
     return false;
   }
