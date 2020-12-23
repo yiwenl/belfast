@@ -1,3 +1,4 @@
+import { glMatrix } from "gl-matrix";
 export { checkWebGL2 } from "./checkWebGL2";
 export { getExtensions } from "./getExtensions";
 export { isMobile } from "./isMobile";
@@ -18,4 +19,20 @@ export const checkViewport = (viewport, x, y, w, h) => {
     hasChanged = true;
   }
   return hasChanged;
+};
+
+export const equals = (a, b) => {
+  if (typeof a === "number") {
+    return glMatrix.equals(a, b);
+  }
+
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  let _isEqual = true;
+  a.forEach((v, i) => {
+    _isEqual = glMatrix.equals(v, b[i]) && _isEqual;
+  });
+  return _isEqual;
 };

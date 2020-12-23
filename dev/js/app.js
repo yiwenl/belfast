@@ -77,11 +77,19 @@ g = 0.5;
 const _colors = [[1, g, g], [g, 1, g], [g, g, 1]].flat();
 
 const mtx = mat4.create();
-mat4.translate(mtx, mtx, [0.5, 0, 0]);
+// mat4.translate(mtx, mtx, [0.5, 0, 0]);
+
+const mtxView = mat4.create();
+const mtxProj = mat4.create();
+
+mat4.perspective(mtxProj, Math.PI / 2, GL.getAspectRatio(), 0.1, 100);
+mat4.lookAt(mtxView, [0, 0, 5], [0, 0, 0], [0, 1, 0]);
 
 // shader.uniform("uColor", "vec3", [1, 0, 0]);
 shader.uniform("uColors", "vec3", _colors);
 shader.uniform("uModelMatrix", mtx);
+shader.uniform("uProjectionMatrix", mtxProj);
+shader.uniform("uViewMatrix", mtxView);
 
 /*
  * Shader and Mesh ( buffers ) won't be created until they are going to be bind

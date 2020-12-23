@@ -4,8 +4,8 @@ import {
   uniformMapping,
   getUniformType,
   cloneValue,
-  equals,
 } from "../utils/ShaderUtils";
+import { equals } from "../utils/";
 import vsDefault from "../shader/basic.vert";
 import fsDefault from "../shader/basic.frag";
 

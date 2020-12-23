@@ -1,5 +1,3 @@
-import { glMatrix, vec3, mat4 } from "gl-matrix";
-
 export const addLineNumbers = (string) => {
   const lines = string.split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -31,23 +29,6 @@ export const cloneValue = (mValue) => {
   } else {
     return new Float32Array(mValue);
   }
-};
-
-export const equals = (a, b) => {
-  if (typeof a === "number") {
-    return glMatrix.equals(a, b);
-  }
-
-  if (a.length !== b.length) {
-    console.warn("Arrays have different length :", a, b);
-    return false;
-  }
-
-  let _isEqual = true;
-  a.forEach((v, i) => {
-    _isEqual = glMatrix.equals(v, b[i]) && _isEqual;
-  });
-  return _isEqual;
 };
 
 export const getUniformType = (mValue) => {
