@@ -1,9 +1,12 @@
 import "../scss/global.scss";
 
 import { GL, GLTool, GLShader, Mesh } from "../../src/alfrid";
-import { vec3 } from "gl-matrix";
+import { vec3, mat4 } from "gl-matrix";
 const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
+
+import vs from "../shaders/test.vert";
+import fs from "../shaders/test.frag";
 
 GL.init(canvas1);
 GL.setSize(window.innerWidth / 2, window.innerHeight);
@@ -39,7 +42,7 @@ for (let s in GL.gl) {
 document.body.appendChild(canvas1);
 document.body.appendChild(canvas2);
 
-const g = 0.1;
+let g = 0.1;
 // GL.clear(1, 0, 0, g);
 // GL2.clear(0, 1, 0, g);
 
@@ -47,7 +50,7 @@ GL.clear(g, 0, 0, 1);
 GL2.clear(0, g, 0, 1);
 
 const draw1 = true;
-const shader = new GLShader();
+const shader = new GLShader(vs, fs);
 console.log(shader);
 const mesh = new Mesh();
 console.log(mesh);
@@ -60,7 +63,7 @@ const positions = [
   vec3.fromValues(s, -s / 2, 0),
 ];
 // const colors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].flat();
-const colors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+const colors = [[0, 0, 0], [1, 1, 0], [2, 0, 1]];
 const indices = [0, 1, 2];
 
 mesh
@@ -69,12 +72,16 @@ mesh
   .bufferIndex(indices);
 
 // uniforms
-shader.uniform("uColor", "vec3", [1, 0, 0]);
 
-/*
-shader.uniform('uScale', 0.5);
-shader.uniform('uTranslate', [0.1, 0.1]);
-*/
+g = 0.5;
+const _colors = [[1, g, g], [g, 1, g], [g, g, 1]].flat();
+
+const mtx = mat4.create();
+mat4.translate(mtx, mtx, [0.5, 0, 0]);
+
+// shader.uniform("uColor", "vec3", [1, 0, 0]);
+shader.uniform("uColors", "vec3", _colors);
+shader.uniform("uModelMatrix", mtx);
 
 /*
  * Shader and Mesh ( buffers ) won't be created until they are going to be bind

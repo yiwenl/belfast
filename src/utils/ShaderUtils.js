@@ -22,26 +22,15 @@ export const uniformMapping = {
   mat4: "uniformMatrix4fv",
 };
 
-export const cloneArray = (mArray) => {
-  if (mArray.slice) {
-    return mArray.slice(0);
+export const cloneValue = (mValue) => {
+  if (typeof mValue === "number") {
+    return mValue;
+  }
+  if (mValue.slice) {
+    return mValue.slice(0);
   } else {
-    return new Float32Array(mArray);
+    return new Float32Array(mValue);
   }
-};
-
-export const isSame = (array1, array2) => {
-  if (array1.length !== array2.length) {
-    return false;
-  }
-
-  for (let i = 0; i < array1.length; i++) {
-    if (array1[i] !== array2[i]) {
-      return false;
-    }
-  }
-
-  return true;
 };
 
 export const equals = (a, b) => {
@@ -50,6 +39,7 @@ export const equals = (a, b) => {
   }
 
   if (a.length !== b.length) {
+    console.warn("Arrays have different length :", a, b);
     return false;
   }
 
@@ -61,7 +51,7 @@ export const equals = (a, b) => {
 };
 
 export const getUniformType = (mValue) => {
-  const isArray = !!mValue.concat;
+  const isArray = typeof mValue === "object";
 
   const getArrayUniformType = function(mValue) {
     if (mValue.length === 9) {

@@ -1,5 +1,11 @@
 import { GL } from "../core/GL";
-import { addLineNumbers, uniformMapping } from "../utils/ShaderUtils";
+import {
+  addLineNumbers,
+  uniformMapping,
+  getUniformType,
+  cloneValue,
+  equals,
+} from "../utils/ShaderUtils";
 import vsDefault from "../shader/basic.vert";
 import fsDefault from "../shader/basic.frag";
 
@@ -9,6 +15,7 @@ function GLShader(mVertexShader, mFragmentShader) {
   this.shaderProgram;
 
   let _GL;
+  let _uniformCache = {};
 
   /**
    * Bind the current shader
@@ -40,7 +47,70 @@ function GLShader(mVertexShader, mFragmentShader) {
    * @param {string} mType the type of the uniform
    * @param {number|[numbers]} mValue the value of the uniform
    */
-  this.uniform = function(mName, mType, mValue) {};
+  this.uniform = function(mName, mType, mValue) {
+    let value;
+    let type;
+    if (mValue === undefined) {
+      type = getUniformType(mType);
+      value = mType;
+    } else {
+      type = mType;
+      value = mValue;
+    }
+    const uniformType = uniformMapping[type];
+
+    if (!_uniformCache[mName]) {
+      _uniformCache[mName] = {
+        type,
+        uniformType,
+        value: cloneValue(value),
+        changed: true,
+      };
+    } else {
+      const oUniform = _uniformCache[mName];
+      if (!equals(oUniform.value, value)) {
+        oUniform.value = cloneValue(value);
+        oUniform.changed = true;
+      }
+    }
+  };
+
+  /**
+   * Destroy the current shader
+   *
+   */
+  this.updateUniforms = function() {
+    if (!_GL) {
+      console.warn(
+        "No WebGL Context has been set yet, please call shader.bind() first"
+      );
+      return;
+    }
+    const { gl } = _GL;
+
+    for (let s in _uniformCache) {
+      const oUniform = _uniformCache[s];
+      if (oUniform.changed) {
+        const name = s;
+
+        if (!oUniform.uniformLoc) {
+          oUniform.uniformLoc = gl.getUniformLocation(this.shaderProgram, name);
+        }
+        const { uniformLoc, uniformType, value } = oUniform;
+        if (uniformLoc !== null) {
+          if (uniformType.indexOf("Matrix") === -1) {
+            gl[uniformType](uniformLoc, value);
+          } else {
+            gl[uniformType](uniformLoc, false, value);
+          }
+        } else {
+          console.warn("Uniform not exist in shader : ", name);
+        }
+
+        oUniform.changed = false;
+      }
+    }
+  };
 
   /**
    * Destroy the current shader

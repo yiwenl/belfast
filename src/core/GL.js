@@ -10,6 +10,7 @@ function GLTool() {
   // PRIVATE PROPERTIES
   let _viewport = [0, 0, 0, 0];
   let _aspectRatio = 0;
+  let _shader;
 
   // PUBLIC PROPERTIES
   this.id = `WebGLContext${_idTable++}`;
@@ -201,6 +202,7 @@ function GLTool() {
    * @param {GLShader} mShader the shader going to be use
    */
   this.useShader = function(mShader) {
+    _shader = mShader;
     this.shaderProgram = mShader.shaderProgram;
     this.gl.useProgram(this.shaderProgram);
   };
@@ -215,6 +217,9 @@ function GLTool() {
       mMesh.forEach((m) => this.draw(m));
       return;
     }
+
+    // update the uniform values
+    _shader.updateUniforms();
 
     mMesh.bind(this);
     const { drawType } = mMesh;
