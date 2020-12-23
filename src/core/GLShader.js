@@ -1,5 +1,5 @@
 import { GL } from "../core/GL";
-import { addLineNumbers } from "../utils/ShaderUtils";
+import { addLineNumbers, uniformMapping } from "../utils/ShaderUtils";
 import vsDefault from "../shader/basic.vert";
 import fsDefault from "../shader/basic.frag";
 

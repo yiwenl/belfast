@@ -1,3 +1,5 @@
+import { glMatrix } from "gl-matrix";
+
 export const addLineNumbers = (string) => {
   const lines = string.split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -40,6 +42,18 @@ export const isSame = (array1, array2) => {
   }
 
   return true;
+};
+
+export const equals = (a, b) => {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  let _isEqual = true;
+  a.forEach((v, i) => {
+    _isEqual = glMatrix.equals(v, b[i]) && _isEqual;
+  });
+  return _isEqual;
 };
 
 export const getUniformType = (mValue) => {
