@@ -201,8 +201,7 @@ function GLTool() {
    * @param {GLShader} mShader the shader going to be use
    */
   this.useShader = function(mShader) {
-    this.shader = mShader;
-    this.shaderProgram = this.shader.shaderProgram;
+    this.shaderProgram = mShader.shaderProgram;
     this.gl.useProgram(this.shaderProgram);
   };
 

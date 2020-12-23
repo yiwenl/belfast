@@ -13,7 +13,7 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
   this.isInstanced = false;
 
   // PRIVATE PROPERTIES
-  const _attributes = [];
+  let _attributes = [];
   let _bufferChanged = [];
   let _hasIndexBufferChanged = true;
 
@@ -162,7 +162,24 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    * Destroy all buffers
    *
    */
-  this.destroy = function() {};
+  this.destroy = function() {
+    const { gl } = this.GL;
+    _attributes.forEach((attr) => {
+      gl.deleteBuffer(attr.buffer);
+      attr.source = [];
+      attr.dataArray = [];
+    });
+    if (this.iBuffer) {
+      gl.deleteBuffer(this.iBuffer);
+    }
+    gl.deleteVertexArray(_vao);
+
+    // resetting
+    _attributes = [];
+    _indices = [];
+    _bufferChanged = [];
+    // _enabledVertexAttribute = [];
+  };
 
   /**
    * add or update an attribute
@@ -261,6 +278,10 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
     _bufferChanged = [];
   };
 
+  /**
+   * Update Index Buffer
+   *
+   */
   const _updateIndexBuffer = () => {
     const { gl } = this.GL;
     if (_hasIndexBufferChanged) {
