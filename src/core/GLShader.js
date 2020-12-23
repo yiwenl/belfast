@@ -6,8 +6,9 @@ import fsDefault from "../shader/basic.frag";
 function GLShader(mVertexShader, mFragmentShader) {
   this.vertexShader = mVertexShader || vsDefault;
   this.fragmentShader = mFragmentShader || fsDefault;
-  this.GL;
   this.shaderProgram;
+
+  let _GL;
 
   /**
    * Bind the current shader
@@ -15,21 +16,21 @@ function GLShader(mVertexShader, mFragmentShader) {
    * @param {GL} mGL the GLTool instance
    */
   this.bind = function(mGL) {
-    if (this.GL !== undefined && mGL !== this.GL) {
+    if (_GL !== undefined && mGL !== _GL) {
       console.error(
         "this shader has been bind to a different WebGL Rendering Context"
       );
       return;
     }
 
-    this.GL = mGL || GL;
+    _GL = mGL || GL;
     if (!this.shaderProgram) {
       const vsShader = createShaderProgram(this.vertexShader, true);
       const fsShader = createShaderProgram(this.fragmentShader, false);
       attachShaderProgram(vsShader, fsShader);
     }
 
-    this.GL.useShader(this);
+    _GL.useShader(this);
   };
 
   /**
@@ -46,9 +47,9 @@ function GLShader(mVertexShader, mFragmentShader) {
    *
    */
   this.destroy = function() {
-    const { gl } = this.GL;
+    const { gl } = _GL;
     gl.deleteProgram(this.shaderProgram);
-    this.GL.shaderCount--;
+    _GL.shaderCount--;
   };
 
   /**
@@ -58,9 +59,8 @@ function GLShader(mVertexShader, mFragmentShader) {
    * @param {boolean} isVertexShader is vertex shader or not
    */
   const createShaderProgram = (mShaderStr, isVertexShader) => {
-    const { GL } = this;
-    const { gl } = this.GL;
-    const shaderType = isVertexShader ? GL.VERTEX_SHADER : GL.FRAGMENT_SHADER;
+    const { gl } = _GL;
+    const shaderType = isVertexShader ? _GL.VERTEX_SHADER : _GL.FRAGMENT_SHADER;
     const shader = gl.createShader(shaderType);
 
     gl.shaderSource(shader, mShaderStr);
@@ -82,7 +82,7 @@ function GLShader(mVertexShader, mFragmentShader) {
    * @param {glShader} mFragmentShader the fragment shader
    */
   const attachShaderProgram = (mVertexShader, mFragmentShader) => {
-    const { gl } = this.GL;
+    const { gl } = _GL;
 
     this.shaderProgram = gl.createProgram();
     gl.attachShader(this.shaderProgram, mVertexShader);
@@ -91,7 +91,7 @@ function GLShader(mVertexShader, mFragmentShader) {
     gl.deleteShader(mFragmentShader);
 
     gl.linkProgram(this.shaderProgram);
-    this.GL.shaderCount++;
+    _GL.shaderCount++;
   };
 }
 

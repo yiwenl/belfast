@@ -1,11 +1,13 @@
-export const getBuffer = function(attr, gl) {
+export const getBuffer = function(attr, GL) {
   let buffer;
+  const { gl } = GL;
 
   if (attr.buffer !== undefined) {
     buffer = attr.buffer;
   } else {
     buffer = gl.createBuffer();
     attr.buffer = buffer;
+    GL.bufferCount++;
   }
 
   return buffer;

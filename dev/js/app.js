@@ -26,6 +26,16 @@ GL2.init(ctx2);
 GL2.setSize(window.innerWidth / 2, window.innerHeight);
 console.log(GL);
 
+/*
+// log WebGL Context native methods
+const regex = RegExp("[a-z]");
+for (let s in GL.gl) {
+  const firtChar = s.substring(0, 1);
+  if (regex.test(firtChar)) {
+    console.log(s);
+  }
+}
+*/
 document.body.appendChild(canvas1);
 document.body.appendChild(canvas2);
 
@@ -38,10 +48,11 @@ GL2.clear(0, g, 0, 1);
 
 const draw1 = true;
 const shader = new GLShader();
-
+console.log(shader);
 const mesh = new Mesh();
+console.log(mesh);
 
-const s = 0.5;
+let s = 0.5;
 // const positions = [[0, s, 0], [-s, -s / 2, 0], [s, -s / 2, 0]];
 const positions = [
   vec3.fromValues(0, s, 0),
@@ -68,8 +79,6 @@ if (draw1) {
   shader.bind(GL2);
   GL2.draw(mesh);
 }
-
-mesh.destroy();
 
 // resize
 window.addEventListener("resize", resize);

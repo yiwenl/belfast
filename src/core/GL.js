@@ -224,7 +224,7 @@ function GLTool() {
       // DRAWING
       gl.drawElementsInstanced(
         mMesh.drawType,
-        mMesh.iBuffer.numItems,
+        mMesh.numItems,
         gl.UNSIGNED_SHORT,
         0,
         mMesh.numInstance
@@ -233,7 +233,7 @@ function GLTool() {
       if (drawType === gl.POINTS) {
         gl.drawArrays(drawType, 0, mMesh.vertexSize);
       } else {
-        gl.drawElements(drawType, mMesh.iBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+        gl.drawElements(drawType, mMesh.numItems, gl.UNSIGNED_SHORT, 0);
       }
     }
 

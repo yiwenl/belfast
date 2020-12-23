@@ -11,17 +11,18 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
 
   // PRIVATE PROPERTIES
   this.isInstanced = false;
+  this.numItems = 0;
 
   // PRIVATE PROPERTIES
   let _attributes = [];
   let _bufferChanged = [];
   let _hasIndexBufferChanged = true;
 
-  // index buffer
+  let _vao;
   let _usage;
   let _indices;
-  let _numItems;
-  let _vao;
+  let _indexBuffer;
+  let _GL;
 
   /**
    * add or update an attribute
@@ -110,7 +111,8 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
   this.bufferIndex = function(mData, mUsage = WebglConst.STATIC_DRAW) {
     _usage = mUsage;
     _indices = new Uint16Array(mData);
-    _numItems = _indices.length;
+    this.numItems = _indices.length;
+    _hasIndexBufferChanged = true;
     return this;
   };
 
@@ -120,15 +122,15 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    * @param {GL} mGL the GLTool instance
    */
   this.bind = function(mGL) {
-    if (this.GL !== undefined && mGL !== this.GL) {
+    if (_GL !== undefined && mGL !== _GL) {
       console.error(
         "this mesh has been bind to a different WebGL Rendering Context"
       );
       return;
     }
 
-    this.GL = mGL || GL;
-    const { gl } = this.GL;
+    _GL = mGL || GL;
+    const { gl } = _GL;
     generateBuffers();
     gl.bindVertexArray(_vao);
 
@@ -163,14 +165,16 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    *
    */
   this.destroy = function() {
-    const { gl } = this.GL;
+    const { gl } = _GL;
     _attributes.forEach((attr) => {
       gl.deleteBuffer(attr.buffer);
       attr.source = [];
       attr.dataArray = [];
+      _GL.bufferCount--;
     });
-    if (this.iBuffer) {
-      gl.deleteBuffer(this.iBuffer);
+    if (_indexBuffer) {
+      gl.deleteBuffer(_indexBuffer);
+      _GL.bufferCount--;
     }
     gl.deleteVertexArray(_vao);
 
@@ -230,7 +234,7 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    *
    */
   const generateBuffers = () => {
-    const { shaderProgram, gl } = this.GL;
+    const { shaderProgram, gl } = _GL;
     if (_bufferChanged.length == 0) {
       return;
     }
@@ -244,7 +248,7 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
     //	UPDATE BUFFERS
     _attributes.forEach((attrObj) => {
       if (_bufferChanged.indexOf(attrObj.name) !== -1) {
-        const buffer = getBuffer(attrObj, gl);
+        const buffer = getBuffer(attrObj, _GL);
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.bufferData(gl.ARRAY_BUFFER, attrObj.dataArray, attrObj.usage);
 
@@ -283,15 +287,14 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    *
    */
   const _updateIndexBuffer = () => {
-    const { gl } = this.GL;
+    const { gl } = _GL;
     if (_hasIndexBufferChanged) {
-      if (!this.iBuffer) {
-        this.iBuffer = gl.createBuffer();
+      if (!_indexBuffer) {
+        _indexBuffer = gl.createBuffer();
+        _GL.bufferCount++;
       }
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iBuffer);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, _indexBuffer);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, _indices, _usage);
-      this.iBuffer.itemSize = 1;
-      this.iBuffer.numItems = _numItems;
     }
   };
 }

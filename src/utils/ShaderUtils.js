@@ -12,6 +12,10 @@ export const uniformMapping = {
   vec3: "uniform3fv",
   vec4: "uniform4fv",
   int: "uniform1i",
+  ivec2: "uniform2i",
+  ivec3: "uniform3i",
+  ivec4: "uniform4i",
+  mat2: "uniformMatrix2fv",
   mat3: "uniformMatrix3fv",
   mat4: "uniformMatrix4fv",
 };
