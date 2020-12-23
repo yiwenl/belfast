@@ -1,6 +1,6 @@
 import EventDispatcher from "events";
 import objectAssign from "object-assign";
-import { checkWebGL2, isMobile, getExtensions } from "../utils";
+import { checkWebGL2, isMobile, getExtensions, equals } from "../utils";
 import exposeGLProperties from "../utils/exposeGLProperties";
 import defaultGLParameters from "./defaultGLParameters";
 
@@ -132,8 +132,10 @@ function GLTool() {
    * @param {number} h the height
    */
   this.viewport = function(x, y, w, h) {
-    _viewport = [x, y, w, h];
-    this.gl.viewport(x, y, w, h);
+    if (!equals(_viewport, [x, y, w, h])) {
+      _viewport = [x, y, w, h];
+      this.gl.viewport(x, y, w, h);
+    }
   };
 
   /**
