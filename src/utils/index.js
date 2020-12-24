@@ -35,7 +35,7 @@ export const equals = (a, b) => {
   });
   return _isEqual;
 };
-
+/*
 mat4.log = function(m) {
   const a = [];
   for (let i = 0; i < 4; i++) {
@@ -47,3 +47,4 @@ mat4.log = function(m) {
   }
   console.table(a);
 };
+*/

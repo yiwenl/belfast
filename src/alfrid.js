@@ -17,6 +17,10 @@ export { DrawLine } from "./helper/DrawLine";
 // utils
 export { checkWebGL2 } from "./utils/checkWebGL2";
 export { getWebGLContext } from "./utils/getWebGLContext";
+export { EaseNumber } from "./utils/EaseNumber";
+export { TweenNumber } from "./utils/TweenNumber";
+export { SpringNumber } from "./utils/SpringNumber";
+export { OrbitalControl } from "./utils/OrbitalControl";
 
 // polyfill fixes
 import "./utils/polyfixes";

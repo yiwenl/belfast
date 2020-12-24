@@ -10,8 +10,9 @@ import {
   DrawAxis,
   DrawDotsPlane,
   DrawLine,
+  OrbitalControl,
 } from "../../src/alfrid";
-import { vec3, mat4, mat3 } from "gl-matrix";
+import { vec3, mat4 } from "gl-matrix";
 import Scheduler from "scheduling";
 
 import vs from "../shaders/test.vert";
@@ -77,6 +78,7 @@ const camera = new CameraPerspective(
 );
 
 camera.lookAt([2, 2, 5], [0, 0, 0], [0, 1, 0]);
+const orbControl = new OrbitalControl(camera, window, 8);
 console.log(camera);
 Scheduler.addEF(render);
 // render();
