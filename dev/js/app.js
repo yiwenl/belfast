@@ -8,6 +8,7 @@ import {
   CameraPerspective,
   Draw,
   DrawAxis,
+  DrawDotsPlane,
 } from "../../src/alfrid";
 import { vec3, mat4, mat3 } from "gl-matrix";
 import Scheduler from "scheduling";
@@ -20,6 +21,7 @@ const canvas2 = document.createElement("canvas");
 
 GL.init(canvas1);
 GL.setSize(window.innerWidth / 2, window.innerHeight);
+console.log(GL);
 
 const GL2 = new GLTool();
 const ctx2 = canvas2.getContext("webgl");
@@ -56,7 +58,11 @@ if (draw1) {
 
 draw.setMesh(mesh).useProgram(shader);
 
+// helpers
 const drawAxis = new DrawAxis(draw1 ? GL : GL2);
+const drawDotsPlane = new DrawDotsPlane(draw1 ? GL : GL2);
+drawDotsPlane.opacity = 1.1;
+drawDotsPlane.pointScale = 2.1;
 
 // uniforms
 
@@ -90,12 +96,14 @@ function render() {
     // GL.draw(mesh);
     draw.draw();
     drawAxis.draw();
+    drawDotsPlane.draw();
   } else {
     GL2.setMatrices(camera);
     // shader.bind(GL2);
     // GL2.draw(mesh);
     draw.draw();
     drawAxis.draw();
+    drawDotsPlane.draw();
   }
 }
 
