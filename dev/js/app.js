@@ -9,6 +9,7 @@ import {
   Draw,
   DrawAxis,
   DrawDotsPlane,
+  DrawLine,
 } from "../../src/alfrid";
 import { vec3, mat4, mat3 } from "gl-matrix";
 import Scheduler from "scheduling";
@@ -61,8 +62,7 @@ draw.setMesh(mesh).useProgram(shader);
 // helpers
 const drawAxis = new DrawAxis(draw1 ? GL : GL2);
 const drawDotsPlane = new DrawDotsPlane(draw1 ? GL : GL2);
-drawDotsPlane.opacity = 1.1;
-drawDotsPlane.pointScale = 2.1;
+const drawLine = new DrawLine(draw1 ? GL : GL2);
 
 // uniforms
 
@@ -97,6 +97,7 @@ function render() {
     draw.draw();
     drawAxis.draw();
     drawDotsPlane.draw();
+    drawLine.draw([0, 0, 0], [1, 0.65, 1]);
   } else {
     GL2.setMatrices(camera);
     // shader.bind(GL2);
@@ -104,6 +105,7 @@ function render() {
     draw.draw();
     drawAxis.draw();
     drawDotsPlane.draw();
+    drawLine.draw([0, 0, 0], [1, 0.65, 1]);
   }
 }
 

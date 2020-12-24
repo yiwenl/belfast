@@ -12,6 +12,7 @@ export { CameraPerspective } from "./camera/CameraPerspective";
 export { Draw } from "./helper/Draw";
 export { DrawAxis } from "./helper/DrawAxis";
 export { DrawDotsPlane } from "./helper/DrawDotsPlane";
+export { DrawLine } from "./helper/DrawLine";
 
 // utils
 export { checkWebGL2 } from "./utils/checkWebGL2";
