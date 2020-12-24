@@ -26,12 +26,11 @@ class CameraPerspective extends Camera {
   }
 
   /**
-   * Update the matrices of resetting the near or far clip plane
+   * Update the matrices after resetting the near or far clip plane
    *
    */
   _updateMatrices() {
     this.setPerspective(this._fov, this._ratio, this._near, this._far);
-    mat4.log(this.projection);
   }
 }
 

@@ -6,6 +6,7 @@ import {
   GLShader,
   Mesh,
   CameraPerspective,
+  CameraOrtho,
 } from "../../src/alfrid";
 import { vec3, mat4 } from "gl-matrix";
 import Scheduler from "scheduling";
@@ -63,8 +64,8 @@ const camera = new CameraPerspective(
 
 camera.lookAt([0, 0, 5], [0, 0, 0], [0, 1, 0]);
 
-console.log("camear position", camera.position);
-console.log("camear direction", camera.direction);
+s = 1;
+const cameraOrtho = new CameraOrtho(-s, s, s, -s, 0.1, 100);
 
 Scheduler.addEF(render);
 
