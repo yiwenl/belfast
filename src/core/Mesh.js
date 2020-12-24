@@ -1,10 +1,5 @@
 import WebglConst from "../utils/WebglConst";
-import {
-  flatten,
-  formBuffer,
-  getBuffer,
-  getAttribLoc,
-} from "../utils/BufferUtils";
+import { flatten, getBuffer, getAttribLoc } from "../utils/BufferUtils";
 
 function Mesh(mDrawType = WebglConst.TRIANGLES) {
   this.drawType = mDrawType;
@@ -147,6 +142,15 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    */
   this.getAttribute = function(mName) {
     return _attributes.find((a) => a.name === mName);
+  };
+
+  /**
+   * get all attribtues
+   *
+   * @returns {array} the array of attributes
+   */
+  this.getAttributes = function() {
+    return _attributes;
   };
 
   /**

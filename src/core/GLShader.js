@@ -1,4 +1,4 @@
-import { GL } from "../core/GL";
+import { GL } from "./GL";
 import {
   addLineNumbers,
   uniformMapping,

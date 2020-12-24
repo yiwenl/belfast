@@ -8,6 +8,10 @@ export { Camera } from "./camera/Camera";
 export { CameraOrtho } from "./camera/CameraOrtho";
 export { CameraPerspective } from "./camera/CameraPerspective";
 
+// helpers
+export { Draw } from "./helper/Draw";
+export { DrawAxis } from "./helper/DrawAxis";
+
 // utils
 export { checkWebGL2 } from "./utils/checkWebGL2";
 export { getWebGLContext } from "./utils/getWebGLContext";

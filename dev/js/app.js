@@ -6,9 +6,10 @@ import {
   GLShader,
   Mesh,
   CameraPerspective,
-  CameraOrtho,
+  Draw,
+  DrawAxis,
 } from "../../src/alfrid";
-import { vec3, mat4 } from "gl-matrix";
+import { vec3, mat4, mat3 } from "gl-matrix";
 import Scheduler from "scheduling";
 
 import vs from "../shaders/test.vert";
@@ -24,17 +25,13 @@ const GL2 = new GLTool();
 const ctx2 = canvas2.getContext("webgl");
 GL2.init(ctx2);
 GL2.setSize(window.innerWidth / 2, window.innerHeight);
-console.log(GL);
 
 document.body.appendChild(canvas1);
 document.body.appendChild(canvas2);
 
 const draw1 = Math.random() > 0.5;
-console.log(" Draw 1 : ", draw1);
 const shader = new GLShader(vs, fs);
-console.log(shader);
 const mesh = new Mesh();
-console.log(mesh);
 
 let s = 0.5;
 const positions = [
@@ -50,6 +47,17 @@ mesh
   .bufferData(colors, "aColor")
   .bufferIndex(indices);
 
+let draw;
+if (draw1) {
+  draw = new Draw();
+} else {
+  draw = new Draw(GL2);
+}
+
+draw.setMesh(mesh).useProgram(shader);
+
+const drawAxis = new DrawAxis(draw1 ? GL : GL2);
+
 // uniforms
 
 const g = 0.5;
@@ -62,12 +70,10 @@ const camera = new CameraPerspective(
   100
 );
 
-camera.lookAt([0, 0, 5], [0, 0, 0], [0, 1, 0]);
-
-s = 1;
-const cameraOrtho = new CameraOrtho(-s, s, s, -s, 0.1, 100);
-
+camera.lookAt([2, 2, 5], [0, 0, 0], [0, 1, 0]);
+console.log(camera);
 Scheduler.addEF(render);
+// render();
 
 function render() {
   let g = 0.1;
@@ -80,12 +86,16 @@ function render() {
    */
   if (draw1) {
     GL.setMatrices(camera);
-    shader.bind();
-    GL.draw(mesh);
+    // shader.bind(GL);
+    // GL.draw(mesh);
+    draw.draw();
+    drawAxis.draw();
   } else {
     GL2.setMatrices(camera);
-    shader.bind(GL2);
-    GL2.draw(mesh);
+    // shader.bind(GL2);
+    // GL2.draw(mesh);
+    draw.draw();
+    drawAxis.draw();
   }
 }
 
