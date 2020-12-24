@@ -1,0 +1,3 @@
+function CameraOrtho() {}
+
+export { CameraOrtho };

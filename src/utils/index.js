@@ -1,8 +1,7 @@
-import { glMatrix } from "gl-matrix";
+import { mat4, glMatrix } from "gl-matrix";
 export { checkWebGL2 } from "./checkWebGL2";
 export { getExtensions } from "./getExtensions";
 export { isMobile } from "./isMobile";
-// export { getWebGLContext } from "./getWebGLContext";
 
 export const checkViewport = (viewport, x, y, w, h) => {
   let hasChanged = false;
@@ -35,4 +34,16 @@ export const equals = (a, b) => {
     _isEqual = glMatrix.equals(v, b[i]) && _isEqual;
   });
   return _isEqual;
+};
+
+mat4.log = function(m) {
+  const a = [];
+  for (let i = 0; i < 4; i++) {
+    const b = [];
+    for (let j = 0; j < 4; j++) {
+      b.push(m[i * 4 + j]);
+    }
+    a.push(b);
+  }
+  console.table(a);
 };

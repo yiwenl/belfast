@@ -122,7 +122,7 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    * @param {GL} mGL the GLTool instance
    */
   this.bind = function(mGL) {
-    if (_GL !== undefined && mGL !== _GL) {
+    if (mGL !== undefined && _GL !== undefined && mGL !== _GL) {
       console.error(
         "this mesh has been bind to a different WebGL Rendering Context"
       );

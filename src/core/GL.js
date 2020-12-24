@@ -3,6 +3,7 @@ import objectAssign from "object-assign";
 import { checkWebGL2, isMobile, getExtensions, equals } from "../utils";
 import exposeGLProperties from "../utils/exposeGLProperties";
 import defaultGLParameters from "./defaultGLParameters";
+import { mat4, mat3 } from "gl-matrix";
 
 let _idTable = 0;
 
@@ -11,6 +12,16 @@ function GLTool() {
   let _viewport = [0, 0, 0, 0];
   let _aspectRatio = 0;
   let _shader;
+  let _camera;
+
+  // matrices
+  let _matrixStacks = [];
+  const _matrix = mat4.create();
+  const _identityMatrix = mat4.create();
+  const _modelMatrix = mat4.create();
+  const _normalMatrix = mat3.create();
+  const _inverselViewMatrix = mat4.create();
+  const _inverseModelViewMatrix = mat3.create();
 
   // PUBLIC PROPERTIES
   this.id = `WebGLContext${_idTable++}`;
@@ -199,6 +210,35 @@ function GLTool() {
   };
 
   /**
+   * Set Camera
+   *
+   * @param {Camera} mCamera the camera going to be used
+   */
+  this.setMatrices = function(mCamera) {
+    _camera = mCamera;
+    this.setModelMatrix(_identityMatrix);
+  };
+
+  /**
+   * Set the model matrix
+   *
+   * @param {mat4} mModelMatrix the model matrix
+   */
+  this.setModelMatrix = function(mModelMatrix) {
+    mat4.copy(_modelMatrix, mModelMatrix);
+    if (_camera !== undefined) {
+      mat4.multiply(_matrix, _camera.viewMatrix, _modelMatrix);
+      mat3.fromMat4(_normalMatrix, _matrix);
+      mat3.invert(_normalMatrix, _normalMatrix);
+      mat3.transpose(_normalMatrix, _normalMatrix);
+
+      mat3.fromMat4(_inverseModelViewMatrix, _matrix);
+      mat3.invert(_inverseModelViewMatrix, _inverseModelViewMatrix);
+      mat4.invert(_inverselViewMatrix, _camera.viewMatrix);
+    }
+  };
+
+  /**
    * Set Active Shader
    *
    * @param {GLShader} mShader the shader going to be use
@@ -221,6 +261,7 @@ function GLTool() {
     }
 
     // update the uniform values
+    _setupDefaultUniforms();
     _shader.updateUniforms();
 
     mMesh.bind(this);
@@ -248,6 +289,15 @@ function GLTool() {
   };
 
   /**
+   * Get the current camera
+   *
+   * @returns {Camera} the camera that is using now
+   */
+  this.getCamera = function() {
+    return _camera;
+  };
+
+  /**
    * Destroy WebGL Context
    *
    */
@@ -256,6 +306,25 @@ function GLTool() {
     if (mRemove && this.canvas.parentNode !== undefined) {
       this.canvas.parentNode.removeChild(this.canvas);
     }
+  };
+
+  /**
+   * Setup the default matrices uniforms of the camera
+   *
+   */
+  const _setupDefaultUniforms = () => {
+    if (_camera !== undefined) {
+      _shader.uniform("uProjectionMatrix", "mat4", _camera.projectionMatrix);
+      _shader.uniform("uViewMatrix", "mat4", _camera.viewMatrix);
+      _shader.uniform("uNormalMatrix", "mat3", _normalMatrix);
+      _shader.uniform(
+        "uModelViewMatrixInverse",
+        "mat3",
+        _inverseModelViewMatrix
+      );
+    }
+
+    _shader.uniform("uModelMatrix", "mat4", _modelMatrix);
   };
 
   /**

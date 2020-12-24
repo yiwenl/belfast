@@ -23,9 +23,10 @@ function GLShader(mVertexShader, mFragmentShader) {
    * @param {GL} mGL the GLTool instance
    */
   this.bind = function(mGL) {
-    if (_GL !== undefined && mGL !== _GL) {
+    if (mGL !== undefined && _GL !== undefined && mGL !== _GL) {
       console.error(
-        "this shader has been bind to a different WebGL Rendering Context"
+        "this shader has been bind to a different WebGL Rendering Context",
+        _GL.id
       );
       return;
     }
@@ -103,8 +104,6 @@ function GLShader(mVertexShader, mFragmentShader) {
           } else {
             gl[uniformType](uniformLoc, false, value);
           }
-        } else {
-          console.warn("Uniform not exist in shader : ", name);
         }
 
         oUniform.changed = false;
