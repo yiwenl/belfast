@@ -2,6 +2,7 @@
 export { GL, GLTool } from "./core/GL";
 export { GLShader } from "./core/GLShader";
 export { Mesh } from "./core/Mesh";
+export { GLTexture } from "./core/GLTexture";
 
 // cameras
 export { Camera } from "./camera/Camera";
@@ -21,6 +22,9 @@ export { EaseNumber } from "./utils/EaseNumber";
 export { TweenNumber } from "./utils/TweenNumber";
 export { SpringNumber } from "./utils/SpringNumber";
 export { OrbitalControl } from "./utils/OrbitalControl";
+
+// shader
+export { ShaderLibs } from "./shader";
 
 // polyfill fixes
 import "./utils/polyfixes";

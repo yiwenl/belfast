@@ -141,9 +141,11 @@ class Draw {
 
   draw() {
     if (!this._shader) {
+      console.warn("No GLShader assigned for draw call");
       return;
     }
     if (!this._mesh) {
+      console.warn("No Mesh assigned for draw call");
       return;
     }
 

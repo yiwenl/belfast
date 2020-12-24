@@ -4,12 +4,10 @@ import {
   GL,
   GLTool,
   GLShader,
-  Mesh,
   CameraPerspective,
   Draw,
   DrawAxis,
   DrawDotsPlane,
-  DrawLine,
   OrbitalControl,
 } from "../../src/alfrid";
 import { vec3, mat4 } from "gl-matrix";
@@ -20,56 +18,41 @@ import fs from "../shaders/test.frag";
 
 const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
+document.body.appendChild(canvas1);
+document.body.appendChild(canvas2);
 
 GL.init(canvas1);
 GL.setSize(window.innerWidth / 2, window.innerHeight);
 console.log(GL);
+
+const s = 2;
+const mtx = mat4.create();
+mat4.scale(mtx, mtx, [s, s, s]);
 
 const GL2 = new GLTool();
 const ctx2 = canvas2.getContext("webgl");
 GL2.init(ctx2);
 GL2.setSize(window.innerWidth / 2, window.innerHeight);
 
-document.body.appendChild(canvas1);
-document.body.appendChild(canvas2);
-
 const draw1 = Math.random() > 0.5;
-const shader = new GLShader(vs, fs);
-const mesh = new Mesh();
 
-let s = 0.5;
-const positions = [
-  vec3.fromValues(0, s, 0),
-  vec3.fromValues(-s, -s / 2, 0),
-  vec3.fromValues(s, -s / 2, 0),
-];
-const colors = [[0, 0, 0], [1, 1, 0], [2, 0, 1]];
-const indices = [0, 1, 2];
+const positions = [[-1, 1, 0], [1, 1, 0], [-1, -1, 0], [1, -1, 0]];
+const uvs = [[0, 0], [1, 0], [0, 1], [1, 1]];
+const indices = [2, 1, 0, 2, 3, 1];
 
-mesh
+const draw = new Draw(draw1 ? GL : GL2);
+draw
+  .useProgram(vs, fs)
+  .createMesh()
   .bufferVertex(positions)
-  .bufferData(colors, "aColor")
+  .bufferTexCoord(uvs)
   .bufferIndex(indices);
-
-let draw;
-if (draw1) {
-  draw = new Draw();
-} else {
-  draw = new Draw(GL2);
-}
-
-draw.setMesh(mesh).useProgram(shader);
 
 // helpers
 const drawAxis = new DrawAxis(draw1 ? GL : GL2);
 const drawDotsPlane = new DrawDotsPlane(draw1 ? GL : GL2);
-const drawLine = new DrawLine(draw1 ? GL : GL2);
 
-// uniforms
-
-const g = 0.5;
-const mtx = mat4.create();
-
+// camera
 const camera = new CameraPerspective(
   Math.PI / 2,
   GL.getAspectRatio(),
@@ -78,8 +61,7 @@ const camera = new CameraPerspective(
 );
 
 camera.lookAt([2, 2, 5], [0, 0, 0], [0, 1, 0]);
-const orbControl = new OrbitalControl(camera, window, 8);
-console.log(camera);
+new OrbitalControl(camera, window, 8);
 Scheduler.addEF(render);
 // render();
 
@@ -94,20 +76,18 @@ function render() {
    */
   if (draw1) {
     GL.setMatrices(camera);
-    // shader.bind(GL);
-    // GL.draw(mesh);
-    draw.draw();
     drawAxis.draw();
     drawDotsPlane.draw();
-    drawLine.draw([0, 0, 0], [1, 0.65, 1]);
+
+    GL.setModelMatrix(mtx);
+    draw.draw();
   } else {
     GL2.setMatrices(camera);
-    // shader.bind(GL2);
-    // GL2.draw(mesh);
-    draw.draw();
     drawAxis.draw();
     drawDotsPlane.draw();
-    drawLine.draw([0, 0, 0], [1, 0.65, 1]);
+
+    GL2.setModelMatrix(mtx);
+    draw.draw();
   }
 }
 
