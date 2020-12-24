@@ -63,6 +63,9 @@ const camera = new CameraPerspective(
 
 camera.lookAt([0, 0, 5], [0, 0, 0], [0, 1, 0]);
 
+console.log("camear position", camera.position);
+console.log("camear direction", camera.direction);
+
 Scheduler.addEF(render);
 
 function render() {

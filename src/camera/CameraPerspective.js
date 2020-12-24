@@ -4,8 +4,34 @@ import { mat4 } from "gl-matrix";
 class CameraPerspective extends Camera {
   constructor(mFov, mAspectRatio, mNear, mFar) {
     super();
+    this._fov = 0;
+    this._ratio = 0;
+    this.setPerspective(mFov, mAspectRatio, mNear, mFar);
+  }
 
+  /**
+   * Update the projection matrix with perspective function
+   *
+   * @param {float} mFov the field of view
+   * @param {float} mAspectRatio the aspect ratio
+   * @param {float} mNear the near clip plane distance
+   * @param {float} mFar the far clip plane distance
+   */
+  setPerspective(mFov, mAspectRatio, mNear, mFar) {
     mat4.perspective(this._mtxProj, mFov, mAspectRatio, mNear, mFar);
+    this._near = mNear;
+    this._far = mFar;
+    this._fov = mFov;
+    this._ratio = mAspectRatio;
+  }
+
+  /**
+   * Update the matrices of resetting the near or far clip plane
+   *
+   */
+  _updateMatrices() {
+    this.setPerspective(this._fov, this._ratio, this._near, this._far);
+    mat4.log(this.projection);
   }
 }
 
