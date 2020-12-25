@@ -40,7 +40,7 @@ contexts.forEach((_GL) => _init(_GL));
 
 function _init(mGL) {
   const positions = [[-1, 1, 0], [1, 1, 0], [-1, -1, 0], [1, -1, 0]];
-  const uvs = [[0, 0], [1, 0], [0, 1], [1, 1]];
+  const uvs = [[0, 1], [1, 1], [0, 0], [1, 0]];
   const indices = [2, 1, 0, 2, 3, 1];
 
   const draw = new Draw(mGL);
@@ -74,7 +74,11 @@ function _init(mGL) {
 
   function onImageLoaded() {
     texture = new GLTexture(img);
-    Scheduler.addEF(() => render(mGL));
+    console.log(texture);
+    draw.bindTexture("texture", texture, 0);
+    // Scheduler.addEF(() => render(mGL));
+
+    render(mGL);
   }
 
   // render();

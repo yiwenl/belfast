@@ -163,8 +163,8 @@ class Draw {
 
     this._uniformTextures.forEach((o, i) => {
       if (o !== undefined) {
-        this._shader.uniform(o.name, "uniform1i", i);
-        o.texture.bind(i);
+        this._shader.uniform(o.name, "int", i);
+        o.texture.bind(i, this._GL);
       }
     });
 
