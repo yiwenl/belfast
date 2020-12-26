@@ -15,6 +15,7 @@ export { Draw } from "./helper/Draw";
 export { DrawAxis } from "./helper/DrawAxis";
 export { DrawDotsPlane } from "./helper/DrawDotsPlane";
 export { DrawLine } from "./helper/DrawLine";
+export { DrawBall } from "./helper/DrawBall";
 export { DrawCopy } from "./helper/DrawCopy";
 export { Geom } from "./helper/Geom";
 
