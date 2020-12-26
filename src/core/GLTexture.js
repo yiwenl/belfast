@@ -5,6 +5,7 @@ import {
   isSourceHtmlElement,
   checkSource,
   webgl2TextureCheck,
+  webgl2FilterCheck,
 } from "../utils/TextureUtils";
 import { WebGLNumber } from "../utils/WebGLNumber";
 import { BitSwitch } from "../utils/BitSwitch";
@@ -56,30 +57,6 @@ class GLTexture {
     this._checkParameters();
   }
 
-  _checkParameters() {
-    const { gl } = this.GL;
-    if (this._parametersState.value > 0) {
-      if (this._parametersState.get(MIN_FILTER)) {
-        gl.texParameteri(
-          gl.TEXTURE_2D,
-          gl.TEXTURE_MIN_FILTER,
-          this._params.minFilter
-        );
-      } else if (this._parametersState.get(MAG_FILTER)) {
-        gl.texParameteri(
-          gl.TEXTURE_2D,
-          gl.TEXTURE_MAG_FILTER,
-          this._params.magFilter
-        );
-      } else if (this._parametersState.get(WRAP_S)) {
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, this._params.wrapS);
-      } else {
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, this._params.wrapT);
-      }
-    }
-    this._parametersState.reset(0);
-  }
-
   updateTexture(mSource) {
     this._source = mSource;
     this._uploadTexture();
@@ -94,6 +71,7 @@ class GLTexture {
 
     if (!this._texture) {
       this._texture = gl.createTexture();
+      this.GL.textureCount++;
     }
     gl.bindTexture(gl.TEXTURE_2D, this._texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -141,6 +119,30 @@ class GLTexture {
     }
   }
 
+  _checkParameters() {
+    const { gl } = this.GL;
+    if (this._parametersState.value > 0) {
+      if (this._parametersState.get(MIN_FILTER)) {
+        gl.texParameteri(
+          gl.TEXTURE_2D,
+          gl.TEXTURE_MIN_FILTER,
+          this._params.minFilter
+        );
+      } else if (this._parametersState.get(MAG_FILTER)) {
+        gl.texParameteri(
+          gl.TEXTURE_2D,
+          gl.TEXTURE_MAG_FILTER,
+          this._params.magFilter
+        );
+      } else if (this._parametersState.get(WRAP_S)) {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, this._params.wrapS);
+      } else {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, this._params.wrapT);
+      }
+    }
+    this._parametersState.reset(0);
+  }
+
   _getDimension(mSource, mWidth, mHeight) {
     if (mSource) {
       // for html image / video element
@@ -176,6 +178,12 @@ class GLTexture {
     }
   }
 
+  destroy() {
+    const { gl } = this.GL;
+    gl.deleteTexture(this._texture);
+    this.GL.textureCount--;
+  }
+
   showParameters() {
     /*
     console.log(
@@ -195,6 +203,7 @@ class GLTexture {
   set minFilter(mValue) {
     this._params.minFilter = mValue;
     this._parametersState.set(MIN_FILTER, 1);
+    webgl2FilterCheck(this._params);
   }
 
   get minFilter() {
@@ -204,6 +213,7 @@ class GLTexture {
   set magFilter(mValue) {
     this._params.magFilter = mValue;
     this._parametersState.set(MAG_FILTER, 1);
+    webgl2FilterCheck(this._params);
   }
 
   get magFilter() {

@@ -39,6 +39,7 @@ function GLTool() {
   // Resources
   this.shaderCount = 0;
   this.bufferCount = 0;
+  this.textureCount = 0;
 
   // PUBLIC METHODS
 

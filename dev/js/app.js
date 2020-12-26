@@ -113,20 +113,17 @@ function _init(mGL) {
       oParams.type = mGL.FLOAT;
     }
 
+    // texture = new GLTexture(img);
     texture = new GLTexture(source, oParams, w, h);
     draw.bindTexture("texture", texture, 0);
     Scheduler.addEF(() => render(mGL));
 
     setTimeout(() => {
-      console.log("Min filter : ", WebGLNumber[texture.minFilter]);
       if (mGL.webgl2) {
-        texture.magFilter = mGL.NEAREST;
-        texture.minFilter = mGL.NEAREST;
+        // texture.magFilter = mGL.LINEAR;
+        // texture.minFilter = mGL.LINEAR;
       }
-      console.log("Min filter After : ", WebGLNumber[texture.minFilter]);
     }, 1000);
-
-    // render(mGL);
   }
 
   // render();
