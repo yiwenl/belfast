@@ -1,19 +1,25 @@
 import { GL } from "./GL";
-import WebglNumber from "../utils/WebglNumber";
-import WebglConst from "../utils/WebglConst";
+import { WebGLNumber } from "../utils/WebGLNumber";
+import { WebGLConst } from "../utils/WebGLConst";
 import { isPowerOfTwo, getTextureParameters } from "../utils/TextureUtils";
+import { BitSwitch } from "../utils/BitSwitch";
+
+const MIN_FILTER = 0;
+const MAG_FILTER = 1;
+const WRAP_S = 2;
+const WRAP_T = 3;
 
 class GLTexture {
   constructor(mSource, mParam = {}, mWidth = 0, mHeight = 0) {
     this._source = mSource;
     this._getDimension(mSource, mWidth, mHeight);
-    this._texelType = WebglConst.UNSIGNED_BYTE;
+    this._texelType = WebGLConst.UNSIGNED_BYTE;
     this._params = getTextureParameters(mParam, this._width, this._height);
     this._checkMipmap();
     // this.showParameters();
 
     // states
-    this._hasParameterChanged = false;
+    this._parametersState = new BitSwitch(0);
   }
 
   bind(mIndex, mGL) {
@@ -25,8 +31,6 @@ class GLTexture {
       return;
     }
 
-    console.log("bind texture :", mGL.id);
-
     this.GL = mGL || GL;
     const { gl } = this.GL;
     if (!this._texture) {
@@ -35,6 +39,33 @@ class GLTexture {
 
     gl.activeTexture(gl.TEXTURE0 + mIndex);
     gl.bindTexture(gl.TEXTURE_2D, this._texture);
+
+    this._checkParameters();
+  }
+
+  _checkParameters() {
+    const { gl } = this.GL;
+    if (this._parametersState.value > 0) {
+      if (this._parametersState.get(MIN_FILTER)) {
+        gl.texParameteri(
+          gl.TEXTURE_2D,
+          gl.TEXTURE_MIN_FILTER,
+          this._params.minFilter
+        );
+      } else if (this._parametersState.get(MAG_FILTER)) {
+        console.log("magFilter Changed");
+        gl.texParameteri(
+          gl.TEXTURE_2D,
+          gl.TEXTURE_MAG_FILTER,
+          this._params.magFilter
+        );
+      } else if (this._parametersState.get(WRAP_S)) {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, this._params.wrapS);
+      } else {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, this._params.wrapT);
+      }
+    }
+    this._parametersState.reset(0);
   }
 
   updateTexture(mSource) {
@@ -113,7 +144,7 @@ class GLTexture {
       this._generateMipmap = false;
     }
 
-    const minFilter = WebglNumber[this._params.minFilter];
+    const minFilter = WebGLNumber[this._params.minFilter];
     if (minFilter.indexOf("MIPMAP") === -1) {
       this._generateMipmap = false;
     }
@@ -123,17 +154,54 @@ class GLTexture {
     /*
     console.log(
       "Source type : ",
-      WebglNumber[this._sourceType] || this._sourceType
+      WebGLNumber[this._sourceType] || this._sourceType
     );
-    console.log("Texel type:", WebglNumber[this.texelType]);
+    console.log("Texel type:", WebGLNumber[this.texelType]);
     */
     console.log("Dimension :", this._width, this._height);
     for (const s in this._params) {
-      console.log(s, WebglNumber[this._params[s]] || this._params[s]);
+      console.log(s, WebGLNumber[this._params[s]] || this._params[s]);
     }
   }
 
   // getter & setters
+
+  set minFilter(mValue) {
+    this._params.minFilter = mValue;
+    this._parametersState.set(MIN_FILTER, 1);
+  }
+
+  get minFilter() {
+    return this._params.minFilter;
+  }
+
+  set magFilter(mValue) {
+    this._params.magFilter = mValue;
+    this._parametersState.set(MAG_FILTER, 1);
+  }
+
+  get magFilter() {
+    return this._params.magFilter;
+  }
+
+  set wrapS(mValue) {
+    this._params.wrapS = mValue;
+    this._parametersState.set(WRAP_S, 1);
+  }
+
+  get wrapS() {
+    return this._params.wrapS;
+  }
+
+  set wrapT(mValue) {
+    this._params.wrapT = mValue;
+    this._parametersState.set(WRAP_T, 1);
+  }
+
+  get wrapT() {
+    return this._params.wrapT;
+  }
+
   get width() {
     return this._width;
   }

@@ -1,4 +1,4 @@
-import WebglConst from "./WebglConst";
+import { WebGLConst } from "./WebGLConst";
 
 export const isPowerOfTwo = (x) => {
   return x !== 0 && !(x & (x - 1));
@@ -6,10 +6,10 @@ export const isPowerOfTwo = (x) => {
 
 export const getTextureParameters = function(mParams, mWidth, mHeight) {
   if (!mParams.minFilter) {
-    let minFilter = WebglConst.LINEAR;
+    let minFilter = WebGLConst.LINEAR;
     if (mWidth && mWidth) {
       if (isPowerOfTwo(mWidth) && isPowerOfTwo(mHeight)) {
-        minFilter = WebglConst.NEAREST_MIPMAP_LINEAR;
+        minFilter = WebGLConst.NEAREST_MIPMAP_LINEAR;
       }
     }
 
@@ -17,17 +17,17 @@ export const getTextureParameters = function(mParams, mWidth, mHeight) {
   }
 
   mParams.mipmap = mParams.mipmap === undefined ? true : mParams.mipmap;
-  mParams.magFilter = mParams.magFilter || WebglConst.LINEAR;
-  mParams.wrapS = mParams.wrapS || WebglConst.CLAMP_TO_EDGE;
-  mParams.wrapT = mParams.wrapT || WebglConst.CLAMP_TO_EDGE;
-  mParams.internalFormat = mParams.internalFormat || WebglConst.RGBA;
-  mParams.format = mParams.format || WebglConst.RGBA;
+  mParams.magFilter = mParams.magFilter || WebGLConst.LINEAR;
+  mParams.wrapS = mParams.wrapS || WebGLConst.CLAMP_TO_EDGE;
+  mParams.wrapT = mParams.wrapT || WebGLConst.CLAMP_TO_EDGE;
+  mParams.internalFormat = mParams.internalFormat || WebGLConst.RGBA;
+  mParams.format = mParams.format || WebGLConst.RGBA;
   mParams.premultiplyAlpha =
     mParams.premultiplyAlpha === undefined ? false : mParams.premultiplyAlpha;
   mParams.level = mParams.level || 0;
 
-  // if (WebglConst.webgl2 && mParams.type === WebglConst.FLOAT) {
-  //   mParams.internalFormat = WebglConst.WebglConst.RGBA32F;
+  // if (WebGLConst.webgl2 && mParams.type === WebGLConst.FLOAT) {
+  //   mParams.internalFormat = WebGLConst.WebGLConst.RGBA32F;
   //   mParams.mipmap = false;
   // }
   return mParams;

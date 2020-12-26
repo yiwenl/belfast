@@ -9,6 +9,7 @@ import {
   DrawAxis,
   DrawDotsPlane,
   OrbitalControl,
+  WebGLNumber,
 } from "../../src/alfrid";
 import { vec3, mat4 } from "gl-matrix";
 import Scheduler from "scheduling";
@@ -24,7 +25,7 @@ document.body.appendChild(canvas2);
 GL.init(canvas1);
 GL.setSize(window.innerWidth / 2, window.innerHeight);
 
-const s = 2;
+const s = 10;
 const mtx = mat4.create();
 mat4.scale(mtx, mtx, [s, s, s]);
 
@@ -64,11 +65,12 @@ function _init(mGL) {
   );
 
   camera.lookAt([2, 2, 5], [0, 0, 0], [0, 1, 0]);
-  new OrbitalControl(camera, window, 8);
+  const control = new OrbitalControl(camera, window, 8);
+  // control.rx.setTo(-1);
 
   const img = new Image();
   img.addEventListener("load", onImageLoaded);
-  img.src = "./assets/img/test.jpg";
+  img.src = "./assets/img/test2.png";
 
   let texture;
 
@@ -76,9 +78,18 @@ function _init(mGL) {
     texture = new GLTexture(img);
     console.log(texture);
     draw.bindTexture("texture", texture, 0);
-    // Scheduler.addEF(() => render(mGL));
+    Scheduler.addEF(() => render(mGL));
 
-    render(mGL);
+    setTimeout(() => {
+      console.log("Min filter : ", WebGLNumber[texture.minFilter]);
+      if (mGL.webgl2) {
+        texture.magFilter = mGL.NEAREST;
+        texture.minFilter = mGL.NEAREST;
+      }
+      console.log("Min filter After : ", WebGLNumber[texture.minFilter]);
+    }, 1000);
+
+    // render(mGL);
   }
 
   // render();
