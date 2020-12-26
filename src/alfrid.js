@@ -3,6 +3,7 @@ export { GL, GLTool } from "./core/GL";
 export { GLShader } from "./core/GLShader";
 export { Mesh } from "./core/Mesh";
 export { GLTexture } from "./core/GLTexture";
+export { FrameBuffer } from "./core/FrameBuffer";
 
 // cameras
 export { Camera } from "./camera/Camera";
@@ -14,10 +15,10 @@ export { Draw } from "./helper/Draw";
 export { DrawAxis } from "./helper/DrawAxis";
 export { DrawDotsPlane } from "./helper/DrawDotsPlane";
 export { DrawLine } from "./helper/DrawLine";
+export { Geom } from "./helper/Geom";
 
 // utils
 export { checkWebGL2 } from "./utils/checkWebGL2";
-export { getWebGLContext } from "./utils/getWebGLContext";
 export { EaseNumber } from "./utils/EaseNumber";
 export { TweenNumber } from "./utils/TweenNumber";
 export { SpringNumber } from "./utils/SpringNumber";

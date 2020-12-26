@@ -9,6 +9,8 @@ import {
   DrawAxis,
   DrawDotsPlane,
   OrbitalControl,
+  FrameBuffer,
+  Geom,
   WebGLNumber,
 } from "../../src/alfrid";
 import { vec3, mat4 } from "gl-matrix";
@@ -33,7 +35,7 @@ document.body.appendChild(canvas2);
 GL.init(canvas1);
 GL.setSize(window.innerWidth / 2, window.innerHeight);
 
-const s = 10;
+const s = 1;
 const mtx = mat4.create();
 mat4.scale(mtx, mtx, [s, s, s]);
 
@@ -45,20 +47,14 @@ console.log(GL, GL2);
 
 const contexts = [GL, GL2];
 
+console.log("Geom", Geom);
+
 contexts.forEach((_GL) => _init(_GL));
 
 function _init(mGL) {
-  const positions = [[-1, 1, 0], [1, 1, 0], [-1, -1, 0], [1, -1, 0]];
-  const uvs = [[0, 1], [1, 1], [0, 0], [1, 0]];
-  const indices = [2, 1, 0, 2, 3, 1];
-
+  const s = 2;
   const draw = new Draw(mGL);
-  draw
-    .useProgram(vs, fs)
-    .createMesh()
-    .bufferVertex(positions)
-    .bufferTexCoord(uvs)
-    .bufferIndex(indices);
+  draw.useProgram(vs, fs).setMesh(Geom.plane(s, s, 1));
 
   // helpers
   const drawAxis = new DrawAxis(mGL);
@@ -74,7 +70,10 @@ function _init(mGL) {
 
   camera.lookAt([2, 2, 5], [0, 0, 0], [0, 1, 0]);
   const control = new OrbitalControl(camera, window, 8);
-  control.rx.setTo(-1);
+  // control.rx.setTo(-1);
+
+  const fboSize = 1024;
+  const fbo = new FrameBuffer(fboSize, fboSize);
 
   const img = new Image();
   img.addEventListener("load", onImageLoaded);
@@ -85,8 +84,8 @@ function _init(mGL) {
   function onImageLoaded() {
     // data texture
     const data = [];
-    const w = 32;
-    const h = 32;
+    const w = 128;
+    const h = 128;
     const float32 = true;
     for (let i = 0; i < w; i++) {
       for (let j = 0; j < h; j++) {
@@ -112,6 +111,8 @@ function _init(mGL) {
     if (float32) {
       oParams.type = mGL.FLOAT;
     }
+
+    fbo.bind(mGL);
 
     // texture = new GLTexture(img, oParams);
     texture = new GLTexture(source, oParams, w, h);
