@@ -18,6 +18,7 @@ const WRAP_T = 3;
 class GLTexture {
   constructor(mSource, mParam = {}, mWidth = 0, mHeight = 0) {
     this._source = mSource;
+    console.log("Source", mSource);
     this._isHtmlElement = isSourceHtmlElement(this._source);
     if (!this._isHtmlElement) {
       if (!checkSource(mSource, mParam)) {
@@ -246,5 +247,26 @@ class GLTexture {
     return this._height;
   }
 }
+
+const getCanvas = (mColor) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 2;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = mColor;
+  ctx.fillRect(0, 0, 2, 2);
+  return canvas;
+};
+
+GLTexture.whiteTexture = function whiteTexture() {
+  return new GLTexture(getCanvas("#fff"));
+};
+
+GLTexture.greyTexture = function greyTexture() {
+  return new GLTexture(getCanvas("rgb(127, 127, 127)"));
+};
+
+GLTexture.blackTexture = function blackTexture() {
+  return new GLTexture(getCanvas("#000"));
+};
 
 export { GLTexture };

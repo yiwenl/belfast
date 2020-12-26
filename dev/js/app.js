@@ -113,8 +113,8 @@ function _init(mGL) {
       oParams.type = mGL.FLOAT;
     }
 
-    // texture = new GLTexture(img);
-    texture = new GLTexture(source, oParams, w, h);
+    texture = new GLTexture(img);
+    // texture = new GLTexture(source, oParams, w, h);
     draw.bindTexture("texture", texture, 0);
     Scheduler.addEF(() => render(mGL));
 
