@@ -28,6 +28,8 @@ export const getTextureParameters = function(mParams, mWidth, mHeight) {
   mParams.level = mParams.level || 0;
 
   mParams.type = mParams.type || WebGLConst.UNSIGNED_BYTE;
+
+  webgl2FilterCheck(mParams);
   return mParams;
 };
 
@@ -78,6 +80,23 @@ export const webgl2TextureCheck = (mGL, mParams) => {
       mParams.internalFormat = WebGLConst.RGBA16F;
     } else {
       mParams.internalFormat = WebGLConst.RGBA32F;
+    }
+  }
+};
+
+export const webgl2FilterCheck = (mParams) => {
+  const { type, minFilter, magFilter } = mParams;
+
+  if (type !== WebGLConst.UNSIGNED_BYTE) {
+    if (minFilter !== WebGLConst.NEAREST || magFilter !== WebGLConst.NEAREST) {
+      console.warn(
+        "Trying to set min / mag filter to non NEAREST on floating point textures",
+        `minFilter: ${WebGLNumber[minFilter]}`,
+        `magFilter: ${WebGLNumber[magFilter]}`
+      );
+      return false;
+    } else {
+      return true;
     }
   }
 };
