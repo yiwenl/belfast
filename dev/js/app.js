@@ -48,8 +48,6 @@ console.log(GL, GL2);
 
 const contexts = [GL, GL2];
 
-console.log("Geom", Geom);
-
 contexts.forEach((_GL) => _init(_GL));
 
 function _init(mGL) {
@@ -146,7 +144,7 @@ function _init(mGL) {
     mGL.setModelMatrix(mtx);
     draw.draw();
 
-    const s = 200;
+    const s = 100;
     mGL.viewport(0, 0, s, s);
     drawCopy.draw(texture);
   }

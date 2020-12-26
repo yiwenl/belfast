@@ -4,8 +4,6 @@ class FrameBuffer {
     this._height = mHeight;
     this._parameters = mParameters;
     this._numTargets = mNumTargets;
-
-    console.log("here");
   }
 
   /**
@@ -24,8 +22,6 @@ class FrameBuffer {
 
     this.GL = mGL || GL;
     const { gl } = this.GL;
-
-    console.log(this.GL.webgl2, gl.drawBuffers);
   }
 
   /**
