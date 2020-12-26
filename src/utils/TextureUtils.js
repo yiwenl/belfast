@@ -27,8 +27,16 @@ export const getTextureParameters = function(mParams, mWidth, mHeight) {
   mParams.level = mParams.level || 0;
 
   // if (WebGLConst.webgl2 && mParams.type === WebGLConst.FLOAT) {
-  //   mParams.internalFormat = WebGLConst.WebGLConst.RGBA32F;
+  //   mParams.internalFormat = WebGLConst.RGBA32F;
   //   mParams.mipmap = false;
   // }
   return mParams;
+};
+
+export const isSourceHtmlElement = (mSource) => {
+  return (
+    mSource instanceof HTMLImageElement ||
+    mSource instanceof HTMLCanvasElement ||
+    mSource instanceof HTMLVideoElement
+  );
 };

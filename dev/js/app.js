@@ -17,6 +17,10 @@ import Scheduler from "scheduling";
 import vs from "../shaders/test.vert";
 import fs from "../shaders/test.frag";
 
+const randomFloor = (v) => {
+  return Math.floor(Math.random() * v);
+};
+
 const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
 document.body.appendChild(canvas1);
@@ -75,7 +79,21 @@ function _init(mGL) {
   let texture;
 
   function onImageLoaded() {
-    texture = new GLTexture(img);
+    // data texture
+    const data = [];
+    const w = 32;
+    const h = 32;
+    for (let i = 0; i < w; i++) {
+      for (let j = 0; j < h; j++) {
+        data.push(randomFloor(256));
+        data.push(randomFloor(256));
+        data.push(randomFloor(256));
+        data.push(255);
+      }
+    }
+
+    // texture = new GLTexture(img);
+    texture = new GLTexture(new Uint8Array(data), {}, w, h);
     console.log(texture);
     draw.bindTexture("texture", texture, 0);
     Scheduler.addEF(() => render(mGL));
