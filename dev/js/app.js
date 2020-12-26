@@ -21,6 +21,10 @@ const randomFloor = (v) => {
   return Math.floor(Math.random() * v);
 };
 
+const random = (a, b) => {
+  return a + Math.random() * (b - a);
+};
+
 const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
 document.body.appendChild(canvas1);
@@ -83,18 +87,33 @@ function _init(mGL) {
     const data = [];
     const w = 32;
     const h = 32;
+    const float32 = true;
     for (let i = 0; i < w; i++) {
       for (let j = 0; j < h; j++) {
-        data.push(randomFloor(256));
-        data.push(randomFloor(256));
-        data.push(randomFloor(256));
-        data.push(255);
+        if (float32) {
+          data.push(random(-1, 1));
+          data.push(random(-1, 1));
+          data.push(random(-1, 1));
+          data.push(1);
+        } else {
+          data.push(randomFloor(256));
+          data.push(randomFloor(256));
+          data.push(randomFloor(256));
+          data.push(255);
+        }
       }
     }
 
-    // texture = new GLTexture(img);
-    texture = new GLTexture(new Uint8Array(data), {}, w, h);
-    console.log(texture);
+    const source = float32 ? new Float32Array(data) : new Uint8Array(data);
+    const oParams = {
+      minFilter: mGL.NEAREST,
+      magFilter: mGL.NEAREST,
+    };
+    if (float32) {
+      oParams.type = mGL.FLOAT;
+    }
+
+    texture = new GLTexture(source, oParams, w, h);
     draw.bindTexture("texture", texture, 0);
     Scheduler.addEF(() => render(mGL));
 

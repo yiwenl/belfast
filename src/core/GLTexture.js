@@ -1,12 +1,12 @@
 import { GL } from "./GL";
-import { WebGLNumber } from "../utils/WebGLNumber";
-import { WebGLConst } from "../utils/WebGLConst";
 import {
   isPowerOfTwo,
   getTextureParameters,
   isSourceHtmlElement,
   checkSource,
+  webgl2TextureCheck,
 } from "../utils/TextureUtils";
+import { WebGLNumber } from "../utils/WebGLNumber";
 import { BitSwitch } from "../utils/BitSwitch";
 
 const MIN_FILTER = 0;
@@ -18,14 +18,13 @@ class GLTexture {
   constructor(mSource, mParam = {}, mWidth = 0, mHeight = 0) {
     this._source = mSource;
     this._isHtmlElement = isSourceHtmlElement(this._source);
-    if (!this._isHtmlElement && mSource.constructor.name === "Array") {
-      console.error(
-        "Please convert texture source to Unit8Array or Float32Array"
-      );
+    if (!this._isHtmlElement) {
+      if (!checkSource(mSource, mParam)) {
+        return;
+      }
     }
 
     this._getDimension(mSource, mWidth, mHeight);
-    this._texelType = WebGLConst.UNSIGNED_BYTE;
     this._params = getTextureParameters(mParam, this._width, this._height);
     this._checkMipmap();
     // this.showParameters();
@@ -45,7 +44,9 @@ class GLTexture {
 
     this.GL = mGL || GL;
     const { gl } = this.GL;
+
     if (!this._texture) {
+      webgl2TextureCheck(this.GL, this._params);
       this._uploadTexture();
     }
 
@@ -65,7 +66,6 @@ class GLTexture {
           this._params.minFilter
         );
       } else if (this._parametersState.get(MAG_FILTER)) {
-        console.log("magFilter Changed");
         gl.texParameteri(
           gl.TEXTURE_2D,
           gl.TEXTURE_MAG_FILTER,
@@ -98,13 +98,13 @@ class GLTexture {
     gl.bindTexture(gl.TEXTURE_2D, this._texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
-    if (this._isHtmlElement) {
+    if (this._isHtmlElement && !this.GL.webgl2) {
       gl.texImage2D(
         gl.TEXTURE_2D,
         0,
         this._params.internalFormat,
         this._params.format,
-        this._texelType,
+        this._params.type,
         this._source
       );
     } else {
@@ -116,7 +116,7 @@ class GLTexture {
         this._height,
         0,
         this._params.format,
-        this._texelType,
+        this._params.type,
         this._source
       );
     }
