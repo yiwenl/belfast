@@ -178,7 +178,7 @@ function GLTool() {
 
   /**
    * disable specific WebGL capabilities for this context.
-   * @param {GLenum} the GLenum value of the capability
+   * @param {GLenum} mParameter the GLenum value of the capability
    */
   this.disable = function(mParameter) {
     this.gl.disable(mParameter);
@@ -186,7 +186,7 @@ function GLTool() {
 
   /**
    * Set the culling of the WebGL Context
-   * @param {GLenum} the GLenum value of the culling
+   * @param {GLenum} mValue the GLenum value of the culling
    */
   this.cullFace = function(mValue) {
     this.gl.cullFace(mValue);

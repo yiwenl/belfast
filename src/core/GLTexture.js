@@ -34,6 +34,12 @@ class GLTexture {
     this._parametersState = new BitSwitch(0);
   }
 
+  /**
+   * Bind the texture
+   *
+   * @param {number} mIndex the binding target
+   * @param {GL} mGL the GLTool instance
+   */
   bind(mIndex, mGL) {
     if (mGL !== undefined && this.GL !== undefined && mGL !== this.GL) {
       console.error(
@@ -57,15 +63,51 @@ class GLTexture {
     this._checkParameters();
   }
 
+  /**
+   * Update the texture
+   *
+   * @param {object} mSource the texture source
+   */
   updateTexture(mSource) {
     this._source = mSource;
     this._uploadTexture();
   }
 
+  /**
+   * Generate the mipmap of the texture
+   *
+   */
   generateMipmap() {
-    return;
+    const { gl } = this.GL;
+    gl.bindTexture(gl.TEXTURE_2D, this._texture);
+    gl.generateMipmap(gl.TEXTURE_2D);
   }
 
+  /**
+   * Destroy the texture
+   *
+   */
+  destroy() {
+    const { gl } = this.GL;
+    gl.deleteTexture(this._texture);
+    this.GL.textureCount--;
+  }
+
+  /**
+   * Display the properties of the texture
+   *
+   */
+  showProperties() {
+    console.log("Dimension :", this._width, this._height);
+    for (const s in this._params) {
+      console.log(s, WebGLNumber[this._params[s]] || this._params[s]);
+    }
+  }
+
+  /**
+   * Upload and create the texture
+   *
+   */
   _uploadTexture() {
     const { gl } = this.GL;
 
@@ -119,6 +161,10 @@ class GLTexture {
     }
   }
 
+  /**
+   * Check if the paramets has changed
+   *
+   */
   _checkParameters() {
     const { gl } = this.GL;
     if (this._parametersState.value > 0) {
@@ -143,6 +189,10 @@ class GLTexture {
     this._parametersState.reset(0);
   }
 
+  /**
+   * Getting the dimension of the source
+   *
+   */
   _getDimension(mSource, mWidth, mHeight) {
     if (mSource) {
       // for html image / video element
@@ -165,6 +215,10 @@ class GLTexture {
     }
   }
 
+  /**
+   * Check if the texture could have mipmap
+   *
+   */
   _checkMipmap() {
     this._generateMipmap = this._params.mipmap;
 
@@ -178,68 +232,110 @@ class GLTexture {
     }
   }
 
-  destroy() {
-    const { gl } = this.GL;
-    gl.deleteTexture(this._texture);
-    this.GL.textureCount--;
-  }
-
-  showParameters() {
-    console.log("Dimension :", this._width, this._height);
-    for (const s in this._params) {
-      console.log(s, WebGLNumber[this._params[s]] || this._params[s]);
-    }
-  }
-
   // getter & setters
 
+  /**
+   * Set the min filter of the texture
+   *
+   * @param {GLenum} mValue GLenum value of the min filter
+   */
   set minFilter(mValue) {
     this._params.minFilter = mValue;
     this._parametersState.set(MIN_FILTER, 1);
     webgl2FilterCheck(this._params);
   }
 
+  /**
+   * Get the min filter of the texture
+   *
+   * @returns {GLenum} the min filter value
+   */
   get minFilter() {
     return this._params.minFilter;
   }
 
+  /**
+   * Set the mag filter of the texture
+   *
+   * @param {GLenum} mValue GLenum value of the mag filter
+   */
   set magFilter(mValue) {
     this._params.magFilter = mValue;
     this._parametersState.set(MAG_FILTER, 1);
     webgl2FilterCheck(this._params);
   }
 
+  /**
+   * Get the mag filter of the texture
+   *
+   * @returns {GLenum} the mag filter value
+   */
   get magFilter() {
     return this._params.magFilter;
   }
 
+  /**
+   * Set the s-coordinate of the wrapping
+   *
+   * @param {GLenum} mValue GLenum value of the wrapping
+   */
   set wrapS(mValue) {
     this._params.wrapS = mValue;
     this._parametersState.set(WRAP_S, 1);
   }
 
+  /**
+   * Get the s-coordinate of the wrapping
+   *
+   * @returns {GLenum} the value of s-coordinate of the wrapping
+   */
   get wrapS() {
     return this._params.wrapS;
   }
 
+  /**
+   * Set the t-coordinate of the wrapping
+   *
+   * @param {GLenum} mValue GLenum value of the wrapping
+   */
   set wrapT(mValue) {
     this._params.wrapT = mValue;
     this._parametersState.set(WRAP_T, 1);
   }
 
+  /**
+   * Get the t-coordinate of the wrapping
+   *
+   * @returns {GLenum} the value of t-coordinate of the wrapping
+   */
   get wrapT() {
     return this._params.wrapT;
   }
 
+  /**
+   * Get the width of the texture
+   *
+   * @returns {number} the width of the texture
+   */
   get width() {
     return this._width;
   }
 
+  /**
+   * Get the height of the texture
+   *
+   * @returns {number} the height of the texture
+   */
   get height() {
     return this._height;
   }
 }
 
+/**
+ * create canvas with a solid color
+ *
+ * @param {GLenum} mValue the color value
+ */
 const getCanvas = (mColor) => {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 2;
@@ -249,14 +345,29 @@ const getCanvas = (mColor) => {
   return canvas;
 };
 
+/**
+ * Get a pure white texture
+ *
+ * @returns {GLTexture} the texture
+ */
 GLTexture.whiteTexture = function whiteTexture() {
   return new GLTexture(getCanvas("#fff"));
 };
 
+/**
+ * Get a grey texture
+ *
+ * @returns {GLTexture} the texture
+ */
 GLTexture.greyTexture = function greyTexture() {
   return new GLTexture(getCanvas("rgb(127, 127, 127)"));
 };
 
+/**
+ * Get a pure black texture
+ *
+ * @returns {GLTexture} the texture
+ */
 GLTexture.blackTexture = function blackTexture() {
   return new GLTexture(getCanvas("#000"));
 };

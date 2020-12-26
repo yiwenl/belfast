@@ -74,7 +74,6 @@ function _init(mGL) {
 
   camera.lookAt([2, 2, 5], [0, 0, 0], [0, 1, 0]);
   const control = new OrbitalControl(camera, window, 8);
-  // control.rx.setTo(-1);
 
   const img = new Image();
   img.addEventListener("load", onImageLoaded);
