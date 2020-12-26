@@ -8,6 +8,7 @@ import {
   Draw,
   DrawAxis,
   DrawDotsPlane,
+  DrawCopy,
   OrbitalControl,
   FrameBuffer,
   Geom,
@@ -59,6 +60,7 @@ function _init(mGL) {
   // helpers
   const drawAxis = new DrawAxis(mGL);
   const drawDotsPlane = new DrawDotsPlane(mGL);
+  const drawCopy = new DrawCopy(mGL);
 
   // camera
   const camera = new CameraPerspective(
@@ -129,6 +131,7 @@ function _init(mGL) {
 
   // render();
   function render(mGL) {
+    mGL.viewport(0, 0, mGL.width, mGL.height);
     const g = 0.1;
     if (mGL.webgl2) {
       mGL.clear(g, 0, 0, 1);
@@ -142,6 +145,10 @@ function _init(mGL) {
 
     mGL.setModelMatrix(mtx);
     draw.draw();
+
+    const s = 200;
+    mGL.viewport(0, 0, s, s);
+    drawCopy.draw(texture);
   }
 }
 
