@@ -18,7 +18,6 @@ const WRAP_T = 3;
 class GLTexture {
   constructor(mSource, mParam = {}, mWidth = 0, mHeight = 0) {
     this._source = mSource;
-    console.log("Source", mSource);
     this._isHtmlElement = isSourceHtmlElement(this._source);
     if (!this._isHtmlElement) {
       if (!checkSource(mSource, mParam)) {
@@ -186,13 +185,6 @@ class GLTexture {
   }
 
   showParameters() {
-    /*
-    console.log(
-      "Source type : ",
-      WebGLNumber[this._sourceType] || this._sourceType
-    );
-    console.log("Texel type:", WebGLNumber[this.texelType]);
-    */
     console.log("Dimension :", this._width, this._height);
     for (const s in this._params) {
       console.log(s, WebGLNumber[this._params[s]] || this._params[s]);
