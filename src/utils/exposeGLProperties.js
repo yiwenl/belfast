@@ -1,11 +1,11 @@
-import WebglConst from "./WebglConst";
-import WebglNumber from "./WebglNumber";
+import { WebGLConst } from "./WebGLConst";
+import { WebGLNumber } from "./WebGLNumber";
 
 const exposeGLProperties = (GL) => {
   // console.log(GL);
-  for (const s in WebglConst) {
+  for (const s in WebGLConst) {
     if (!GL[s]) {
-      GL[s] = WebglConst[s];
+      GL[s] = WebGLConst[s];
     } else {
       // if (s !== "FLOAT") console.log("already exist : ", s);
       console.log("already exist : ", s);
@@ -17,8 +17,8 @@ const exposeGLProperties = (GL) => {
     for (const s in GL.gl) {
       if (check.test(s) && s.indexOf("FLOAT") === -1) {
         GL[s] = GL.gl[s];
-        WebglConst[s] = GL.gl[s];
-        WebglNumber[GL[s]] = s;
+        WebGLConst[s] = GL.gl[s];
+        WebGLNumber[GL[s]] = s;
       }
     }
   }

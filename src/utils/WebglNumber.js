@@ -1,5 +1,4 @@
-// stolen there https://github.com/mattdesl/gl-constants thanks @mattdesl ^^
-module.exports = {
+export const WebGLNumber = {
   0: "NONE",
   1: "ONE",
   2: "LINE_LOOP",

@@ -1,7 +1,7 @@
-import WebglConst from "../utils/WebglConst";
+import { WebGLConst } from "../utils/WebGLConst";
 import { flatten, getBuffer, getAttribLoc } from "../utils/BufferUtils";
 
-function Mesh(mDrawType = WebglConst.TRIANGLES) {
+function Mesh(mDrawType = WebGLConst.TRIANGLES) {
   this.drawType = mDrawType;
 
   // PRIVATE PROPERTIES
@@ -32,7 +32,7 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
     mData,
     mName,
     mItemSize,
-    mUsage = WebglConst.STATIC_DRAW,
+    mUsage = WebGLConst.STATIC_DRAW,
     isInstanced = false
   ) {
     let bufferData;
@@ -73,7 +73,7 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    * @param {array} mData the data of the vertex positions
    * @param {GLenum} mUsage the usage of the attribute, static or dynamic
    */
-  this.bufferVertex = function(mData, mUsage = WebglConst.STATIC_DRAW) {
+  this.bufferVertex = function(mData, mUsage = WebGLConst.STATIC_DRAW) {
     return this.bufferData(mData, "aVertexPosition", 3, mUsage);
   };
 
@@ -83,7 +83,7 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    * @param {array} mData the data of the texture coordinate
    * @param {GLenum} mUsage the usage of the attribute, static or dynamic
    */
-  this.bufferTexCoord = function(mData, mUsage = WebglConst.STATIC_DRAW) {
+  this.bufferTexCoord = function(mData, mUsage = WebGLConst.STATIC_DRAW) {
     return this.bufferData(mData, "aTextureCoord", 2, mUsage);
   };
 
@@ -93,7 +93,7 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    * @param {array} mData the data of the normal
    * @param {GLenum} mUsage the usage of the attribute, static or dynamic
    */
-  this.bufferNormal = function(mData, mUsage = WebglConst.STATIC_DRAW) {
+  this.bufferNormal = function(mData, mUsage = WebGLConst.STATIC_DRAW) {
     return this.bufferData(mData, "aNormal", 3, mUsage);
   };
 
@@ -103,7 +103,7 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
    * @param {array} mData the data of the index buffer
    * @param {GLenum} mUsage the usage of the attribute, static or dynamic
    */
-  this.bufferIndex = function(mData, mUsage = WebglConst.STATIC_DRAW) {
+  this.bufferIndex = function(mData, mUsage = WebGLConst.STATIC_DRAW) {
     _usage = mUsage;
     _indices = new Uint16Array(mData);
     this.numItems = _indices.length;
@@ -203,7 +203,7 @@ function Mesh(mDrawType = WebglConst.TRIANGLES) {
     mDataOrg,
     mName,
     mItemSize,
-    mUsage = WebglConst.STATIC_DRAW,
+    mUsage = WebGLConst.STATIC_DRAW,
     isInstanced = false
   ) => {
     const usage = mUsage;

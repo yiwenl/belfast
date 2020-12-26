@@ -22,6 +22,10 @@ export { EaseNumber } from "./utils/EaseNumber";
 export { TweenNumber } from "./utils/TweenNumber";
 export { SpringNumber } from "./utils/SpringNumber";
 export { OrbitalControl } from "./utils/OrbitalControl";
+export { BitSwitch } from "./utils/BitSwitch";
+
+export { WebGLNumber } from "./utils/WebGLNumber";
+export { WebGLConst } from "./utils/WebGLConst";
 
 // shader
 export { ShaderLibs } from "./shader";
