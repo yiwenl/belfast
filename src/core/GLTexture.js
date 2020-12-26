@@ -156,6 +156,12 @@ class GLTexture {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, this._params.wrapT);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, this._premultiplyAlpha);
 
+    const ext = this.GL.extensions["EXT_texture_filter_anisotropic"];
+    if (ext) {
+      const level = this._params.anisotropy || this.GL.maxAnisotropy;
+      gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, level);
+    }
+
     if (this._generateMipmap) {
       gl.generateMipmap(gl.TEXTURE_2D);
     }

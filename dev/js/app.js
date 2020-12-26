@@ -74,6 +74,7 @@ function _init(mGL) {
 
   camera.lookAt([2, 2, 5], [0, 0, 0], [0, 1, 0]);
   const control = new OrbitalControl(camera, window, 8);
+  control.rx.setTo(-1);
 
   const img = new Image();
   img.addEventListener("load", onImageLoaded);
@@ -105,15 +106,15 @@ function _init(mGL) {
 
     const source = float32 ? new Float32Array(data) : new Uint8Array(data);
     const oParams = {
-      minFilter: mGL.NEAREST,
-      magFilter: mGL.NEAREST,
+      minFilter: GL.NEAREST,
+      magFilter: GL.NEAREST,
     };
     if (float32) {
       oParams.type = mGL.FLOAT;
     }
 
-    texture = new GLTexture(img);
-    // texture = new GLTexture(source, oParams, w, h);
+    // texture = new GLTexture(img, oParams);
+    texture = new GLTexture(source, oParams, w, h);
     draw.bindTexture("texture", texture, 0);
     Scheduler.addEF(() => render(mGL));
 

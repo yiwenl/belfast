@@ -86,6 +86,12 @@ function GLTool() {
 
     // Enable extensions
     this.extensions = getExtensions(this.gl);
+    const extAnisotropic = this.extensions["EXT_texture_filter_anisotropic"];
+    if (extAnisotropic) {
+      this.maxAnisotropy = this.gl.getParameter(
+        extAnisotropic.MAX_TEXTURE_MAX_ANISOTROPY_EXT
+      );
+    }
 
     // Expose GL properties
     exposeGLProperties(this);

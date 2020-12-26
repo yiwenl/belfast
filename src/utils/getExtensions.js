@@ -16,7 +16,10 @@ const extensionsWebGL1 = [
   "WEBGL_draw_buffers",
 ];
 
-const extensionsWebGL2 = ["EXT_color_buffer_float"];
+const extensionsWebGL2 = [
+  "EXT_color_buffer_float",
+  "EXT_texture_filter_anisotropic",
+];
 
 /**
  * Clear WebGL Context
