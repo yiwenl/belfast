@@ -41,6 +41,12 @@ function GLTool() {
   this.bufferCount = 0;
   this.textureCount = 0;
 
+  this.maxAnisotropy = 0;
+
+  // Multi render targets
+  this.multiRenderTargetSupport = false;
+  this.maxMultiRenderTargets = 0;
+
   // PUBLIC METHODS
 
   /**
@@ -85,13 +91,7 @@ function GLTool() {
     this.canvas.addEventListener("webglcontextrestored", onContextRestored);
 
     // Enable extensions
-    this.extensions = getExtensions(this.gl);
-    const extAnisotropic = this.extensions["EXT_texture_filter_anisotropic"];
-    if (extAnisotropic) {
-      this.maxAnisotropy = this.gl.getParameter(
-        extAnisotropic.MAX_TEXTURE_MAX_ANISOTROPY_EXT
-      );
-    }
+    this.extensions = getExtensions(this);
 
     // Expose GL properties
     exposeGLProperties(this);

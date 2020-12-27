@@ -22,13 +22,33 @@ class FrameBuffer {
 
     this.GL = mGL || GL;
     const { gl } = this.GL;
+
+    if (this._numTargets > 1 && !this.GL.multiRenderTargetSupport) {
+      console.error(
+        `This browser doesn't support multi render targets : WEBGL_draw_buffers`
+      );
+    }
+
+    console.log(
+      "bind Frame buffer:",
+      this.GL.multiRenderTargetSupport,
+      this.GL.maxMultiRenderTargets
+    );
   }
 
   /**
    * Unbind the frame buffer
    *
    */
-  unbind(mGL) {
+  unbind() {
+    return;
+  }
+
+  /**
+   * Initialize the textures
+   *
+   */
+  _initTextures() {
     return;
   }
 
