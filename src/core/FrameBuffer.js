@@ -61,6 +61,10 @@ class FrameBuffer {
     }
     const { gl } = this.GL;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    this._textures.forEach((texture) => {
+      texture.generateMipmap();
+    });
   }
 
   /**
@@ -118,6 +122,8 @@ class FrameBuffer {
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    this.GL.clear(0, 0, 0, 0);
   }
 
   /**
@@ -152,11 +158,20 @@ class FrameBuffer {
    */
   _createTexture(mInternalformat, mTexelType, mFormat, mParameters = {}) {
     const parameters = Object.assign({}, this._parameters);
-    Object.assign(parameters, mParameters);
 
     if (!mFormat) {
       mFormat = mInternalformat;
     }
+
+    parameters.internalFormat = mInternalformat || WebGLConst.RGBA;
+    parameters.format = mFormat || WebGLConst.RGBA;
+
+    parameters.type = parameters.type || mTexelType || WebGLConst.UNSIGNED_BYTE;
+    if (mTexelType === WebGLConst.UNSIGNED_SHORT) {
+      // fix for depth textures
+      parameters.type = mTexelType;
+    }
+    Object.assign(parameters, mParameters);
 
     const texture = new GLTexture(null, parameters, this._width, this._height);
     return texture;

@@ -26,6 +26,16 @@ class CameraPerspective extends Camera {
   }
 
   /**
+   * Set the aspect ratio of the camera
+   *
+   * @param {float} mAspectRatio the aspect ratio
+   */
+  setAspectRatio(mAspectRatio) {
+    this._ratio = mAspectRatio;
+    this._updateMatrices();
+  }
+
+  /**
    * Update the matrices after resetting the near or far clip plane
    *
    */

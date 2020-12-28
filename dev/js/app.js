@@ -21,6 +21,7 @@ import Scheduler from "scheduling";
 
 import vs from "../shaders/test.vert";
 import fs from "../shaders/test.frag";
+import fsCopy from "../shaders/copy.frag";
 
 const randomFloor = (v) => {
   return Math.floor(Math.random() * v);
@@ -34,7 +35,6 @@ const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
 document.body.appendChild(canvas1);
 document.body.appendChild(canvas2);
-
 GL.init(canvas1);
 GL.setSize(window.innerWidth / 2, window.innerHeight);
 
@@ -52,13 +52,11 @@ const contexts = [GL, GL2];
 
 contexts.forEach((_GL) => _init(_GL));
 
-const parent = new Object3D();
 const container = new Object3D();
-console.log(container);
-parent.addChild(container);
 
 function _init(mGL) {
-  const s = 2;
+  mGL.enableAlphaBlending();
+  let s = 2;
   const draw = new Draw(mGL);
   // draw.useProgram(vs, fs).setMesh(Geom.plane(s, s, 1));
   draw.useProgram(vs, fs).setMesh(Geom.cube(s));
@@ -68,6 +66,11 @@ function _init(mGL) {
   const drawDotsPlane = new DrawDotsPlane(mGL);
   const drawCopy = new DrawCopy(mGL);
   const drawBall = new DrawBall(mGL);
+
+  s = 4;
+  const drawDebug = new Draw(mGL)
+    .useProgram(vs, fsCopy)
+    .setMesh(Geom.plane(s, s, 1));
 
   // camera
   const camera = new CameraPerspective(
@@ -81,20 +84,21 @@ function _init(mGL) {
   const control = new OrbitalControl(camera, window, 8);
   // control.rx.setTo(-1);
 
-  const fboSize = 1024;
+  const fboSize = 512;
+  // const fbo = new FrameBuffer(mGL, fboSize, fboSize);
   const fbo = new FrameBuffer(fboSize, fboSize);
 
   const img = new Image();
   img.addEventListener("load", onImageLoaded);
-  img.src = "./assets/img/test2.png";
+  img.src = "./assets/img/test1.jpg";
 
-  let texture;
+  let texture, textureImg;
 
   function onImageLoaded() {
     // data texture
     const data = [];
-    const w = 128;
-    const h = 128;
+    const w = 64;
+    const h = 64;
     const float32 = true;
     for (let i = 0; i < w; i++) {
       for (let j = 0; j < h; j++) {
@@ -123,7 +127,9 @@ function _init(mGL) {
 
     // texture = new GLTexture(img, oParams);
     texture = new GLTexture(source, oParams, w, h);
-    draw.bindTexture("texture", texture, 0);
+    textureImg = new GLTexture(img);
+    draw.bindTexture("texture", textureImg, 0);
+
     Scheduler.addEF(() => render(mGL));
 
     setTimeout(() => {
@@ -136,11 +142,9 @@ function _init(mGL) {
 
   // render();
   function render(mGL) {
-    parent.rotationZ = Scheduler.deltaTime * 0.5;
-    parent.rotationX = -Scheduler.deltaTime * 0.4;
-    container.x = Math.sin(Scheduler.deltaTime);
-    container.y = Math.cos(Scheduler.deltaTime);
-    parent.update();
+    container.rotationX = Scheduler.deltaTime;
+    container.rotationY = -Scheduler.deltaTime;
+    container.rotationZ = Scheduler.deltaTime * 0.3;
 
     mGL.viewport(0, 0, mGL.width, mGL.height);
     const g = 0.1;
@@ -154,11 +158,15 @@ function _init(mGL) {
     drawAxis.draw();
     drawDotsPlane.draw();
 
-    // fbo.bind(mGL);
-    // mGL.setModelMatrix(mtx);
+    fbo.bind(mGL);
+    mGL.clear(1, 1, 1, 1);
+    // mGL.setMatrices(camera);
     mGL.setModelMatrix(container.matrix);
     draw.draw();
-    // fbo.unbind();
+    // drawCopy.draw(texture);
+    fbo.unbind();
+
+    mGL.setModelMatrix(mat4.create());
 
     let s = 0.2;
     drawBall.draw([-1, 1, 0], [s, s, s], [1, 0, 0]);
@@ -166,20 +174,29 @@ function _init(mGL) {
     drawBall.draw([-1, -1, 0], [s, s, s], [0, 0, 1]);
     drawBall.draw([1, -1, 0], [s, s, s], [1, 1, 0]);
 
+    // GL.viewport(0, 0, mGL.width / 2, mGL.height / 2);
+    // mGL.disable(mGL.DEPTH_TEST);
     // drawCopy.draw(fbo.texture);
+    drawDebug.bindTexture("texture", fbo.texture, 0).draw();
+    // drawDebug.bindTexture("texture", fbo.depthTexture, 0).draw();
 
     s = 100;
     mGL.viewport(0, 0, s, s);
     drawCopy.draw(texture);
+    mGL.viewport(s, 0, s, s);
+    drawCopy.draw(textureImg);
+    mGL.viewport(s * 2, 0, s, s);
+    drawCopy.draw(fbo.texture);
+    mGL.enable(mGL.DEPTH_TEST);
     // mGL.viewport(s, 0, s, s);
     // drawCopy.draw(fbo.texture);
   }
-}
+  // resize
+  window.addEventListener("resize", resize);
+  resize();
 
-// resize
-window.addEventListener("resize", resize);
-
-function resize() {
-  GL.setSize(window.innerWidth / 2, window.innerHeight);
-  GL2.setSize(window.innerWidth / 2, window.innerHeight);
+  function resize() {
+    mGL.setSize(window.innerWidth / 2, window.innerHeight);
+    camera.setAspectRatio(mGL.getAspectRatio());
+  }
 }
