@@ -2,19 +2,17 @@ import { GL } from "./GL";
 import { GLTexture } from "./GLTexture";
 import { WebGLNumber } from "../utils/WebGLNumber";
 import { WebGLConst } from "../utils/WebGLConst";
+import LogError, { Errors } from "../utils/LogError";
 
-class FrameBuffer {
-  constructor(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
-    this._width = mWidth;
-    this._height = mHeight;
-    this._parameters = mParameters;
-    this._numTargets = mNumTargets;
-
-    this.frameBuffer;
-    this._textures = [];
-
-    this._initTextures();
-  }
+function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
+  let _GL;
+  let _frameBuffer;
+  const _width = mWidth;
+  const _height = mHeight;
+  const _parameters = mParameters;
+  const _numTargets = mNumTargets;
+  const _textures = [];
+  let _glDepthTexture;
 
   /**
    * Bind the frame buffer
@@ -22,131 +20,119 @@ class FrameBuffer {
    * @param {GL} mGL the GLTool instance
    * @param {boolean} mAutoSetViewport automatically set the viewport to framebuffer's viewport
    */
-  bind(mGL, mAutoSetViewport = true) {
-    if (mGL !== undefined && this.GL !== undefined && mGL !== this.GL) {
-      console.error(
-        "this frame buffer has been bind to a different WebGL Rendering Context",
-        this.GL.id
-      );
+  this.bind = function(mGL, mAutoSetViewport = true) {
+    if (mGL !== undefined && _GL !== undefined && mGL !== _GL) {
+      LogError(Errors.FRAMEBUFFER_CONTEXT, _GL.id);
       return;
     }
 
-    this.GL = mGL || GL;
-    const { gl } = this.GL;
+    _GL = mGL || GL;
+    const { gl } = _GL;
 
-    if (this._numTargets > 1 && !this.GL.multiRenderTargetSupport) {
-      console.error(
-        `This browser doesn't support multi render targets : WEBGL_draw_buffers`
-      );
+    if (_numTargets > 1 && !_GL.multiRenderTargetSupport) {
+      LogError(Errors.DRAW_BUFFERS, _GL.id);
     }
 
-    if (!this.frameBuffer) {
-      this._initFrameBuffer();
+    if (!_frameBuffer) {
+      _initFrameBuffer();
     }
 
     if (mAutoSetViewport) {
-      this.GL.viewport(0, 0, this._width, this._height);
+      _GL.viewport(0, 0, _width, _height);
     }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
-  }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, _frameBuffer);
+  };
 
   /**
    * Unbind the frame buffer
    *
    * @param {boolean} mAutoSetViewport automatically set the viewport back to GL's viewport
    */
-  unbind(mAutoSetViewport = true) {
+  this.unbind = function(mAutoSetViewport = true) {
     if (mAutoSetViewport) {
-      this.GL.viewport(0, 0, this.GL.width, this.GL.height);
+      _GL.viewport(0, 0, _GL.width, _GL.height);
     }
-    const { gl } = this.GL;
+    const { gl } = _GL;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-    this._textures.forEach((texture) => {
+    _textures.forEach((texture) => {
       texture.generateMipmap();
     });
-  }
+  };
+
+  /**
+   * Destroy the framebuffer
+   *
+   */
+  this.destroy = function() {
+    const { gl } = this.GL;
+
+    // delete all textures
+    // delete depth texture
+    // delete framebuffer
+
+    this.GL.frameBufferCount--;
+  };
 
   /**
    * Initialize the framebuffer
    *
    */
-  _initFrameBuffer() {
-    const { gl } = this.GL;
-    this.frameBuffer = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
-    this.GL.frameBufferCount++;
+  const _initFrameBuffer = () => {
+    // create textures
+    _initTextures();
 
-    const target = this.GL.webgl2 ? gl.DRAW_FRAMEBUFFER : gl.FRAMEBUFFER;
+    const { gl } = _GL;
+    _frameBuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, _frameBuffer);
+    _GL.frameBufferCount++;
 
-    // init textures;
-    this._textures.forEach((t) => {
-      t.createTexture(this.GL);
-    });
-    // this.glDepthTexture.createTexture(this.GL);
+    const target = _GL.webgl2 ? gl.DRAW_FRAMEBUFFER : gl.FRAMEBUFFER;
 
     const buffers = [];
-    for (let i = 0; i < this._numTargets; i++) {
+    for (let i = 0; i < _numTargets; i++) {
       gl.framebufferTexture2D(
         target,
         gl.COLOR_ATTACHMENT0 + i,
         gl.TEXTURE_2D,
-        this._textures[i].texture,
+        _textures[i].texture,
         0
       );
       buffers.push(gl[`COLOR_ATTACHMENT${i}`]);
     }
 
     // multi render targets
-    if (this.GL.multiRenderTargetSupport) {
+    if (_GL.multiRenderTargetSupport) {
       gl.drawBuffers(buffers);
-    }
-    /*
-
-    // depth textures
-    gl.framebufferTexture2D(
-      target,
-      gl.DEPTH_ATTACHMENT,
-      gl.TEXTURE_2D,
-      this.glDepthTexture.texture,
-      0
-    );
-*/
-    const FBOstatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-    if (FBOstatus !== gl.FRAMEBUFFER_COMPLETE) {
-      console.error("FBOstatus", WebGLNumber[FBOstatus], FBOstatus);
-      console.error("GL_FRAMEBUFFER_COMPLETE failed, CANNOT use Framebuffer");
     }
 
     // UNBIND
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-    this.GL.clear(0, 0, 0, 0);
-  }
+  };
 
   /**
    * Initialize the textures
    *
    */
-  _initTextures() {
-    for (let i = 0; i < this._numTargets; i++) {
-      this._textures.push(this._createTexture());
+  const _initTextures = () => {
+    for (let i = 0; i < _numTargets; i++) {
+      _textures.push(_createTexture());
     }
 
     // depth texture
-    this.glDepthTexture = this._createTexture(
-      WebGLConst.DEPTH_COMPONENT16,
-      WebGLConst.UNSIGNED_INT,
-      WebGLConst.DEPTH_COMPONENT,
-      {
-        minFilter: WebGLConst.NEAREST,
-        magFilter: WebGLConst.NEAREST,
-        mipmap: false,
-      }
-    );
-  }
+    // _glDepthTexture = _createTexture(
+    //   WebGLConst.DEPTH_COMPONENT16,
+    //   WebGLConst.UNSIGNED_SHORT,
+    //   WebGLConst.DEPTH_COMPONENT,
+    //   {
+    //     minFilter: WebGLConst.NEAREST,
+    //     magFilter: WebGLConst.NEAREST,
+    //     mipmap: false,
+    //   }
+    // );
+  };
 
   /**
    * Create texture
@@ -156,8 +142,13 @@ class FrameBuffer {
    * @param {GLenum} mFormat GLenum value of the format
    * @param {object} mParameters the texture parameters
    */
-  _createTexture(mInternalformat, mTexelType, mFormat, mParameters = {}) {
-    const parameters = Object.assign({}, this._parameters);
+  const _createTexture = (
+    mInternalformat,
+    mTexelType,
+    mFormat,
+    mParameters = {}
+  ) => {
+    const parameters = Object.assign({}, _parameters);
 
     if (!mFormat) {
       mFormat = mInternalformat;
@@ -173,129 +164,40 @@ class FrameBuffer {
     }
     Object.assign(parameters, mParameters);
 
-    const texture = new GLTexture(null, parameters, this._width, this._height);
+    const texture = new GLTexture(null, parameters, _width, _height);
+
+    // force to create glTexture
+    texture.createTexture(_GL);
     return texture;
-  }
-
-  /**
-   * Destroy the framebuffer
-   *
-   */
-  destroy() {
-    const { gl } = this.GL;
-
-    // delete all textures
-    // delete depth texture
-    // delete framebuffer
-
-    this.GL.frameBufferCount--;
-  }
+  };
 
   // getter & setters
 
-  get texture() {
-    return this._textures[0];
-  }
-
-  get depthTexture() {
-    return this.glDepthTexture;
-  }
+  /**
+   * Get the first texture
+   *
+   * @returns {GLTexture} the texture
+   */
+  this.__defineGetter__("texture", function() {
+    return _textures[0];
+  });
 
   /**
-   * Set the min filter of the texture
+   * Get the width
    *
-   * @param {GLenum} mValue GLenum value of the min filter
+   * @returns {number} the width
    */
-  set minFilter(mValue) {
-    this._params.minFilter = mValue;
-    this._parametersState.set(MIN_FILTER, 1);
-    webgl2FilterCheck(this._params);
-  }
+  this.__defineGetter__("width", function() {
+    return _width;
+  });
 
   /**
-   * Get the min filter of the texture
+   * Get the height
    *
-   * @returns {GLenum} the min filter value
+   * @returns {number} the height
    */
-  get minFilter() {
-    return this._params.minFilter;
-  }
-
-  /**
-   * Set the mag filter of the texture
-   *
-   * @param {GLenum} mValue GLenum value of the mag filter
-   */
-  set magFilter(mValue) {
-    this._params.magFilter = mValue;
-    this._parametersState.set(MAG_FILTER, 1);
-    webgl2FilterCheck(this._params);
-  }
-
-  /**
-   * Get the mag filter of the texture
-   *
-   * @returns {GLenum} the mag filter value
-   */
-  get magFilter() {
-    return this._params.magFilter;
-  }
-
-  /**
-   * Set the s-coordinate of the wrapping
-   *
-   * @param {GLenum} mValue GLenum value of the wrapping
-   */
-  set wrapS(mValue) {
-    this._params.wrapS = mValue;
-    this._parametersState.set(WRAP_S, 1);
-  }
-
-  /**
-   * Get the s-coordinate of the wrapping
-   *
-   * @returns {GLenum} the value of s-coordinate of the wrapping
-   */
-  get wrapS() {
-    return this._params.wrapS;
-  }
-
-  /**
-   * Set the t-coordinate of the wrapping
-   *
-   * @param {GLenum} mValue GLenum value of the wrapping
-   */
-  set wrapT(mValue) {
-    this._params.wrapT = mValue;
-    this._parametersState.set(WRAP_T, 1);
-  }
-
-  /**
-   * Get the t-coordinate of the wrapping
-   *
-   * @returns {GLenum} the value of t-coordinate of the wrapping
-   */
-  get wrapT() {
-    return this._params.wrapT;
-  }
-
-  /**
-   * Get the width of the texture
-   *
-   * @returns {number} the width of the texture
-   */
-  get width() {
-    return this._width;
-  }
-
-  /**
-   * Get the height of the texture
-   *
-   * @returns {number} the height of the texture
-   */
-  get height() {
-    return this._height;
-  }
+  this.__defineGetter__("height", function() {
+    return _height;
+  });
 }
-
 export { FrameBuffer };

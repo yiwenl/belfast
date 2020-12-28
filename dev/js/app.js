@@ -84,9 +84,9 @@ function _init(mGL) {
   const control = new OrbitalControl(camera, window, 8);
   // control.rx.setTo(-1);
 
-  const fboSize = 512;
-  // const fbo = new FrameBuffer(mGL, fboSize, fboSize);
+  const fboSize = 1024;
   const fbo = new FrameBuffer(fboSize, fboSize);
+  console.log(fbo);
 
   const img = new Image();
   img.addEventListener("load", onImageLoaded);
@@ -159,8 +159,7 @@ function _init(mGL) {
     drawDotsPlane.draw();
 
     fbo.bind(mGL);
-    mGL.clear(1, 1, 1, 1);
-    // mGL.setMatrices(camera);
+    mGL.clear(0, 0, 0, 0);
     mGL.setModelMatrix(container.matrix);
     draw.draw();
     // drawCopy.draw(texture);
@@ -174,11 +173,7 @@ function _init(mGL) {
     drawBall.draw([-1, -1, 0], [s, s, s], [0, 0, 1]);
     drawBall.draw([1, -1, 0], [s, s, s], [1, 1, 0]);
 
-    // GL.viewport(0, 0, mGL.width / 2, mGL.height / 2);
-    // mGL.disable(mGL.DEPTH_TEST);
-    // drawCopy.draw(fbo.texture);
     drawDebug.bindTexture("texture", fbo.texture, 0).draw();
-    // drawDebug.bindTexture("texture", fbo.depthTexture, 0).draw();
 
     s = 100;
     mGL.viewport(0, 0, s, s);
@@ -186,7 +181,7 @@ function _init(mGL) {
     mGL.viewport(s, 0, s, s);
     drawCopy.draw(textureImg);
     mGL.viewport(s * 2, 0, s, s);
-    drawCopy.draw(fbo.texture);
+    // drawCopy.draw(fbo.texture);
     mGL.enable(mGL.DEPTH_TEST);
     // mGL.viewport(s, 0, s, s);
     // drawCopy.draw(fbo.texture);
