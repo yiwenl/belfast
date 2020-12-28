@@ -19,7 +19,7 @@ class GLTexture {
   constructor(mSource, mParam = {}, mWidth = 0, mHeight = 0) {
     this._source = mSource;
     this._isHtmlElement = isSourceHtmlElement(this._source);
-    if (!this._isHtmlElement) {
+    if (!this._isHtmlElement && mSource) {
       if (!checkSource(mSource, mParam)) {
         return;
       }
@@ -43,8 +43,9 @@ class GLTexture {
   bind(mIndex, mGL) {
     if (mGL !== undefined && this.GL !== undefined && mGL !== this.GL) {
       console.error(
-        "this shader has been bind to a different WebGL Rendering Context",
-        this.GL.id
+        "this texture has been bind to a different WebGL Rendering Context",
+        this.GL.id,
+        mGL.id
       );
       return;
     }
@@ -52,15 +53,32 @@ class GLTexture {
     this.GL = mGL || GL;
     const { gl } = this.GL;
 
-    if (!this._texture) {
-      webgl2TextureCheck(this.GL, this._params);
-      this._uploadTexture();
-    }
+    this.createTexture(this.GL);
 
     gl.activeTexture(gl.TEXTURE0 + mIndex);
     gl.bindTexture(gl.TEXTURE_2D, this._texture);
 
     this._checkParameters();
+  }
+
+  /**
+   * Create the texture
+   *
+   */
+  createTexture(mGL) {
+    if (mGL !== undefined && this.GL !== undefined && mGL !== this.GL) {
+      console.error(
+        "this shader has been bind to a different WebGL Rendering Context",
+        this.GL.id
+      );
+      return;
+    }
+
+    this.GL = mGL || GL;
+    if (!this._texture) {
+      webgl2TextureCheck(this.GL, this._params);
+      this._uploadTexture();
+    }
   }
 
   /**
@@ -156,15 +174,17 @@ class GLTexture {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, this._params.wrapT);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, this._premultiplyAlpha);
 
-    const ext = this.GL.extensions["EXT_texture_filter_anisotropic"];
-    if (ext) {
-      const level = this._params.anisotropy || this.GL.maxAnisotropy;
-      gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, level);
-    }
+    // const ext = this.GL.extensions["EXT_texture_filter_anisotropic"];
+    // if (ext) {
+    //   const level = this._params.anisotropy || this.GL.maxAnisotropy;
+    //   gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, level);
+    // }
 
     if (this._generateMipmap) {
       gl.generateMipmap(gl.TEXTURE_2D);
     }
+
+    // gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
   /**
@@ -239,6 +259,15 @@ class GLTexture {
   }
 
   // getter & setters
+
+  /**
+   * Get the glTexture
+   *
+   * @returns {glTexture} the webgl texture
+   */
+  get texture() {
+    return this._texture;
+  }
 
   /**
    * Set the min filter of the texture

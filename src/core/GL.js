@@ -40,6 +40,7 @@ function GLTool() {
   this.shaderCount = 0;
   this.bufferCount = 0;
   this.textureCount = 0;
+  this.frameBufferCount = 0;
 
   this.maxAnisotropy = 0;
 

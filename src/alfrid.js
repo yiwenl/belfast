@@ -18,6 +18,7 @@ export { DrawLine } from "./helper/DrawLine";
 export { DrawBall } from "./helper/DrawBall";
 export { DrawCopy } from "./helper/DrawCopy";
 export { Geom } from "./helper/Geom";
+export { Object3D } from "./helper/Object3D";
 
 // utils
 export { checkWebGL2 } from "./utils/checkWebGL2";

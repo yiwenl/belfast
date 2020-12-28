@@ -4,7 +4,7 @@ import { flatten, getBuffer, getAttribLoc } from "../utils/BufferUtils";
 function Mesh(mDrawType = WebGLConst.TRIANGLES) {
   this.drawType = mDrawType;
 
-  // PRIVATE PROPERTIES
+  // PUBLIC PROPERTIES
   this.isInstanced = false;
   this.numItems = 0;
 

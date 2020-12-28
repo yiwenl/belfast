@@ -1,17 +1,28 @@
+import { GL } from "./GL";
+import { GLTexture } from "./GLTexture";
+import { WebGLNumber } from "../utils/WebGLNumber";
+import { WebGLConst } from "../utils/WebGLConst";
+
 class FrameBuffer {
   constructor(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
     this._width = mWidth;
     this._height = mHeight;
     this._parameters = mParameters;
     this._numTargets = mNumTargets;
+
+    this.frameBuffer;
+    this._textures = [];
+
+    this._initTextures();
   }
 
   /**
    * Bind the frame buffer
    *
    * @param {GL} mGL the GLTool instance
+   * @param {boolean} mAutoSetViewport automatically set the viewport to framebuffer's viewport
    */
-  bind(mGL) {
+  bind(mGL, mAutoSetViewport = true) {
     if (mGL !== undefined && this.GL !== undefined && mGL !== this.GL) {
       console.error(
         "this frame buffer has been bind to a different WebGL Rendering Context",
@@ -29,19 +40,84 @@ class FrameBuffer {
       );
     }
 
-    console.log(
-      "bind Frame buffer:",
-      this.GL.multiRenderTargetSupport,
-      this.GL.maxMultiRenderTargets
-    );
+    if (!this.frameBuffer) {
+      this._initFrameBuffer();
+    }
+
+    if (mAutoSetViewport) {
+      this.GL.viewport(0, 0, this._width, this._height);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
   }
 
   /**
    * Unbind the frame buffer
    *
+   * @param {boolean} mAutoSetViewport automatically set the viewport back to GL's viewport
    */
-  unbind() {
-    return;
+  unbind(mAutoSetViewport = true) {
+    if (mAutoSetViewport) {
+      this.GL.viewport(0, 0, this.GL.width, this.GL.height);
+    }
+    const { gl } = this.GL;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  /**
+   * Initialize the framebuffer
+   *
+   */
+  _initFrameBuffer() {
+    const { gl } = this.GL;
+    this.frameBuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+    this.GL.frameBufferCount++;
+
+    const target = this.GL.webgl2 ? gl.DRAW_FRAMEBUFFER : gl.FRAMEBUFFER;
+
+    // init textures;
+    this._textures.forEach((t) => {
+      t.createTexture(this.GL);
+    });
+    // this.glDepthTexture.createTexture(this.GL);
+
+    const buffers = [];
+    for (let i = 0; i < this._numTargets; i++) {
+      gl.framebufferTexture2D(
+        target,
+        gl.COLOR_ATTACHMENT0 + i,
+        gl.TEXTURE_2D,
+        this._textures[i].texture,
+        0
+      );
+      buffers.push(gl[`COLOR_ATTACHMENT${i}`]);
+    }
+
+    // multi render targets
+    if (this.GL.multiRenderTargetSupport) {
+      gl.drawBuffers(buffers);
+    }
+    /*
+
+    // depth textures
+    gl.framebufferTexture2D(
+      target,
+      gl.DEPTH_ATTACHMENT,
+      gl.TEXTURE_2D,
+      this.glDepthTexture.texture,
+      0
+    );
+*/
+    const FBOstatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (FBOstatus !== gl.FRAMEBUFFER_COMPLETE) {
+      console.error("FBOstatus", WebGLNumber[FBOstatus], FBOstatus);
+      console.error("GL_FRAMEBUFFER_COMPLETE failed, CANNOT use Framebuffer");
+    }
+
+    // UNBIND
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
   /**
@@ -49,10 +125,66 @@ class FrameBuffer {
    *
    */
   _initTextures() {
-    return;
+    for (let i = 0; i < this._numTargets; i++) {
+      this._textures.push(this._createTexture());
+    }
+
+    // depth texture
+    this.glDepthTexture = this._createTexture(
+      WebGLConst.DEPTH_COMPONENT16,
+      WebGLConst.UNSIGNED_INT,
+      WebGLConst.DEPTH_COMPONENT,
+      {
+        minFilter: WebGLConst.NEAREST,
+        magFilter: WebGLConst.NEAREST,
+        mipmap: false,
+      }
+    );
+  }
+
+  /**
+   * Create texture
+   *
+   * @param {GLenum} mInternalformat GLenum value of the internal format
+   * @param {GLenum} mTexelType GLenum value of texel type
+   * @param {GLenum} mFormat GLenum value of the format
+   * @param {object} mParameters the texture parameters
+   */
+  _createTexture(mInternalformat, mTexelType, mFormat, mParameters = {}) {
+    const parameters = Object.assign({}, this._parameters);
+    Object.assign(parameters, mParameters);
+
+    if (!mFormat) {
+      mFormat = mInternalformat;
+    }
+
+    const texture = new GLTexture(null, parameters, this._width, this._height);
+    return texture;
+  }
+
+  /**
+   * Destroy the framebuffer
+   *
+   */
+  destroy() {
+    const { gl } = this.GL;
+
+    // delete all textures
+    // delete depth texture
+    // delete framebuffer
+
+    this.GL.frameBufferCount--;
   }
 
   // getter & setters
+
+  get texture() {
+    return this._textures[0];
+  }
+
+  get depthTexture() {
+    return this.glDepthTexture;
+  }
 
   /**
    * Set the min filter of the texture

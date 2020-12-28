@@ -13,6 +13,7 @@ import {
   OrbitalControl,
   FrameBuffer,
   Geom,
+  Object3D,
   WebGLNumber,
 } from "../../src/alfrid";
 import { vec3, mat4 } from "gl-matrix";
@@ -40,21 +41,27 @@ GL.setSize(window.innerWidth / 2, window.innerHeight);
 const s = 1;
 const mtx = mat4.create();
 mat4.scale(mtx, mtx, [s, s, s]);
+mat4.translate(mtx, mtx, [1, 0, 0]);
 
 const GL2 = new GLTool();
 const ctx2 = canvas2.getContext("webgl");
 GL2.init(ctx2);
 GL2.setSize(window.innerWidth / 2, window.innerHeight);
-console.log(GL, GL2);
 
 const contexts = [GL, GL2];
 
 contexts.forEach((_GL) => _init(_GL));
 
+const parent = new Object3D();
+const container = new Object3D();
+console.log(container);
+parent.addChild(container);
+
 function _init(mGL) {
   const s = 2;
   const draw = new Draw(mGL);
-  draw.useProgram(vs, fs).setMesh(Geom.plane(s, s, 1));
+  // draw.useProgram(vs, fs).setMesh(Geom.plane(s, s, 1));
+  draw.useProgram(vs, fs).setMesh(Geom.cube(s));
 
   // helpers
   const drawAxis = new DrawAxis(mGL);
@@ -114,8 +121,6 @@ function _init(mGL) {
       oParams.type = mGL.FLOAT;
     }
 
-    fbo.bind(mGL);
-
     // texture = new GLTexture(img, oParams);
     texture = new GLTexture(source, oParams, w, h);
     draw.bindTexture("texture", texture, 0);
@@ -131,6 +136,12 @@ function _init(mGL) {
 
   // render();
   function render(mGL) {
+    parent.rotationZ = Scheduler.deltaTime * 0.5;
+    parent.rotationX = -Scheduler.deltaTime * 0.4;
+    container.x = Math.sin(Scheduler.deltaTime);
+    container.y = Math.cos(Scheduler.deltaTime);
+    parent.update();
+
     mGL.viewport(0, 0, mGL.width, mGL.height);
     const g = 0.1;
     if (mGL.webgl2) {
@@ -143,8 +154,11 @@ function _init(mGL) {
     drawAxis.draw();
     drawDotsPlane.draw();
 
-    mGL.setModelMatrix(mtx);
+    // fbo.bind(mGL);
+    // mGL.setModelMatrix(mtx);
+    mGL.setModelMatrix(container.matrix);
     draw.draw();
+    // fbo.unbind();
 
     let s = 0.2;
     drawBall.draw([-1, 1, 0], [s, s, s], [1, 0, 0]);
@@ -152,9 +166,13 @@ function _init(mGL) {
     drawBall.draw([-1, -1, 0], [s, s, s], [0, 0, 1]);
     drawBall.draw([1, -1, 0], [s, s, s], [1, 1, 0]);
 
+    // drawCopy.draw(fbo.texture);
+
     s = 100;
     mGL.viewport(0, 0, s, s);
     drawCopy.draw(texture);
+    // mGL.viewport(s, 0, s, s);
+    // drawCopy.draw(fbo.texture);
   }
 }
 
