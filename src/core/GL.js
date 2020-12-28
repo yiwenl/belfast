@@ -64,10 +64,10 @@ function GLTool() {
       return;
     } else if (mSource instanceof HTMLCanvasElement) {
       this.canvas = mSource;
-      let target = this.webgl2 ? "webgl2" : "webgl1";
+      let target = this.webgl2 ? "webgl2" : "webgl";
       if (mParameters.webgl1) {
         // force using WebGL1
-        target = "webgl1";
+        target = "webgl";
         this.webgl2 = false;
       }
       this.gl = mSource.getContext(target, params);
