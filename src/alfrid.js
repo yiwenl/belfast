@@ -19,6 +19,8 @@ export { DrawBall } from "./helper/DrawBall";
 export { DrawCopy } from "./helper/DrawCopy";
 export { Geom } from "./helper/Geom";
 export { Object3D } from "./helper/Object3D";
+export { FboArray } from "./helper/FboArray";
+export { FboPingPong } from "./helper/FboPingPong";
 
 // utils
 export { checkWebGL2 } from "./utils/checkWebGL2";

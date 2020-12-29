@@ -1,12 +1,12 @@
-// basic.vert
+#version 300 es
 
 precision highp float;
-attribute vec3 aVertexPosition;
-attribute vec3 aExtra;
-attribute vec2 aTextureCoord;
+in vec3 aVertexPosition;
+in vec3 aExtra;
+in vec2 aTextureCoord;
 
-varying vec3 vPosition;
-varying vec3 vExtra;
+out vec3 vPosition;
+out vec3 vExtra;
 
 void main(void) {
     gl_Position = vec4(aTextureCoord, 0.0, 1.0);

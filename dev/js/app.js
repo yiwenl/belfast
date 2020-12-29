@@ -17,7 +17,9 @@ import { vec3, mat4 } from "gl-matrix";
 import Scheduler from "scheduling";
 
 import vsSave from "../shaders/save.vert";
+import vsSave2 from "../shaders/save2.vert";
 import fsSave from "../shaders/save.frag";
+import fsSave2 from "../shaders/save2.frag";
 
 import vsRender from "../shaders/render.vert";
 import fsRender from "../shaders/render.frag";
@@ -46,6 +48,7 @@ GL2.setSize(window.innerWidth / 2, window.innerHeight);
 
 const contexts = [GL, GL2];
 // const contexts = [GL];
+console.log(GL);
 
 contexts.forEach((_GL) => _init(_GL));
 
@@ -62,17 +65,23 @@ function _init(mGL) {
 
   // fbo
   const num = 128;
-  const fbo = new FrameBuffer(num, num, {
-    minFilter: mGL.NEAREST,
-    magFilter: mGL.NEAREST,
-    type: mGL.FLOAT,
-    mipmap: false,
-  });
+  const fbo = new FrameBuffer(
+    num,
+    num,
+    {
+      minFilter: mGL.NEAREST,
+      magFilter: mGL.NEAREST,
+      type: mGL.FLOAT,
+      mipmap: false,
+    },
+    2
+  );
 
   // draw calls
   const meshSave = (() => {
     const positions = [];
     const uvs = [];
+    const extras = [];
     const indices = [];
     const r = 1;
     let count = 0;
@@ -83,6 +92,7 @@ function _init(mGL) {
         vec3.random(v, r);
         vec3.scale(v, v, Math.sqrt(Math.random()) * 3);
         positions.push(v);
+        extras.push([Math.random(), Math.random(), Math.random()]);
         uvs.push([(i / num) * 2 - 1, (j / num) * 2 - 1]);
         indices.push(count);
         count++;
@@ -91,6 +101,7 @@ function _init(mGL) {
 
     const mesh = new Mesh(mGL.POINTS)
       .bufferVertex(positions)
+      .bufferData(extras, "aExtra")
       .bufferTexCoord(uvs)
       .bufferIndex(indices);
 
@@ -99,7 +110,7 @@ function _init(mGL) {
 
   const drawSave = new Draw(mGL)
     .setMesh(meshSave)
-    .useProgram(vsSave, fsSave)
+    .useProgram(mGL.webgl2 ? vsSave2 : vsSave, mGL.webgl2 ? fsSave2 : fsSave)
     .setClearColor(0, 0, 0, 1)
     .bindFrameBuffer(fbo)
     .draw();
@@ -124,7 +135,6 @@ function _init(mGL) {
     return mesh;
   })();
 
-  console.log("meshRender", meshRender);
   const drawRender = new Draw(mGL)
     .setMesh(meshRender)
     .useProgram(vsRender, fsRender);
@@ -153,6 +163,8 @@ function _init(mGL) {
     const s = num;
     mGL.viewport(0, 0, s, s);
     drawCopy.draw(fbo.texture);
+    mGL.viewport(s, 0, s, s);
+    drawCopy.draw(fbo.getTexture(1));
   }
 
   // resize

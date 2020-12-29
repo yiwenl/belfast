@@ -61,6 +61,15 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
   };
 
   /**
+   * Get the texture
+   *
+   * @param {number} mIndex the index of the texture
+   */
+  this.getTexture = function(mIndex = 0) {
+    return _textures[mIndex];
+  };
+
+  /**
    * Destroy the framebuffer
    *
    */
@@ -98,7 +107,7 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
         _textures[i].texture,
         0
       );
-      buffers.push(gl[`COLOR_ATTACHMENT${i}`]);
+      buffers.push(WebGLConst[`COLOR_ATTACHMENT${i}`]);
     }
 
     // multi render targets
