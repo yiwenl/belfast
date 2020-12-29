@@ -26,7 +26,6 @@ export const getTextureParameters = function(mParams, mWidth, mHeight) {
   mParams.premultiplyAlpha =
     mParams.premultiplyAlpha === undefined ? false : mParams.premultiplyAlpha;
   mParams.level = mParams.level || 0;
-
   mParams.type = mParams.type || WebGLConst.UNSIGNED_BYTE;
 
   webgl2FilterCheck(mParams);
@@ -69,19 +68,19 @@ export const webgl2TextureCheck = (mGL, mParams) => {
     return;
   }
 
-  if (mParams.type !== WebGLConst.UNSIGNED_BYTE) {
-    // floating point texture
-    if (mParams.type === WebGLConst.HALF_FLOAT) {
-      /**
-       * enum OES_HALF_FLOAT  !== webgl2.HALF_FLOAT
-       *
-       */
-      mParams.type = mGL.gl.HALF_FLOAT;
-      mParams.internalFormat = WebGLConst.RGBA16F;
-    } else {
-      mParams.internalFormat = WebGLConst.RGBA32F;
-    }
+  // if (mParams.type !== WebGLConst.UNSIGNED_BYTE) {
+  // floating point texture
+  if (mParams.type === WebGLConst.HALF_FLOAT) {
+    /**
+     * enum OES_HALF_FLOAT  !== webgl2.HALF_FLOAT
+     *
+     */
+    mParams.type = mGL.gl.HALF_FLOAT;
+    mParams.internalFormat = WebGLConst.RGBA16F;
+  } else if (mParams.type === WebGLConst.FLOAT) {
+    mParams.internalFormat = WebGLConst.RGBA32F;
   }
+  // }
 };
 
 export const webgl2FilterCheck = (mParams) => {

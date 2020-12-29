@@ -106,6 +106,15 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
       gl.drawBuffers(buffers);
     }
 
+    // depth texture
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.DEPTH_ATTACHMENT,
+      gl.TEXTURE_2D,
+      _glDepthTexture.texture,
+      0
+    );
+
     // UNBIND
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
@@ -121,17 +130,23 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
       _textures.push(_createTexture());
     }
 
+    const { gl } = _GL;
+
+    const internalFormat = _GL.webgl2
+      ? gl.DEPTH_COMPONENT16
+      : gl.DEPTH_COMPONENT;
+
     // depth texture
-    // _glDepthTexture = _createTexture(
-    //   WebGLConst.DEPTH_COMPONENT16,
-    //   WebGLConst.UNSIGNED_SHORT,
-    //   WebGLConst.DEPTH_COMPONENT,
-    //   {
-    //     minFilter: WebGLConst.NEAREST,
-    //     magFilter: WebGLConst.NEAREST,
-    //     mipmap: false,
-    //   }
-    // );
+    _glDepthTexture = _createTexture(
+      internalFormat,
+      WebGLConst.UNSIGNED_INT,
+      WebGLConst.DEPTH_COMPONENT,
+      {
+        minFilter: WebGLConst.NEAREST,
+        magFilter: WebGLConst.NEAREST,
+        mipmap: false,
+      }
+    );
   };
 
   /**
@@ -158,7 +173,10 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
     parameters.format = mFormat || WebGLConst.RGBA;
 
     parameters.type = parameters.type || mTexelType || WebGLConst.UNSIGNED_BYTE;
-    if (mTexelType === WebGLConst.UNSIGNED_SHORT) {
+    if (
+      mTexelType === WebGLConst.UNSIGNED_SHORT ||
+      mTexelType === WebGLConst.UNSIGNED_INT
+    ) {
       // fix for depth textures
       parameters.type = mTexelType;
     }
@@ -180,6 +198,15 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
    */
   this.__defineGetter__("texture", function() {
     return _textures[0];
+  });
+
+  /**
+   * Get the depth texture
+   *
+   * @returns {GLTexture} the depth texture
+   */
+  this.__defineGetter__("depthTexture", function() {
+    return _glDepthTexture;
   });
 
   /**

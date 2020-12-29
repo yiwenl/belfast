@@ -35,7 +35,9 @@ const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
 document.body.appendChild(canvas1);
 document.body.appendChild(canvas2);
-GL.init(canvas1);
+
+const webgl1 = false;
+GL.init(canvas1, { webgl1 });
 GL.setSize(window.innerWidth / 2, window.innerHeight);
 
 const s = 1;
@@ -73,12 +75,7 @@ function _init(mGL) {
     .setMesh(Geom.plane(s, s, 1));
 
   // camera
-  const camera = new CameraPerspective(
-    Math.PI / 2,
-    GL.getAspectRatio(),
-    0.1,
-    100
-  );
+  const camera = new CameraPerspective(Math.PI / 2, GL.getAspectRatio(), 1, 10);
 
   camera.lookAt([2, 2, 5], [0, 0, 0], [0, 1, 0]);
   const control = new OrbitalControl(camera, window, 8);
@@ -181,7 +178,7 @@ function _init(mGL) {
     mGL.viewport(s, 0, s, s);
     drawCopy.draw(textureImg);
     mGL.viewport(s * 2, 0, s, s);
-    // drawCopy.draw(fbo.texture);
+    drawCopy.draw(fbo.depthTexture);
     mGL.enable(mGL.DEPTH_TEST);
     // mGL.viewport(s, 0, s, s);
     // drawCopy.draw(fbo.texture);
