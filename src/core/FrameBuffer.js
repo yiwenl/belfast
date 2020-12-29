@@ -171,8 +171,7 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
 
     parameters.internalFormat = mInternalformat || WebGLConst.RGBA;
     parameters.format = mFormat || WebGLConst.RGBA;
-
-    parameters.type = parameters.type || mTexelType || WebGLConst.UNSIGNED_BYTE;
+    parameters.type = mTexelType || parameters.type;
     // if (
     //   mTexelType === WebGLConst.UNSIGNED_SHORT ||
     //   mTexelType === WebGLConst.UNSIGNED_INT

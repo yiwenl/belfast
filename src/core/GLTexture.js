@@ -96,6 +96,9 @@ class GLTexture {
    *
    */
   generateMipmap() {
+    if (!this._generateMipmap) {
+      return;
+    }
     const { gl } = this.GL;
     gl.bindTexture(gl.TEXTURE_2D, this._texture);
     gl.generateMipmap(gl.TEXTURE_2D);

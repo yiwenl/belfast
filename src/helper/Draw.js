@@ -134,7 +134,7 @@ class Draw {
     return this;
   }
 
-  bindFramebuffer(fbo) {
+  bindFrameBuffer(fbo) {
     this._fbo = fbo;
     return this;
   }
@@ -151,7 +151,7 @@ class Draw {
 
     if (this._fbo) {
       const { r, g, b, a } = this._clearColor;
-      this._fbo.bind();
+      this._fbo.bind(this._GL);
       this._GL.clear(r, g, b, a);
     }
 
