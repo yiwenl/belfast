@@ -78,7 +78,7 @@ function _init(mGL) {
   const camera = new CameraPerspective(Math.PI / 2, GL.getAspectRatio(), 1, 10);
 
   camera.lookAt([2, 2, 5], [0, 0, 0], [0, 1, 0]);
-  const control = new OrbitalControl(camera, window, 8);
+  const control = new OrbitalControl(camera, window, 5);
   // control.rx.setTo(-1);
 
   const fboSize = 1024;

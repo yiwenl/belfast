@@ -12,7 +12,7 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
   const _parameters = mParameters;
   const _numTargets = mNumTargets;
   const _textures = [];
-  let _glDepthTexture;
+  let _depthTexture;
 
   /**
    * Bind the frame buffer
@@ -111,7 +111,7 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
       gl.FRAMEBUFFER,
       gl.DEPTH_ATTACHMENT,
       gl.TEXTURE_2D,
-      _glDepthTexture.texture,
+      _depthTexture.texture,
       0
     );
 
@@ -137,7 +137,7 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
       : gl.DEPTH_COMPONENT;
 
     // depth texture
-    _glDepthTexture = _createTexture(
+    _depthTexture = _createTexture(
       internalFormat,
       WebGLConst.UNSIGNED_INT,
       WebGLConst.DEPTH_COMPONENT,
@@ -173,13 +173,13 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
     parameters.format = mFormat || WebGLConst.RGBA;
 
     parameters.type = parameters.type || mTexelType || WebGLConst.UNSIGNED_BYTE;
-    if (
-      mTexelType === WebGLConst.UNSIGNED_SHORT ||
-      mTexelType === WebGLConst.UNSIGNED_INT
-    ) {
-      // fix for depth textures
-      parameters.type = mTexelType;
-    }
+    // if (
+    //   mTexelType === WebGLConst.UNSIGNED_SHORT ||
+    //   mTexelType === WebGLConst.UNSIGNED_INT
+    // ) {
+    //   // fix for depth textures
+    //   parameters.type = mTexelType;
+    // }
     Object.assign(parameters, mParameters);
 
     const texture = new GLTexture(null, parameters, _width, _height);
@@ -206,7 +206,7 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
    * @returns {GLTexture} the depth texture
    */
   this.__defineGetter__("depthTexture", function() {
-    return _glDepthTexture;
+    return _depthTexture;
   });
 
   /**
