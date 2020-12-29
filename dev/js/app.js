@@ -19,6 +19,9 @@ import Scheduler from "scheduling";
 import vsSave from "../shaders/save.vert";
 import fsSave from "../shaders/save.frag";
 
+import vsRender from "../shaders/render.vert";
+import fsRender from "../shaders/render.frag";
+
 const randomFloor = (v) => {
   return Math.floor(Math.random() * v);
 };
@@ -66,19 +69,19 @@ function _init(mGL) {
     mipmap: false,
   });
 
-  // draw
-
+  // draw calls
   const meshSave = (() => {
     const positions = [];
     const uvs = [];
     const indices = [];
-    const r = 4;
+    const r = 1;
     let count = 0;
 
     for (let i = 0; i < num; i++) {
       for (let j = 0; j < num; j++) {
         const v = vec3.create();
         vec3.random(v, r);
+        vec3.scale(v, v, Math.sqrt(Math.random()) * 3);
         positions.push(v);
         uvs.push([(i / num) * 2 - 1, (j / num) * 2 - 1]);
         indices.push(count);
@@ -101,6 +104,31 @@ function _init(mGL) {
     .bindFrameBuffer(fbo)
     .draw();
 
+  const meshRender = (() => {
+    const positions = [];
+    const indices = [];
+    let count = 0;
+
+    for (let i = 0; i < num; i++) {
+      for (let j = 0; j < num; j++) {
+        positions.push([i / num, j / num, Math.random()]);
+        indices.push(count);
+        count++;
+      }
+    }
+
+    const mesh = new Mesh(mGL.POINTS)
+      .bufferVertex(positions)
+      .bufferIndex(indices);
+
+    return mesh;
+  })();
+
+  console.log("meshRender", meshRender);
+  const drawRender = new Draw(mGL)
+    .setMesh(meshRender)
+    .useProgram(vsRender, fsRender);
+
   Scheduler.addEF(() => render(mGL));
 
   // render();
@@ -117,7 +145,13 @@ function _init(mGL) {
     drawAxis.draw();
     drawDotsPlane.draw();
 
-    mGL.viewport(0, 0, num, num);
+    drawRender
+      .bindTexture("texturePos", fbo.texture, 0)
+      .uniform("uViewport", [mGL.width, mGL.height])
+      .draw();
+
+    const s = num;
+    mGL.viewport(0, 0, s, s);
     drawCopy.draw(fbo.texture);
   }
 
