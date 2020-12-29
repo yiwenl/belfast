@@ -74,13 +74,18 @@ function FrameBuffer(mWidth, mHeight, mParameters = {}, mNumTargets = 1) {
    *
    */
   this.destroy = function() {
-    const { gl } = this.GL;
+    const { gl } = _GL;
 
     // delete all textures
-    // delete depth texture
-    // delete framebuffer
+    _textures.forEach((t) => t.destroy());
 
-    this.GL.frameBufferCount--;
+    // delete depth texture
+    _depthTexture.destroy();
+
+    // delete framebuffer
+    gl.deleteFramebuffer(_frameBuffer);
+
+    _GL.frameBufferCount--;
   };
 
   /**
