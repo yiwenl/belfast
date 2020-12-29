@@ -9,10 +9,12 @@ const extensionsWebGL1 = [
   "OES_texture_float_linear",
   "OES_texture_half_float_linear",
   "OES_standard_derivatives",
-  "WEBGL_depth_texture",
   "EXT_texture_filter_anisotropic",
+  "EXT_color_buffer_half_float",
   "OES_vertex_array_object",
+  "WEBGL_depth_texture",
   "ANGLE_instanced_arrays",
+  "WEBGL_color_buffer_float",
   "WEBGL_draw_buffers",
 ];
 
