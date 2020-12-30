@@ -28,7 +28,6 @@ class GLTexture {
     this._getDimension(mSource, mWidth, mHeight);
     this._params = getTextureParameters(mParam, this._width, this._height);
     this._checkMipmap();
-    // this.showParameters();
 
     // states
     this._parametersState = new BitSwitch(0);
@@ -368,46 +367,5 @@ class GLTexture {
     return this._height;
   }
 }
-
-/**
- * create canvas with a solid color
- *
- * @param {GLenum} mValue the color value
- */
-const getCanvas = (mColor) => {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 2;
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = mColor;
-  ctx.fillRect(0, 0, 2, 2);
-  return canvas;
-};
-
-/**
- * Get a pure white texture
- *
- * @returns {GLTexture} the texture
- */
-GLTexture.whiteTexture = function whiteTexture() {
-  return new GLTexture(getCanvas("#fff"));
-};
-
-/**
- * Get a grey texture
- *
- * @returns {GLTexture} the texture
- */
-GLTexture.greyTexture = function greyTexture() {
-  return new GLTexture(getCanvas("rgb(127, 127, 127)"));
-};
-
-/**
- * Get a pure black texture
- *
- * @returns {GLTexture} the texture
- */
-GLTexture.blackTexture = function blackTexture() {
-  return new GLTexture(getCanvas("#000"));
-};
 
 export { GLTexture };

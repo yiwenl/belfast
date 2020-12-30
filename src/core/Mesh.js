@@ -5,13 +5,14 @@ function Mesh(mDrawType = WebGLConst.TRIANGLES) {
   this.drawType = mDrawType;
 
   // PUBLIC PROPERTIES
-  this.isInstanced = false;
   this.numItems = 0;
 
   // PRIVATE PROPERTIES
   let _attributes = [];
   let _bufferChanged = [];
+  let _faces = [];
   let _hasIndexBufferChanged = true;
+  let _isInstanced = false;
 
   let _vao;
   let _usage;
@@ -165,6 +166,34 @@ function Mesh(mDrawType = WebGLConst.TRIANGLES) {
   };
 
   /**
+   * Compute the face data of the mesh
+   *
+   */
+  this.generateFaces = function() {
+    let ia, ib, ic;
+    let a, b, c;
+    const { vertices } = this;
+    console.log(vertices);
+
+    for (let i = 0; i < _indices.length; i += 3) {
+      ia = _indices[i];
+      ib = _indices[i + 1];
+      ic = _indices[i + 2];
+
+      a = vertices[ia];
+      b = vertices[ib];
+      c = vertices[ic];
+
+      const face = {
+        indices: [ia, ib, ic],
+        vertices: [a, b, c],
+      };
+
+      _faces.push(face);
+    }
+  };
+
+  /**
    * Destroy all buffers
    *
    */
@@ -189,6 +218,61 @@ function Mesh(mDrawType = WebGLConst.TRIANGLES) {
     // _enabledVertexAttribute = [];
   };
 
+  // getters and setters
+  /**
+   * Get the vertices data
+   *
+   * @returns {array} the vetices data
+   */
+  this.__defineGetter__("vertices", function() {
+    return this.getSource("aVertexPosition");
+  });
+
+  /**
+   * Get the texture coordinate data
+   *
+   * @returns {array} the texture coordinate data
+   */
+  this.__defineGetter__("coords", function() {
+    return this.getSource("aTextureCoord");
+  });
+
+  /**
+   * Get the normal data
+   *
+   * @returns {array} the normal data
+   */
+  this.__defineGetter__("normal", function() {
+    return this.getSource("aNormal");
+  });
+
+  /**
+   * Get the indices data
+   *
+   * @returns {array} the indices data
+   */
+  this.__defineGetter__("indices", function() {
+    return _indices;
+  });
+
+  /**
+   * Get the face data
+   *
+   * @returns {array} the face data
+   */
+  this.__defineGetter__("faces", function() {
+    return _faces;
+  });
+
+  /**
+   * Get if the mesh has instance rendering
+   *
+   * @returns {bool} if has instances
+   */
+  this.__defineGetter__("isInstanced", function() {
+    return _isInstanced;
+  });
+
   /**
    * add or update an attribute
    *
@@ -207,7 +291,7 @@ function Mesh(mDrawType = WebGLConst.TRIANGLES) {
     isInstanced = false
   ) => {
     const usage = mUsage;
-    this.isInstanced = isInstanced || this.isInstanced;
+    _isInstanced = isInstanced || _isInstanced;
 
     const dataArray = new Float32Array(mData);
     const attribute = this.getAttribute(mName);

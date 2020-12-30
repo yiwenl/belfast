@@ -35,6 +35,24 @@ export const equals = (a, b) => {
   });
   return _isEqual;
 };
+
+export const getMouse = (e) => {
+  let x, y;
+
+  if (e.touches) {
+    x = e.touches[0].pageX;
+    y = e.touches[0].pageY;
+  } else {
+    x = e.clientX;
+    y = e.clientY;
+  }
+
+  return {
+    x,
+    y,
+  };
+};
+
 /*
 mat4.log = function(m) {
   const a = [];
