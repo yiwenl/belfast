@@ -35,8 +35,6 @@ const contexts = [GL, GL2];
 console.log(GL);
 
 const ray = new Ray([0, 0, 0], [1, 1, 1]);
-console.log(ray);
-
 contexts.forEach((_GL) => _init(_GL));
 
 function _init(mGL) {
@@ -53,9 +51,7 @@ function _init(mGL) {
 
   // plane
   const mesh = Geom.plane(1, 1, 1);
-  console.log(mesh);
   mesh.generateFaces();
-  console.log(mesh.faces);
 
   Scheduler.addEF(() => render(mGL));
 

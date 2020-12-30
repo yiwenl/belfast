@@ -173,7 +173,6 @@ function Mesh(mDrawType = WebGLConst.TRIANGLES) {
     let ia, ib, ic;
     let a, b, c;
     const { vertices } = this;
-    console.log(vertices);
 
     for (let i = 0; i < _indices.length; i += 3) {
       ia = _indices[i];
