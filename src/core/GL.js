@@ -13,6 +13,10 @@ function GLTool() {
   let _aspectRatio = 0;
   let _shader;
   let _camera;
+  let _width = 0;
+  let _height = 0;
+  let _webgl2 = checkWebGL2();
+  let _isMobile = isMobile;
 
   // matrices
   let _matrixStacks = [];
@@ -27,10 +31,6 @@ function GLTool() {
   this.id = `WebGLContext${_idTable++}`;
   this.canvas;
   this.gl;
-  this.width = 0;
-  this.height = 0;
-  this.webgl2 = checkWebGL2();
-  this.isMobile = isMobile;
 
   // EVENTS
   this.CONTEXT_LOST = "contextLost";
@@ -64,20 +64,20 @@ function GLTool() {
       return;
     } else if (mSource instanceof HTMLCanvasElement) {
       this.canvas = mSource;
-      let target = this.webgl2 ? "webgl2" : "webgl";
+      let target = _webgl2 ? "webgl2" : "webgl";
       if (mParameters.webgl1) {
         // force using WebGL1
         target = "webgl";
-        this.webgl2 = false;
+        _webgl2 = false;
       }
       this.gl = mSource.getContext(target, params);
     } else {
       if (mSource instanceof WebGL2RenderingContext) {
-        this.webgl2 = true;
+        _webgl2 = true;
         this.gl = mSource;
         this.canvas = mSource.canvas;
       } else if (mSource instanceof WebGLRenderingContext) {
-        this.webgl2 = false;
+        _webgl2 = false;
         this.gl = mSource;
         this.canvas = mSource.canvas;
       } else {
@@ -129,17 +129,17 @@ function GLTool() {
   /**
    * Set WebGL size
    *
-   * @param {number} mWidth the width
+   * @param {number} mWidth the _width
    * @param {number} mHeight the height
    */
   this.setSize = function(mWidth, mHeight) {
-    this.width = Math.floor(mWidth);
-    this.height = Math.floor(mHeight);
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
-    _aspectRatio = this.width / this.height;
+    _width = Math.floor(mWidth);
+    _height = Math.floor(mHeight);
+    this.canvas.width = _width;
+    this.canvas.height = _height;
+    _aspectRatio = _width / _height;
 
-    this.viewport(0, 0, this.width, this.height);
+    this.viewport(0, 0, this._width, _height);
   };
 
   /**
@@ -315,6 +315,44 @@ function GLTool() {
       this.canvas.parentNode.removeChild(this.canvas);
     }
   };
+
+  // getter and setters
+
+  /**
+   * Get the width of the WebGLContext
+   *
+   * @returns {number} the width
+   */
+  this.__defineGetter__("width", function() {
+    return _width;
+  });
+
+  /**
+   * Get the height of the WebGLContext
+   *
+   * @returns {number} the height
+   */
+  this.__defineGetter__("height", function() {
+    return _height;
+  });
+
+  /**
+   * Get if the context is WebGL 2 rendering context
+   *
+   * @returns {bool} if context is WebGL 2
+   */
+  this.__defineGetter__("webgl2", function() {
+    return _webgl2;
+  });
+
+  /**
+   * Get if it's running on a mobile browser
+   *
+   * @returns {bool} if is mobile browser
+   */
+  this.__defineGetter__("isMobile", function() {
+    return _isMobile;
+  });
 
   /**
    * Setup the default matrices uniforms of the camera
