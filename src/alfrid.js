@@ -10,6 +10,9 @@ export { Camera } from "./camera/Camera";
 export { CameraOrtho } from "./camera/CameraOrtho";
 export { CameraPerspective } from "./camera/CameraPerspective";
 
+// maths
+export { Ray } from "./math/Ray";
+
 // helpers
 export { Draw } from "./helper/Draw";
 export { DrawAxis } from "./helper/DrawAxis";
