@@ -1,14 +1,32 @@
-import { GL, Scene, FboPingPong, DrawAxis, DrawDotsPlane } from "alfrid";
+import {
+  GL,
+  Scene,
+  FboPingPong,
+  Draw,
+  DrawAxis,
+  DrawDotsPlane,
+  DrawCopy,
+  ShaderLibs,
+  Geom,
+} from "alfrid";
 import Config from "./Config";
+import Scheduler from "scheduling";
+
+// draw calls
+import DrawSave from "./DrawSave";
+import DrawRender from "./DrawRender";
+
+// shaders
+import vsSim from "shaders/sim.vert";
+import fsSim from "shaders/sim.frag";
 
 class SceneApp extends Scene {
   constructor() {
     super();
 
     this.orbitalControl.rx.value = this.orbitalControl.ry.value = 0.3;
+    this.orbitalControl.radius.value = 15;
     this.resize();
-
-    console.log(GL);
   }
 
   _initTextures() {
@@ -19,6 +37,7 @@ class SceneApp extends Scene {
       type: GL.FLOAT,
       minFilter: GL.NEAREST,
       magFilter: GL.NEAREST,
+      mipmap: false,
     };
 
     this._fbo = new FboPingPong(num, num, oSettings, 4);
@@ -29,11 +48,29 @@ class SceneApp extends Scene {
 
     this._dAxis = new DrawAxis();
     this._dDots = new DrawDotsPlane();
+    this._dCopy = new DrawCopy();
 
-    console.log(GL.width, GL.height);
+    const drawSave = new DrawSave();
+    drawSave.bindFrameBuffer(this._fbo.read).draw();
+
+    this._drawRender = new DrawRender();
+    this._drawSim = new Draw()
+      .setMesh(Geom.bigTriangle())
+      .useProgram(vsSim, fsSim);
   }
 
-  update() {}
+  update() {
+    this._drawSim
+      .bindFrameBuffer(this._fbo.write)
+      .bindTexture("texturePos", this._fbo.read.getTexture(0), 0)
+      .bindTexture("textureVel", this._fbo.read.getTexture(1), 1)
+      .bindTexture("textureExtra", this._fbo.read.getTexture(2), 2)
+      .bindTexture("textureLife", this._fbo.read.getTexture(3), 3)
+      .uniform("uTime", Scheduler.deltaTime)
+      .draw();
+
+    this._fbo.swap();
+  }
 
   render() {
     GL.viewport(0, 0, window.innerWidth, window.innerHeight);
@@ -41,11 +78,19 @@ class SceneApp extends Scene {
 
     this._dAxis.draw();
     this._dDots.draw();
-  }
 
-  resize() {
-    console.log("this._GL.aspectRatio", this._GL.aspectRatio);
-    GL.setSize(window.innerWidth, window.innerHeight);
+    this._drawRender
+      .uniform("uViewport", [GL.width, GL.height])
+      .bindTexture("texturePos", this._fbo.read.getTexture(0), 0)
+      .draw();
+
+    const s = GL.isMobile ? 64 : 128;
+    GL.viewport(0, 0, s, s);
+    this._dCopy.draw(this._fbo.read.getTexture(0));
+    GL.viewport(s, 0, s, s);
+    this._dCopy.draw(this._fbo.read.getTexture(2));
+    GL.viewport(s * 2, 0, s, s);
+    this._dCopy.draw(this._fbo.read.getTexture(3));
   }
 }
 
