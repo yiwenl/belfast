@@ -129,7 +129,7 @@ function GLTool() {
   /**
    * Set WebGL size
    *
-   * @param {number} mWidth the _width
+   * @param {number} mWidth the width
    * @param {number} mHeight the height
    */
   this.setSize = function(mWidth, mHeight) {
@@ -139,7 +139,7 @@ function GLTool() {
     this.canvas.height = _height;
     _aspectRatio = _width / _height;
 
-    this.viewport(0, 0, this._width, _height);
+    this.viewport(0, 0, _width, _height);
   };
 
   /**
@@ -352,6 +352,15 @@ function GLTool() {
    */
   this.__defineGetter__("isMobile", function() {
     return _isMobile;
+  });
+
+  /**
+   * Get WebGL context's aspect ratio
+   *
+   * @returns {number} the aspect ratio
+   */
+  this.__defineGetter__("aspectRatio", function() {
+    return _aspectRatio;
   });
 
   /**
