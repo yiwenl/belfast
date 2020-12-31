@@ -5,6 +5,7 @@ import {
   GLTool,
   Geom,
   CameraPerspective,
+  Draw,
   DrawAxis,
   DrawDotsPlane,
   DrawCopy,
@@ -15,6 +16,9 @@ import {
 } from "../../src/alfrid";
 import { vec3, mat4 } from "gl-matrix";
 import Scheduler from "scheduling";
+
+import vs from "../shaders/test.vert";
+import fs from "../shaders/test.frag";
 
 const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
@@ -34,7 +38,6 @@ const contexts = [GL, GL2];
 // const contexts = [GL];
 console.log(GL);
 
-const ray = new Ray([0, 0, 0], [1, 1, 1]);
 contexts.forEach((_GL) => _init(_GL));
 
 function _init(mGL) {
@@ -48,10 +51,26 @@ function _init(mGL) {
   // camera
   const camera = new CameraPerspective(Math.PI / 2, GL.getAspectRatio(), 1, 10);
   const control = new OrbitalControl(camera, window, 5);
+  control.rx.value = control.ry.value = 0.3;
+
+  const camera1 = new CameraPerspective(
+    Math.PI / 2,
+    GL.getAspectRatio(),
+    1,
+    10
+  );
+  camera1.lookAt([2, 2, 2], [0, 1, 0]);
+
+  const ray = camera1.generateRay([0, 0, 0]);
+  console.log(ray.origin, ray.direction);
 
   // plane
-  const mesh = Geom.plane(1, 1, 1);
+  const s = 5;
+  const mesh = Geom.plane(s, s, 1);
   mesh.generateFaces();
+
+  const draw = new Draw(mGL).setMesh(mesh).useProgram(vs, fs);
+  const hit = vec3.create();
 
   Scheduler.addEF(() => render(mGL));
 
@@ -72,6 +91,13 @@ function _init(mGL) {
     drawAxis.draw();
     drawDotsPlane.draw();
     drawLine.draw(ray.origin, t, [1, 1, 0]);
+
+    const s = 0.1;
+    drawBall.draw(hit, [s, s, s], [1, 1, 1]);
+    // drawBall.draw(camera1.position, [s, s, s], [0, 0, 1]);
+    drawBall.draw(ray.origin, [s, s, s], [0, 0, 1]);
+
+    draw.draw();
   }
 
   // resize
