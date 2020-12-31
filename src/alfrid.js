@@ -33,6 +33,7 @@ export { SpringNumber } from "./utils/SpringNumber";
 export { OrbitalControl } from "./utils/OrbitalControl";
 export { BitSwitch } from "./utils/BitSwitch";
 export { HitTestor } from "./utils/HitTestor";
+export { Scene } from "./utils/Scene";
 
 export { WebGLNumber } from "./utils/WebGLNumber";
 export { WebGLConst } from "./utils/WebGLConst";
