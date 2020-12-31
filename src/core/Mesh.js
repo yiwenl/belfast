@@ -170,6 +170,7 @@ function Mesh(mDrawType = WebGLConst.TRIANGLES) {
    *
    */
   this.generateFaces = function() {
+    _faces = [];
     let ia, ib, ic;
     let a, b, c;
     const { vertices } = this;
