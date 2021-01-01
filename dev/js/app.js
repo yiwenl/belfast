@@ -12,7 +12,6 @@ import {
   DrawBall,
   DrawLine,
   OrbitalControl,
-  HitTestor,
 } from "../../src/alfrid";
 import { vec3, mat4 } from "gl-matrix";
 import Scheduler from "scheduling";
@@ -34,8 +33,8 @@ const ctx2 = canvas2.getContext("webgl");
 GL2.init(ctx2);
 GL2.setSize(window.innerWidth / 2, window.innerHeight);
 
-// const contexts = [GL, GL2];
-const contexts = [GL];
+const contexts = [GL, GL2];
+// const contexts = [GL];
 console.log(GL);
 
 contexts.forEach((_GL) => _init(_GL));
@@ -49,23 +48,29 @@ function _init(mGL) {
   const drawLine = new DrawLine(mGL);
 
   // camera
-  const camera = new CameraPerspective(Math.PI / 2, GL.getAspectRatio(), 1, 10);
+  const camera = new CameraPerspective(
+    Math.PI / 2,
+    GL.getAspectRatio(),
+    0.1,
+    50
+  );
   const control = new OrbitalControl(camera, window, 5);
   control.rx.value = control.ry.value = 0.3;
 
   // plane
-  const s = 5;
+  const s = 0.5;
   const mesh = Geom.plane(s, s, 1);
-  mesh.generateFaces();
-
+  const posOffsets = [];
+  const num = 100;
+  let i = num;
+  while (i--) {
+    const v = vec3.create();
+    vec3.random(v, 3);
+    posOffsets.push(v);
+  }
+  // console.table(posOffsets);
+  mesh.bufferInstance(posOffsets, "aPosOffset");
   const draw = new Draw(mGL).setMesh(mesh).useProgram(vs, fs);
-  const hit = vec3.create();
-
-  // hit testor
-  const hitTestor = new HitTestor(mesh, camera);
-  hitTestor.on("onHit", (o) => {
-    vec3.copy(hit, o.hit);
-  });
 
   Scheduler.addEF(() => render(mGL));
 
@@ -82,10 +87,6 @@ function _init(mGL) {
     mGL.setMatrices(camera);
     drawAxis.draw();
     drawDotsPlane.draw();
-
-    const s = 0.1;
-    drawBall.draw(hit, [s, s, s], [1, 1, 1]);
-
     draw.draw();
   }
 
@@ -94,7 +95,7 @@ function _init(mGL) {
   resize();
 
   function resize() {
-    mGL.setSize(window.innerWidth, window.innerHeight);
+    mGL.setSize(window.innerWidth / 2, window.innerHeight);
     camera.setAspectRatio(mGL.getAspectRatio());
   }
 }

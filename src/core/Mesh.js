@@ -13,6 +13,7 @@ function Mesh(mDrawType = WebGLConst.TRIANGLES) {
   let _faces = [];
   let _hasIndexBufferChanged = true;
   let _isInstanced = false;
+  let _numInstance = 0;
 
   let _vao;
   let _usage;
@@ -65,6 +66,27 @@ function Mesh(mDrawType = WebGLConst.TRIANGLES) {
       itemSize,
       mUsage,
       isInstanced
+    );
+  };
+
+  /**
+   * Add an instanced attribute
+   *
+   * @param {array} mData the data
+   * @param {GLenum} mName the name of the attribute
+   */
+  this.bufferInstance = function(mData, mName) {
+    // Assumption that mData is array of array
+    // worth checking for full proof ?
+    const itemSize = mData[0].length;
+    _numInstance = mData.length;
+
+    return this.bufferData(
+      mData,
+      mName,
+      itemSize,
+      WebGLConst.STATIC_DRAW,
+      true
     );
   };
 
@@ -271,6 +293,15 @@ function Mesh(mDrawType = WebGLConst.TRIANGLES) {
    */
   this.__defineGetter__("isInstanced", function() {
     return _isInstanced;
+  });
+
+  /**
+   * Get the number of instances
+   *
+   * @returns {number} if has instances
+   */
+  this.__defineGetter__("numInstance", function() {
+    return _numInstance;
   });
 
   /**
