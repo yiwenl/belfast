@@ -11,6 +11,7 @@ import {
   DrawCopy,
   DrawBall,
   DrawLine,
+  DrawCamera,
   OrbitalControl,
 } from "../../src/alfrid";
 import { vec3, mat4 } from "gl-matrix";
@@ -46,19 +47,17 @@ function _init(mGL) {
   const drawCopy = new DrawCopy(mGL);
   const drawBall = new DrawBall(mGL);
   const drawLine = new DrawLine(mGL);
+  const drawCamera = new DrawCamera(mGL);
 
   // camera
-  const camera = new CameraPerspective(
-    Math.PI / 2,
-    GL.getAspectRatio(),
-    0.1,
-    50
-  );
+  const camera = new CameraPerspective(Math.PI / 2, GL.getAspectRatio(), 1, 50);
+  const camera1 = new CameraPerspective(Math.PI / 2, GL.getAspectRatio(), 1, 5);
   const control = new OrbitalControl(camera, window, 5);
   control.rx.value = control.ry.value = 0.3;
+  camera1.lookAt([2, 2, 2], [0, 0, 0]);
 
   // plane
-  const s = 0.5;
+  const s = 0.05;
   const mesh = Geom.plane(s, s, 1);
   const posOffsets = [];
   const num = 100;
@@ -87,7 +86,11 @@ function _init(mGL) {
     mGL.setMatrices(camera);
     drawAxis.draw();
     drawDotsPlane.draw();
-    draw.draw();
+    // draw.draw();
+
+    const s = 0.1;
+    drawCamera.draw(camera1, [1, 0.5, 0]);
+    drawBall.draw([2, 2, 2], [s, s, s], [1, 0, 0]);
   }
 
   // resize

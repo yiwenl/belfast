@@ -20,6 +20,7 @@ export { DrawDotsPlane } from "./helper/DrawDotsPlane";
 export { DrawLine } from "./helper/DrawLine";
 export { DrawBall } from "./helper/DrawBall";
 export { DrawCopy } from "./helper/DrawCopy";
+export { DrawCamera } from "./helper/DrawCamera";
 export { Geom } from "./helper/Geom";
 export { Object3D } from "./helper/Object3D";
 export { FboArray } from "./helper/FboArray";
