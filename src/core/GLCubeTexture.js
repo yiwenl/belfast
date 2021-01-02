@@ -95,9 +95,12 @@ class GLCubeTexture {
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, this._texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 
+    let w = this._width;
+    let h = this._height;
+
     for (let level = 0; level < numLevels; level++) {
       targets.forEach((target, i) => {
-        index = level * numLevels + i;
+        index = i * numLevels + level;
 
         if (this._isHtmlElement && !this.GL.webgl2) {
           gl.texImage2D(
@@ -113,8 +116,8 @@ class GLCubeTexture {
             target,
             level,
             this._params.internalFormat,
-            this._width,
-            this._height,
+            w,
+            h,
             0,
             this._params.format,
             this._params.type,
@@ -122,6 +125,9 @@ class GLCubeTexture {
           );
         }
       });
+
+      w = w >> 1;
+      h = h >> 1;
     }
 
     if (this._generateMipmap) {

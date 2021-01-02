@@ -11,7 +11,8 @@ const assetsToLoad = [
 	{"id":"py","url":"assets/img/py.png","type":"png"},
 	{"id":"pyHDR","url":"assets/img/pyHDR.hdr","type":"binary"},
 	{"id":"pz","url":"assets/img/pz.png","type":"png"},
-	{"id":"pzHDR","url":"assets/img/pzHDR.hdr","type":"binary"}
+	{"id":"pzHDR","url":"assets/img/pzHDR.hdr","type":"binary"},
+	{"id":"studio_radiance","url":"assets/img/studio_radiance.dds","type":"binary"}
 ];
 
 

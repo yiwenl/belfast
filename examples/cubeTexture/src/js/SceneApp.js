@@ -8,6 +8,8 @@ import {
   DrawCopy,
   GLCubeTexture,
   parseHdr,
+  parseDds,
+  loadDds,
 } from "alfrid";
 import Assets from "./Assets";
 
@@ -30,17 +32,25 @@ class SceneApp extends Scene {
     const HDRMaps = ["pxHDR", "nxHDR", "pyHDR", "nyHDR", "pzHDR", "nzHDR"].map(
       (n) => parseHdr(Assets.get(n))
     );
-    const width = HDRMaps[0].shape[0];
-    const height = HDRMaps[0].shape[1];
-    const sourcesHDR = HDRMaps.map((o) => o.data);
+
+    // hdr
+    // const width = HDRMaps[0].shape[0];
+    // const height = HDRMaps[0].shape[1];
+    // const sourcesHDR = HDRMaps.map((o) => o.data);
+
+    // dds
+    const oStudio = Assets.get("studio_radiance");
+    const dataStudio = parseDds(oStudio);
+    const sourceDds = dataStudio.map((o) => o.data);
+    const width = dataStudio[0].shape[0];
+    const height = dataStudio[0].shape[1];
 
     this._texture = new GLCubeTexture(
-      sourcesHDR,
+      sourceDds,
       { type: GL.FLOAT },
       width,
       height
     );
-    // this._texture = new GLCubeTexture(sources);
   }
 
   _initViews() {
