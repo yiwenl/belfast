@@ -29,6 +29,7 @@ export { FboPingPong } from "./helper/FboPingPong";
 
 // loaders
 export { loadBinary } from "./loader/loadBinary";
+export { loadHdr } from "./loader/loadHdr";
 
 // utils
 export { checkWebGL2 } from "./utils/checkWebGL2";
