@@ -89,6 +89,7 @@ export const webgl2TextureCheck = (mGL, mParams) => {
   // }
 };
 
+/*
 export const webgl2FilterCheck = (mParams) => {
   const { type, minFilter, magFilter } = mParams;
 
@@ -105,3 +106,4 @@ export const webgl2FilterCheck = (mParams) => {
     }
   }
 };
+*/
