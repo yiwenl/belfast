@@ -87,7 +87,7 @@ const Geom = {
 
     return mesh;
   },
-  cube: (w, h, d) => {
+  cube: (w, h, d, isInvert = false) => {
     h = h || w;
     d = d || w;
 
@@ -248,6 +248,10 @@ const Geom = {
     indices.push(count * 4 + 0);
     indices.push(count * 4 + 2);
     indices.push(count * 4 + 3);
+
+    if (isInvert) {
+      indices.reverse();
+    }
 
     const mesh = new Mesh()
       .bufferVertex(positions)
