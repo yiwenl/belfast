@@ -4,6 +4,7 @@ export { GLShader } from "./core/GLShader";
 export { Mesh } from "./core/Mesh";
 export { GLTexture } from "./core/GLTexture";
 export { FrameBuffer } from "./core/FrameBuffer";
+export { GLCubeTexture } from "./core/GLCubeTexture";
 
 // cameras
 export { Camera } from "./camera/Camera";

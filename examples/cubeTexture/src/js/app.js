@@ -23,8 +23,6 @@ function _init() {
 }
 
 function _init3D(o) {
-  console.log("init 3D", o);
-
   const canvas = document.createElement("canvas");
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;

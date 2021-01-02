@@ -9,6 +9,7 @@ import {
 } from "../utils/TextureUtils";
 import { WebGLNumber } from "../utils/WebGLNumber";
 import { BitSwitch } from "../utils/BitSwitch";
+import LogError, { Errors } from "../utils/LogError";
 
 const MIN_FILTER = 0;
 const MAG_FILTER = 1;
@@ -41,11 +42,7 @@ class GLTexture {
    */
   bind(mIndex, mGL) {
     if (mGL !== undefined && this.GL !== undefined && mGL !== this.GL) {
-      console.error(
-        "this texture has been bind to a different WebGL Rendering Context",
-        this.GL.id,
-        mGL.id
-      );
+      LogError(Errors.TEXTURE_CONTEXT, this.GL.id);
       return;
     }
 
@@ -66,10 +63,7 @@ class GLTexture {
    */
   createTexture(mGL) {
     if (mGL !== undefined && this.GL !== undefined && mGL !== this.GL) {
-      console.error(
-        "this shader has been bind to a different WebGL Rendering Context",
-        this.GL.id
-      );
+      LogError(Errors.TEXTURE_CONTEXT, this.GL.id);
       return;
     }
 
