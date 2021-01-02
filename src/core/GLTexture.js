@@ -5,7 +5,7 @@ import {
   isSourceHtmlElement,
   checkSource,
   webgl2TextureCheck,
-  webgl2FilterCheck,
+  // webgl2FilterCheck,
 } from "../utils/TextureUtils";
 import { WebGLNumber } from "../utils/WebGLNumber";
 import { BitSwitch } from "../utils/BitSwitch";
@@ -273,7 +273,7 @@ class GLTexture {
   set minFilter(mValue) {
     this._params.minFilter = mValue;
     this._parametersState.set(MIN_FILTER, 1);
-    webgl2FilterCheck(this._params);
+    // webgl2FilterCheck(this._params);
   }
 
   /**
@@ -293,7 +293,7 @@ class GLTexture {
   set magFilter(mValue) {
     this._params.magFilter = mValue;
     this._parametersState.set(MAG_FILTER, 1);
-    webgl2FilterCheck(this._params);
+    // webgl2FilterCheck(this._params);
   }
 
   /**

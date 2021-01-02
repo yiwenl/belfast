@@ -17,15 +17,15 @@ const loadAssets = () =>
           console.log("Error :", error);
         })
         .on("progress", (p) => {
-          console.log("Progress : ", p);
-
           if (loader) loader.style.width = `${p * 100}%`;
         })
         .on("complete", (o) => {
           if (loader) loader.style.width = `100%`;
-          document.body.classList.remove("isLoading");
           Assets.init(o);
-          resolve(o);
+          setTimeout(() => {
+            document.body.classList.remove("isLoading");
+            resolve(o);
+          }, 500);
         })
         .start();
     } else {

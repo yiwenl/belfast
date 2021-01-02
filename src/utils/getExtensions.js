@@ -21,6 +21,8 @@ const extensionsWebGL1 = [
 const extensionsWebGL2 = [
   "EXT_color_buffer_float",
   "EXT_texture_filter_anisotropic",
+  "OES_texture_float_linear",
+  "OES_texture_half_float_linear",
 ];
 
 /**
