@@ -1,5 +1,10 @@
 import { GL } from "./GL";
-import { getTextureParameters } from "../utils/TextureUtils";
+import {
+  getTextureParameters,
+  isSourceHtmlElement,
+  webgl2TextureCheck,
+  isPowerOfTwo,
+} from "../utils/TextureUtils";
 import { WebGLNumber } from "../utils/WebGLNumber";
 import { WebGLConst } from "../utils/WebGLConst";
 import LogError, { Errors } from "../utils/LogError";
@@ -7,11 +12,12 @@ import LogError, { Errors } from "../utils/LogError";
 class GLCubeTexture {
   constructor(mSource, mParam = {}, mWidth = 0, mHeight = 0) {
     this._source = mSource;
+    this._isHtmlElement = isSourceHtmlElement(this._source[0]);
     this._getDimension(mSource, mWidth, mHeight);
     this._params = getTextureParameters(mParam, this._width, this._height);
+    this._checkMipmap();
 
-    // default min filter to LINEAR for Cube map
-    this._params.minFilter = WebGLConst.LINEAR;
+    // this.showProperties();
   }
 
   /**
@@ -48,6 +54,7 @@ class GLCubeTexture {
 
     this.GL = mGL || GL;
     if (!this._texture) {
+      webgl2TextureCheck(this.GL, this._params);
       this._uploadTexture();
     }
   }
@@ -68,7 +75,6 @@ class GLCubeTexture {
    *
    */
   _uploadTexture() {
-    console.log("Upload texture to", this.GL.id);
     const { gl } = this.GL;
 
     const targets = [
@@ -92,18 +98,35 @@ class GLCubeTexture {
     for (let level = 0; level < numLevels; level++) {
       targets.forEach((target, i) => {
         index = level * numLevels + i;
-        gl.texImage2D(
-          target,
-          level,
-          this._params.internalFormat,
-          this._params.format,
-          this._params.type,
-          this._source[index]
-        );
+
+        if (this._isHtmlElement && !this.GL.webgl2) {
+          gl.texImage2D(
+            target,
+            level,
+            this._params.internalFormat,
+            this._params.format,
+            this._params.type,
+            this._source[index]
+          );
+        } else {
+          gl.texImage2D(
+            target,
+            level,
+            this._params.internalFormat,
+            this._width,
+            this._height,
+            0,
+            this._params.format,
+            this._params.type,
+            this._source[index]
+          );
+        }
       });
     }
 
-    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    if (this._generateMipmap) {
+      gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    }
 
     // texture parameters
     gl.texParameteri(
@@ -133,6 +156,28 @@ class GLCubeTexture {
   }
 
   /**
+   * Check if the texture could have mipmap
+   *
+   */
+  _checkMipmap() {
+    this._generateMipmap = this._params.mipmap;
+
+    if (this._params.type !== WebGLConst.UNSIGNED_BYTE) {
+      this._generateMipmap = false;
+      return;
+    }
+
+    if (!(isPowerOfTwo(this._width) && isPowerOfTwo(this._height))) {
+      this._generateMipmap = false;
+    }
+
+    const minFilter = WebGLNumber[this._params.minFilter];
+    if (minFilter.indexOf("MIPMAP") === -1) {
+      this._generateMipmap = false;
+    }
+  }
+
+  /**
    * Getting the dimension of the source
    *
    */
@@ -156,6 +201,17 @@ class GLCubeTexture {
       this._width = mWidth;
       this._height = mHeight;
     }
+  }
+
+  // getter & setters
+
+  /**
+   * Get the glTexture
+   *
+   * @returns {glTexture} the webgl texture
+   */
+  get texture() {
+    return this._texture;
   }
 
   /**

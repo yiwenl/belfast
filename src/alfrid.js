@@ -27,6 +27,9 @@ export { Object3D } from "./helper/Object3D";
 export { FboArray } from "./helper/FboArray";
 export { FboPingPong } from "./helper/FboPingPong";
 
+// loaders
+export { loadBinary } from "./loader/loadBinary";
+
 // utils
 export { checkWebGL2 } from "./utils/checkWebGL2";
 export { EaseNumber } from "./utils/EaseNumber";
@@ -36,6 +39,7 @@ export { OrbitalControl } from "./utils/OrbitalControl";
 export { BitSwitch } from "./utils/BitSwitch";
 export { HitTestor } from "./utils/HitTestor";
 export { Scene } from "./utils/Scene";
+export { parseHdr } from "./utils/parseHdr";
 
 export { WebGLNumber } from "./utils/WebGLNumber";
 export { WebGLConst } from "./utils/WebGLConst";

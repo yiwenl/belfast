@@ -7,6 +7,7 @@ import {
   DrawDotsPlane,
   DrawCopy,
   GLCubeTexture,
+  parseHdr,
 } from "alfrid";
 import Assets from "./Assets";
 
@@ -23,11 +24,23 @@ class SceneApp extends Scene {
   }
 
   _initTextures() {
-    const sources = ["px", "nx", "py", "ny", "pz", "nz"].map((name) =>
-      Assets.get(name)
-    );
+    const getAsset = (n) => Assets.get(n);
+    const sources = ["px", "nx", "py", "ny", "pz", "nz"].map(getAsset);
 
-    this._texture = new GLCubeTexture(sources);
+    const HDRMaps = ["pxHDR", "nxHDR", "pyHDR", "nyHDR", "pzHDR", "nzHDR"].map(
+      (n) => parseHdr(Assets.get(n))
+    );
+    const width = HDRMaps[0].shape[0];
+    const height = HDRMaps[0].shape[1];
+    const sourcesHDR = HDRMaps.map((o) => o.data);
+
+    this._texture = new GLCubeTexture(
+      sourcesHDR,
+      { type: GL.FLOAT },
+      width,
+      height
+    );
+    // this._texture = new GLCubeTexture(sources);
   }
 
   _initViews() {

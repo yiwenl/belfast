@@ -28,6 +28,12 @@ export const getTextureParameters = function(mParams, mWidth, mHeight) {
   mParams.level = mParams.level || 0;
   mParams.type = mParams.type || WebGLConst.UNSIGNED_BYTE;
 
+  // default filter to NEAREST for floating point textures
+  if (mParams.type !== WebGLConst.UNSIGNED_BYTE) {
+    mParams.minFilter = WebGLConst.NEAREST;
+    mParams.magFilter = WebGLConst.NEAREST;
+  }
+
   webgl2FilterCheck(mParams);
   return mParams;
 };
