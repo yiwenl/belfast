@@ -1,9 +1,11 @@
 // preload.js
 import assets from "../asset-list";
+import Assets from "../Assets";
 import AssetsLoader from "assets-loader";
 
 const loadAssets = () =>
   new Promise((resolve, reject) => {
+    const loader = document.body.querySelector(".Loading-Bar");
     console.log("Load Assets", assets);
     if (assets.length > 0) {
       document.body.classList.add("isLoading");
@@ -15,12 +17,15 @@ const loadAssets = () =>
           console.log("Error :", error);
         })
         .on("progress", (p) => {
-          // console.log('Progress : ', p);
-          // const loader = document.body.querySelector(".Loading-Bar");
-          // if (loader) loader.style.width = `${p * 100}%`;
+          if (loader) loader.style.width = `${p * 100}%`;
         })
         .on("complete", (o) => {
-          resolve(o);
+          if (loader) loader.style.width = `100%`;
+          Assets.init(o);
+          setTimeout(() => {
+            document.body.classList.remove("isLoading");
+            resolve(o);
+          }, 500);
         })
         .start();
     } else {

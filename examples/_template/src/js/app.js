@@ -23,8 +23,6 @@ function _init() {
 }
 
 function _init3D(o) {
-  console.log("init 3D", o);
-
   const canvas = document.createElement("canvas");
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -32,7 +30,8 @@ function _init3D(o) {
   document.body.appendChild(canvas);
   canvas.className = "Main-Canvas";
   const preserveDrawingBuffer = process.env.NODE_ENV === "development";
-  GL.init(canvas, { preserveDrawingBuffer });
+  const webgl1 = false;
+  GL.init(canvas, { webgl1, preserveDrawingBuffer });
 
   if (process.env.NODE_ENV === "development") {
     Settings.init();

@@ -9,19 +9,13 @@ class SceneApp extends Scene {
     this.resize();
   }
 
-  _initTextures() {
-    console.log("init textures");
-  }
+  _initTextures() {}
 
   _initViews() {
-    console.log("init views");
-
     this._dAxis = new DrawAxis();
     this._dDots = new DrawDotsPlane();
     this._dCopy = new DrawCopy();
   }
-
-  update() {}
 
   render() {
     GL.clear(0, 0, 0, 1);

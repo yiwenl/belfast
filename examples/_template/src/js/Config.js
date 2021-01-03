@@ -1,5 +1,3 @@
 // Config.js
 
-export default {
-  num: 256,
-};
+export default {};
