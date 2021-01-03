@@ -22,9 +22,9 @@ class SceneApp extends Scene {
 
     const s = 2;
     this.mtxGiant = mat4.create();
-    mat4.translate(this.mtxGiant, this.mtxGiant, [-s, 0, 0]);
+    mat4.translate(this.mtxGiant, this.mtxGiant, [-s, -2, 0]);
     this.mtxHead = mat4.create();
-    mat4.translate(this.mtxHead, this.mtxHead, [s, 1.6, 0]);
+    mat4.translate(this.mtxHead, this.mtxHead, [s, 0, 0]);
 
     this.orbitalControl.rx.value = this.orbitalControl.ry.value = 0.3;
     this.orbitalControl.radius.value = 15;
