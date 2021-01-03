@@ -5,11 +5,9 @@ import {
   Geom,
   DrawAxis,
   DrawDotsPlane,
-  DrawCopy,
   GLCubeTexture,
   parseHdr,
   parseDds,
-  loadDds,
 } from "alfrid";
 import Config from "./Config";
 import Assets from "./Assets";
@@ -27,10 +25,12 @@ class SceneApp extends Scene {
   }
 
   _initTextures() {
+    // png
     const getAsset = (n) => Assets.get(n);
     const sources = ["px", "nx", "py", "ny", "pz", "nz"].map(getAsset);
     this._texture = new GLCubeTexture(sources);
 
+    // hdr
     const HDRMaps = ["pxHDR", "nxHDR", "pyHDR", "nyHDR", "pzHDR", "nzHDR"].map(
       (n) => parseHdr(Assets.get(n))
     );
@@ -60,11 +60,8 @@ class SceneApp extends Scene {
   }
 
   _initViews() {
-    console.log("init views");
-
     this._dAxis = new DrawAxis();
     this._dDots = new DrawDotsPlane();
-    this._dCopy = new DrawCopy();
 
     const s = 20;
     this._drawSkybox = new Draw()
@@ -72,8 +69,6 @@ class SceneApp extends Scene {
       .useProgram(vs, fs)
       .bindTexture("texture", this._texture, 0);
   }
-
-  update() {}
 
   render() {
     GL.clear(0, 0, 0, 1);
