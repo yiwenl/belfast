@@ -31,6 +31,7 @@ export { FboPingPong } from "./helper/FboPingPong";
 export { loadBinary } from "./loader/loadBinary";
 export { loadHdr } from "./loader/loadHdr";
 export { loadDds } from "./loader/loadDds";
+export { loadObj } from "./loader/loadObj";
 
 // utils
 export { checkWebGL2 } from "./utils/checkWebGL2";
@@ -43,6 +44,7 @@ export { HitTestor } from "./utils/HitTestor";
 export { Scene } from "./utils/Scene";
 export { parseHdr } from "./utils/parseHdr";
 export { parseDds } from "./utils/parseDds";
+export { parseObj } from "./utils/parseObj";
 
 export { WebGLNumber } from "./utils/WebGLNumber";
 export { WebGLConst } from "./utils/WebGLConst";
