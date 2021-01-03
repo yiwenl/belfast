@@ -20,8 +20,11 @@ class SceneApp extends Scene {
   constructor() {
     super();
 
-    this.mtx = mat4.create();
-    mat4.translate(this.mtx, this.mtx, [0, 0, -2]);
+    const s = 2;
+    this.mtxGiant = mat4.create();
+    mat4.translate(this.mtxGiant, this.mtxGiant, [-s, 0, 0]);
+    this.mtxHead = mat4.create();
+    mat4.translate(this.mtxHead, this.mtxHead, [s, 1.6, 0]);
 
     this.orbitalControl.rx.value = this.orbitalControl.ry.value = 0.3;
     this.orbitalControl.radius.value = 15;
@@ -35,8 +38,7 @@ class SceneApp extends Scene {
     this._dDots = new DrawDotsPlane();
     this._dCopy = new DrawCopy();
 
-    // const oModel = Assets.get("bike");
-    const oModel = Assets.get("bikeParts");
+    const oModel = Assets.get("model");
     const meshes = parseObj(oModel);
 
     loadObj("assets/obj/giant.obj").then(
@@ -55,10 +57,11 @@ class SceneApp extends Scene {
     this._dAxis.draw();
     this._dDots.draw();
 
+    GL.setModelMatrix(this.mtxHead);
     this.draw.draw();
 
     if (this.drawGiant) {
-      GL.setModelMatrix(this.mtx);
+      GL.setModelMatrix(this.mtxGiant);
       this.drawGiant.draw();
     }
   }
