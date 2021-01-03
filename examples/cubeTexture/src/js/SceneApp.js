@@ -11,6 +11,7 @@ import {
   parseDds,
   loadDds,
 } from "alfrid";
+import Config from "./Config";
 import Assets from "./Assets";
 
 import vs from "shaders/skybox.vert";
@@ -28,28 +29,33 @@ class SceneApp extends Scene {
   _initTextures() {
     const getAsset = (n) => Assets.get(n);
     const sources = ["px", "nx", "py", "ny", "pz", "nz"].map(getAsset);
+    this._texture = new GLCubeTexture(sources);
 
     const HDRMaps = ["pxHDR", "nxHDR", "pyHDR", "nyHDR", "pzHDR", "nzHDR"].map(
       (n) => parseHdr(Assets.get(n))
     );
-
-    // hdr
-    // const width = HDRMaps[0].shape[0];
-    // const height = HDRMaps[0].shape[1];
-    // const sourcesHDR = HDRMaps.map((o) => o.data);
+    const widthHdr = HDRMaps[0].shape[0];
+    const heightHdr = HDRMaps[0].shape[1];
+    const sourcesHDR = HDRMaps.map((o) => o.data);
+    this._textureHdr = new GLCubeTexture(
+      sourcesHDR,
+      { type: GL.FLOAT },
+      widthHdr,
+      heightHdr
+    );
 
     // dds
-    const oStudio = Assets.get("studio_radiance");
+    const oStudio = Assets.get("street1_radiance");
     const dataStudio = parseDds(oStudio);
     const sourceDds = dataStudio.map((o) => o.data);
-    const width = dataStudio[0].shape[0];
-    const height = dataStudio[0].shape[1];
+    const widthDds = dataStudio[0].shape[0];
+    const heightDds = dataStudio[0].shape[1];
 
-    this._texture = new GLCubeTexture(
+    this._textureDds = new GLCubeTexture(
       sourceDds,
       { type: GL.FLOAT },
-      width,
-      height
+      widthDds,
+      heightDds
     );
   }
 
@@ -74,6 +80,14 @@ class SceneApp extends Scene {
 
     this._dAxis.draw();
     this._dDots.draw();
+
+    if (Config.source === "png") {
+      this._drawSkybox.bindTexture("texture", this._texture, 0);
+    } else if (Config.source === "hdr") {
+      this._drawSkybox.bindTexture("texture", this._textureHdr, 0);
+    } else {
+      this._drawSkybox.bindTexture("texture", this._textureDds, 0);
+    }
 
     this._drawSkybox.draw();
   }

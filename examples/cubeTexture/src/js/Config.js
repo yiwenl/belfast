@@ -1,5 +1,5 @@
 // Config.js
 
 export default {
-  num: 256,
+  source: "png",
 };

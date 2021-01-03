@@ -14,6 +14,9 @@ const addControls = (scene) => {
   };
 
   setTimeout(() => {
+    gui
+      .add(Config, "source", ["png", "hdr", "dds"])
+      .onFinishChange(Settings.refresh);
     // gui.add(oControl, "webgl2").listen();
     gui.add(oControl, "save").name("Save Settings");
     gui.add(Settings, "reset").name("Reset Default");

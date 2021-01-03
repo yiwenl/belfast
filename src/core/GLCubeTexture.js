@@ -16,8 +16,6 @@ class GLCubeTexture {
     this._getDimension(mSource, mWidth, mHeight);
     this._params = getTextureParameters(mParam, this._width, this._height);
     this._checkMipmap();
-
-    // this.showProperties();
   }
 
   /**
@@ -167,11 +165,6 @@ class GLCubeTexture {
    */
   _checkMipmap() {
     this._generateMipmap = this._params.mipmap;
-
-    if (this._params.type !== WebGLConst.UNSIGNED_BYTE) {
-      this._generateMipmap = false;
-      return;
-    }
 
     if (!(isPowerOfTwo(this._width) && isPowerOfTwo(this._height))) {
       this._generateMipmap = false;
