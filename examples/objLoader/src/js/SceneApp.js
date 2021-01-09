@@ -4,7 +4,6 @@ import {
   Draw,
   DrawAxis,
   DrawDotsPlane,
-  DrawCopy,
   parseObj,
   loadObj,
 } from "alfrid";
@@ -26,21 +25,21 @@ class SceneApp extends Scene {
     this.mtxHead = mat4.create();
     mat4.translate(this.mtxHead, this.mtxHead, [s, 0, 0]);
 
+    // camera
     this.orbitalControl.rx.value = this.orbitalControl.ry.value = 0.3;
     this.orbitalControl.radius.value = 15;
     this.resize();
   }
 
-  _initTextures() {}
-
   _initViews() {
     this._dAxis = new DrawAxis();
     this._dDots = new DrawDotsPlane();
-    this._dCopy = new DrawCopy();
 
+    // parse the obj file
     const oModel = Assets.get("model");
     const meshes = parseObj(oModel);
 
+    // load and parse the obj file
     loadObj("assets/obj/giant.obj").then(
       (meshGiant) => {
         this.drawGiant = new Draw().setMesh(meshGiant).useProgram(vs, fs);

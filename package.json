@@ -2,7 +2,7 @@
   "name": "webpack-template",
   "version": "1.0.0",
   "description": "",
-  "main": "lib/alfrid.cjs.js",
+  "main": "src/alfrid.js",
   "module": "lib/alfrid.esm.js",
   "browser": "lib/alfrid.umd.js",
   "scripts": {
