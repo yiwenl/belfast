@@ -1,6 +1,6 @@
 import { Draw } from "./Draw";
-import vs from "../shader/dots.vert";
-import fs from "../shader/simpleColor.frag";
+import vs from "../shader/glsl/dots.vert";
+import fs from "../shader/glsl/simpleColor.frag";
 
 class DrawDotsPlane extends Draw {
   constructor(mGL) {

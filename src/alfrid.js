@@ -51,6 +51,8 @@ export { WebGLConst } from "./utils/WebGLConst";
 
 // shader
 export { ShaderLibs } from "./shader";
+export { BasicColorShader } from "./shader/BasicColorShader";
+export { DiffuseLightShader } from "./shader/DiffuseLightShader";
 
 // polyfill fixes
 import "./utils/polyfixes";

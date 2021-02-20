@@ -1,6 +1,6 @@
 import { Draw } from "./Draw";
-import vs from "../shader/line.vert";
-import fs from "../shader/simpleColor.frag";
+import vs from "../shader/glsl/line.vert";
+import fs from "../shader/glsl/simpleColor.frag";
 
 class DrawLine extends Draw {
   constructor(mGL) {

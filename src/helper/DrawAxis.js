@@ -1,6 +1,6 @@
 import { Draw } from "./Draw";
-import vs from "../shader/axis.vert";
-import fs from "../shader/axis.frag";
+import vs from "../shader/glsl/axis.vert";
+import fs from "../shader/glsl/axis.frag";
 
 class DrawAxis extends Draw {
   constructor(mGL) {

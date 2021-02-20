@@ -6,8 +6,8 @@ import {
   cloneValue,
 } from "../utils/ShaderUtils";
 import { equals } from "../utils/";
-import vsDefault from "../shader/basic.vert";
-import fsDefault from "../shader/basic.frag";
+import vsDefault from "../shader/glsl/basic.vert";
+import fsDefault from "../shader/glsl/basic.frag";
 
 function GLShader(mVertexShader, mFragmentShader) {
   this.vertexShader = mVertexShader || vsDefault;
@@ -74,6 +74,7 @@ function GLShader(mVertexShader, mFragmentShader) {
         oUniform.changed = true;
       }
     }
+    return this;
   };
 
   /**

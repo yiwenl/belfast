@@ -13,6 +13,7 @@ import {
   DrawLine,
   DrawCamera,
   OrbitalControl,
+  DiffuseLightShader,
 } from "../../src/alfrid";
 import { vec3, mat4 } from "gl-matrix";
 import Scheduler from "scheduling";
@@ -44,10 +45,16 @@ function _init(mGL) {
   // helpers
   const drawAxis = new DrawAxis(mGL);
   const drawDotsPlane = new DrawDotsPlane(mGL);
-  const drawCopy = new DrawCopy(mGL);
   const drawBall = new DrawBall(mGL);
-  const drawLine = new DrawLine(mGL);
   const drawCamera = new DrawCamera(mGL);
+
+  // test
+  const shaderDiffuse = new DiffuseLightShader();
+  shaderDiffuse.color = [Math.random(), Math.random(), Math.random()];
+  shaderDiffuse.intensity = Math.random() * 0.5 + 0.25;
+  const drawTest = new Draw(mGL)
+    .setMesh(Geom.sphere(1, 24))
+    .useProgram(shaderDiffuse);
 
   // camera
   const camera = new CameraPerspective(Math.PI / 2, GL.getAspectRatio(), 1, 50);
@@ -86,6 +93,7 @@ function _init(mGL) {
     mGL.setMatrices(camera);
     drawAxis.draw();
     drawDotsPlane.draw();
+    drawTest.draw();
     // draw.draw();
 
     const s = 0.1;

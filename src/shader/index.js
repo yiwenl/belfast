@@ -1,8 +1,8 @@
-import fsSimpleColor from "./simpleColor.frag";
-import fsCopy from "./copy.frag";
-import vsGeneral from "./general.vert";
-import vsTriangle from "./bigTriangle.vert";
-import vsSkybox from "./skybox.vert";
+import fsSimpleColor from "./glsl/simpleColor.frag";
+import fsCopy from "./glsl/copy.frag";
+import vsGeneral from "./glsl/general.vert";
+import vsTriangle from "./glsl/bigTriangle.vert";
+import vsSkybox from "./glsl/skybox.vert";
 
 const ShaderLibs = {
   simpleColorFrag: fsSimpleColor,
