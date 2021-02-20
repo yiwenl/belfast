@@ -2,9 +2,9 @@
   "name": "webpack-template",
   "version": "1.0.0",
   "description": "",
-  "main": "src/alfrid.js",
-  "module": "src/alfrid.js",
-  "browser": "src/alfrid.js",
+  "main": "lib/alfrid.js",
+  "module": "lib/alfrid.esm.js",
+  "browser": "lib/alfrid.umd.js",
   "scripts": {
     "start": "NODE_ENV=development webpack-dev-server --open --mode development & node ./tasks/watch-asset.js & node ./tasks/shader-watcher.js",
     "build:dev": "NODE_ENV=development rollup -c",
