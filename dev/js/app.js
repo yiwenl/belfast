@@ -8,18 +8,12 @@ import {
   Draw,
   DrawAxis,
   DrawDotsPlane,
-  DrawCopy,
   DrawBall,
-  DrawLine,
   DrawCamera,
   OrbitalControl,
   DiffuseLightShader,
 } from "../../src/alfrid";
-import { vec3, mat4 } from "gl-matrix";
 import Scheduler from "scheduling";
-
-import vs from "../shaders/test.vert";
-import fs from "../shaders/test.frag";
 
 const canvas1 = document.createElement("canvas");
 const canvas2 = document.createElement("canvas");
@@ -36,7 +30,6 @@ GL2.init(ctx2);
 GL2.setSize(window.innerWidth / 2, window.innerHeight);
 
 const contexts = [GL, GL2];
-// const contexts = [GL];
 console.log(GL);
 
 contexts.forEach((_GL) => _init(_GL));
@@ -63,21 +56,6 @@ function _init(mGL) {
   control.rx.value = control.ry.value = 0.3;
   camera1.lookAt([2, 2, 2], [0, 0, 0]);
 
-  // plane
-  const s = 0.05;
-  const mesh = Geom.plane(s, s, 1);
-  const posOffsets = [];
-  const num = 100;
-  let i = num;
-  while (i--) {
-    const v = vec3.create();
-    vec3.random(v, 3);
-    posOffsets.push(v);
-  }
-  // console.table(posOffsets);
-  mesh.bufferInstance(posOffsets, "aPosOffset");
-  const draw = new Draw(mGL).setMesh(mesh).useProgram(vs, fs);
-
   Scheduler.addEF(() => render(mGL));
 
   // render();
@@ -94,7 +72,6 @@ function _init(mGL) {
     drawAxis.draw();
     drawDotsPlane.draw();
     drawTest.draw();
-    // draw.draw();
 
     const s = 0.1;
     drawCamera.draw(camera1, [1, 0.5, 0]);
