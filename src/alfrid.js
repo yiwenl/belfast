@@ -45,6 +45,7 @@ export { Scene } from "./utils/Scene";
 export { parseHdr } from "./utils/parseHdr";
 export { parseDds } from "./utils/parseDds";
 export { parseObj } from "./utils/parseObj";
+export { getColorTexture } from "./core/GLTexture";
 
 export { WebGLNumber } from "./utils/WebGLNumber";
 export { WebGLConst } from "./utils/WebGLConst";

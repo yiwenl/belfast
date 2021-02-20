@@ -363,3 +363,13 @@ class GLTexture {
 }
 
 export { GLTexture };
+
+export const getColorTexture = (mColor) => {
+  const _colors = mColor.map((v) => Math.floor(v * 255));
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 4;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = `rgba(${_colors[0]}, ${_colors[1]}, ${_colors[2]}, 1)`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  return new GLTexture(canvas);
+};
