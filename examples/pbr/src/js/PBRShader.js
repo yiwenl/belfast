@@ -1,23 +1,14 @@
-import { GLTexture, GLShader, GL } from "alfrid";
+import { getColorTexture, GLShader, GL } from "alfrid";
 
 import vs from "shaders/pbr.vert";
 import fs from "shaders/pbr.frag";
-
-export const getColorTexture = (mColor) => {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 4;
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = mColor;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  return new GLTexture(canvas);
-};
 
 class PBRShader extends GLShader {
   constructor() {
     super(vs, fs);
 
     // placeholder textures
-    this.textureWhite = getColorTexture("#fff");
+    this.textureWhite = getColorTexture([1, 1, 1]);
 
     // look up textures
     this._textureLut = this.textureWhite;
@@ -72,6 +63,9 @@ class PBRShader extends GLShader {
     this.uniform("uScaleFGDSpec", [0, 0, 0, 0]);
     this.uniform("uScaleIBLAmbient", [1, 1, 1, 1]);
     this.uniform("uExposure", this._exposure);
+
+    // offset for diffuse light
+    this.diffuseOffset = 0;
   }
 
   bindAllTextures(mGL) {
@@ -113,7 +107,8 @@ class PBRShader extends GLShader {
     this._roughness = mValue;
     this.uniform("uRoughness", this._roughness);
     const t =
-      Math.pow((1.0 - this._roughness) * (1.0 - this._metallic), 2.0) * 0.0;
+      Math.pow((1.0 - this._roughness) * (1.0 - this._metallic), 2.0) *
+      this.diffuseOffset;
     this.uniform("uScaleDiffBaseMR", [t, 0, 0, 0]);
   }
 

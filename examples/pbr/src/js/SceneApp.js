@@ -9,11 +9,11 @@ import {
   GLTexture,
   GLCubeTexture,
   parseDds,
-  parseHdr,
+  PBRShader,
 } from "alfrid";
 import Config from "./Config";
 import Assets from "./Assets";
-import { PBRShader } from "./PBRShader";
+// import { PBRShader } from "./PBRShader";
 
 import vs from "shaders/skybox.vert";
 import fs from "shaders/skybox.frag";
@@ -72,11 +72,13 @@ class SceneApp extends Scene {
 
     s = 2.0;
     const shader = new PBRShader();
+    console.log(shader);
     this._draw = new Draw().setMesh(Geom.sphere(s, 36)).useProgram(shader);
     shader.lutMap = this._textureLUT;
     shader.radianceMap = this._textureRad;
     shader.irradianceMap = this._textureIrr;
     shader.baseColor = [1, 0, 0];
+    shader.diffuseOffset = 0.0;
 
     this.shaderPBR = shader;
   }
