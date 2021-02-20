@@ -101,26 +101,31 @@ class GLCubeTexture {
         index = i * numLevels + level;
 
         if (this._isHtmlElement && !this.GL.webgl2) {
-          gl.texImage2D(
-            target,
-            level,
-            this._params.internalFormat,
-            this._params.format,
-            this._params.type,
-            this._source[index]
-          );
+          // cmft irradiance dds missing data
+          if (this._source[index].length > 0) {
+            gl.texImage2D(
+              target,
+              level,
+              this._params.internalFormat,
+              this._params.format,
+              this._params.type,
+              this._source[index]
+            );
+          }
         } else {
-          gl.texImage2D(
-            target,
-            level,
-            this._params.internalFormat,
-            w,
-            h,
-            0,
-            this._params.format,
-            this._params.type,
-            this._source[index]
-          );
+          if (this._source[index].length > 0) {
+            gl.texImage2D(
+              target,
+              level,
+              this._params.internalFormat,
+              w,
+              h,
+              0,
+              this._params.format,
+              this._params.type,
+              this._source[index]
+            );
+          }
         }
       });
 
