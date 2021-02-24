@@ -6,11 +6,16 @@ import {
   DrawAxis,
   DrawDotsPlane,
   DrawCopy,
-  ShaderLibs,
+  DrawCamera,
+  FrameBuffer,
+  CameraOrtho,
   Geom,
+  getColorTexture
 } from "alfrid";
 import Config from "./Config";
 import Scheduler from "scheduling";
+import { biasMatrix } from './utils'
+import { mat4 } from 'gl-matrix'
 
 // draw calls
 import DrawSave from "./DrawSave";
@@ -24,13 +29,25 @@ class SceneApp extends Scene {
   constructor() {
     super();
 
-    this.orbitalControl.rx.value = this.orbitalControl.ry.value = 0.3;
+    // this.orbitalControl.rx.value = this.orbitalControl.ry.value = 0.3;
     this.orbitalControl.radius.value = 15;
+
+    // shadow
+    this.light = [1.2, 5, 1.2]
+    const r = 5.5;
+    this.cameraLight = new CameraOrtho();
+    this.cameraLight.ortho(-r, r, r, -r, .5, 10);
+    this.cameraLight.lookAt(this.light, [0, 0, 0])
+
+    this._mtxShadow = mat4.create()
+    mat4.mul(this._mtxShadow, this.cameraLight.projection, this.cameraLight.view)
+    mat4.mul(this._mtxShadow, biasMatrix, this._mtxShadow)
+
     this.resize();
   }
 
   _initTextures() {
-    console.log("init textures");
+    // console.log("init textures");
     const { num } = Config;
 
     const oSettings = {
@@ -41,6 +58,11 @@ class SceneApp extends Scene {
     };
 
     this._fbo = new FboPingPong(num, num, oSettings, 4);
+
+    const shadowMapSize = 2048;
+    this._fboShadow = new FrameBuffer(shadowMapSize, shadowMapSize)
+    
+    this._textureWhite = getColorTexture([1, 1, 1])
   }
 
   _initViews() {
@@ -49,6 +71,7 @@ class SceneApp extends Scene {
     this._dAxis = new DrawAxis();
     this._dDots = new DrawDotsPlane();
     this._dCopy = new DrawCopy();
+    this._dCamera = new DrawCamera()
 
     const drawSave = new DrawSave();
     drawSave.bindFrameBuffer(this._fbo.read).draw();
@@ -70,27 +93,41 @@ class SceneApp extends Scene {
       .draw();
 
     this._fbo.swap();
+
+    GL.setMatrices(this.cameraLight)
+    this._fboShadow.bind();
+    GL.clear(0, 0, 0, 0);
+    this.renderParticles(false);
+    this._fboShadow.unbind();
+  }
+
+  renderParticles(mShadow) {
+    const tDepth = mShadow ? this._fboShadow.depthTexture : this._textureWhite;
+    
+    this._drawRender
+      .uniform("uViewport", [GL.width, GL.height])
+      .uniform("uShadowMatrix", this._mtxShadow)
+      .bindTexture("texturePos", this._fbo.read.getTexture(0), 0)
+      .bindTexture("textureDepth", tDepth, 1)
+      .draw();
   }
 
   render() {
+    const g = .1;
     GL.viewport(0, 0, window.innerWidth, window.innerHeight);
-    GL.clear(0, 0, 0, 1);
+    GL.clear(g, g, g, 1);
 
     this._dAxis.draw();
     this._dDots.draw();
+    this._dCamera.draw(this.cameraLight)
 
-    this._drawRender
-      .uniform("uViewport", [GL.width, GL.height])
-      .bindTexture("texturePos", this._fbo.read.getTexture(0), 0)
-      .draw();
+    this.renderParticles(true);
 
     const s = GL.isMobile ? 64 : 128;
     GL.viewport(0, 0, s, s);
     this._dCopy.draw(this._fbo.read.getTexture(0));
     GL.viewport(s, 0, s, s);
-    this._dCopy.draw(this._fbo.read.getTexture(2));
-    GL.viewport(s * 2, 0, s, s);
-    this._dCopy.draw(this._fbo.read.getTexture(3));
+    this._dCopy.draw(this._fboShadow.depthTexture);
   }
 }
 
