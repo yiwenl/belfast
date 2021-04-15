@@ -6,7 +6,6 @@ import AssetsLoader from "assets-loader";
 const loadAssets = () =>
   new Promise((resolve, reject) => {
     const loader = document.body.querySelector(".Loading-Bar");
-    console.log("Load Assets");
     if (assets.length > 0) {
       document.body.classList.add("isLoading");
 
@@ -21,7 +20,6 @@ const loadAssets = () =>
         })
         .on("complete", (o) => {
           if (loader) loader.style.width = `100%`;
-          Assets.init(o);
           setTimeout(() => {
             document.body.classList.remove("isLoading");
             resolve(o);

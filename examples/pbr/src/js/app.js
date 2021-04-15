@@ -6,6 +6,7 @@ import { GL } from "alfrid";
 import Settings from "./Settings";
 import SceneApp from "./SceneApp";
 import preload from "./utils/preload";
+import Assets from "./Assets";
 import addControls from "./debug/addControls";
 
 let scene;
@@ -32,6 +33,7 @@ function _init3D(o) {
   const preserveDrawingBuffer = process.env.NODE_ENV === "development";
   const webgl1 = false;
   GL.init(canvas, { webgl1, preserveDrawingBuffer });
+  Assets.init(o);
 
   if (process.env.NODE_ENV === "development") {
     Settings.init();
