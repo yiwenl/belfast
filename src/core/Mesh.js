@@ -128,7 +128,7 @@ function Mesh(mDrawType = WebGLConst.TRIANGLES) {
    */
   this.bufferIndex = function(mData, mUsage = WebGLConst.STATIC_DRAW) {
     _usage = mUsage;
-    _indices = new Uint16Array(mData);
+    _indices = new Uint32Array(mData);
     this.numItems = _indices.length;
     _hasIndexBufferChanged = true;
     return this;

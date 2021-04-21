@@ -9,6 +9,7 @@ const extensionsWebGL1 = [
   "OES_texture_float_linear",
   "OES_texture_half_float_linear",
   "OES_standard_derivatives",
+  "OES_element_index_uint",
   "EXT_texture_filter_anisotropic",
   "EXT_color_buffer_half_float",
   "OES_vertex_array_object",
@@ -21,6 +22,7 @@ const extensionsWebGL1 = [
 const extensionsWebGL2 = [
   "EXT_color_buffer_float",
   "EXT_texture_filter_anisotropic",
+  "OES_element_index_uint",
   "OES_texture_float_linear",
   "OES_texture_half_float_linear",
 ];

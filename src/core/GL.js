@@ -289,7 +289,7 @@ function GLTool() {
       if (drawType === gl.POINTS) {
         gl.drawArrays(drawType, 0, mMesh.vertexSize);
       } else {
-        gl.drawElements(drawType, mMesh.numItems, gl.UNSIGNED_SHORT, 0);
+        gl.drawElements(drawType, mMesh.numItems, gl.UNSIGNED_INT, 0);
       }
     }
 
