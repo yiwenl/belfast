@@ -10,12 +10,12 @@ import {
   FrameBuffer,
   CameraOrtho,
   Geom,
-  getColorTexture
+  getColorTexture,
 } from "alfrid";
 import Config from "./Config";
 import Scheduler from "scheduling";
-import { biasMatrix } from './utils'
-import { mat4 } from 'gl-matrix'
+import { biasMatrix } from "./utils";
+import { mat4 } from "gl-matrix";
 
 // draw calls
 import DrawSave from "./DrawSave";
@@ -33,15 +33,19 @@ class SceneApp extends Scene {
     this.orbitalControl.radius.value = 15;
 
     // shadow
-    this.light = [1.2, 5, 1.2]
+    this.light = [1.2, 5, 1.2];
     const r = 5.5;
     this.cameraLight = new CameraOrtho();
-    this.cameraLight.ortho(-r, r, r, -r, .5, 10);
-    this.cameraLight.lookAt(this.light, [0, 0, 0])
+    this.cameraLight.ortho(-r, r, r, -r, 0.5, 10);
+    this.cameraLight.lookAt(this.light, [0, 0, 0]);
 
-    this._mtxShadow = mat4.create()
-    mat4.mul(this._mtxShadow, this.cameraLight.projection, this.cameraLight.view)
-    mat4.mul(this._mtxShadow, biasMatrix, this._mtxShadow)
+    this._mtxShadow = mat4.create();
+    mat4.mul(
+      this._mtxShadow,
+      this.cameraLight.projection,
+      this.cameraLight.view
+    );
+    mat4.mul(this._mtxShadow, biasMatrix, this._mtxShadow);
 
     this.resize();
   }
@@ -51,7 +55,7 @@ class SceneApp extends Scene {
     const { num } = Config;
 
     const oSettings = {
-      type: GL.FLOAT,
+      type: GL.HALF_FLOAT,
       minFilter: GL.NEAREST,
       magFilter: GL.NEAREST,
       mipmap: false,
@@ -60,9 +64,9 @@ class SceneApp extends Scene {
     this._fbo = new FboPingPong(num, num, oSettings, 4);
 
     const shadowMapSize = 2048;
-    this._fboShadow = new FrameBuffer(shadowMapSize, shadowMapSize)
-    
-    this._textureWhite = getColorTexture([1, 1, 1])
+    this._fboShadow = new FrameBuffer(shadowMapSize, shadowMapSize);
+
+    this._textureWhite = getColorTexture([1, 1, 1]);
   }
 
   _initViews() {
@@ -71,7 +75,7 @@ class SceneApp extends Scene {
     this._dAxis = new DrawAxis();
     this._dDots = new DrawDotsPlane();
     this._dCopy = new DrawCopy();
-    this._dCamera = new DrawCamera()
+    this._dCamera = new DrawCamera();
 
     const drawSave = new DrawSave();
     drawSave.bindFrameBuffer(this._fbo.read).draw();
@@ -94,7 +98,7 @@ class SceneApp extends Scene {
 
     this._fbo.swap();
 
-    GL.setMatrices(this.cameraLight)
+    GL.setMatrices(this.cameraLight);
     this._fboShadow.bind();
     GL.clear(0, 0, 0, 0);
     this.renderParticles(false);
@@ -103,7 +107,7 @@ class SceneApp extends Scene {
 
   renderParticles(mShadow) {
     const tDepth = mShadow ? this._fboShadow.depthTexture : this._textureWhite;
-    
+
     this._drawRender
       .uniform("uViewport", [GL.width, GL.height])
       .uniform("uShadowMatrix", this._mtxShadow)
@@ -113,13 +117,13 @@ class SceneApp extends Scene {
   }
 
   render() {
-    const g = .1;
+    const g = GL.webgl2 ? 0.5 : 0.1;
     GL.viewport(0, 0, window.innerWidth, window.innerHeight);
     GL.clear(g, g, g, 1);
 
     this._dAxis.draw();
     this._dDots.draw();
-    this._dCamera.draw(this.cameraLight)
+    this._dCamera.draw(this.cameraLight);
 
     this.renderParticles(true);
 

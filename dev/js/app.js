@@ -35,6 +35,7 @@ console.log(GL);
 contexts.forEach((_GL) => _init(_GL));
 
 function _init(mGL) {
+  console.log("WebGL2 ? ", mGL.webgl2);
   // helpers
   const drawAxis = new DrawAxis(mGL);
   const drawDotsPlane = new DrawDotsPlane(mGL);

@@ -1,6 +1,6 @@
 import getAndApplyExtension from "./getAndApplyExtension";
 
-const extensionsWebGL1 = [
+const extensionsWebGL = [
   "EXT_shader_texture_lod",
   "EXT_sRGB",
   "EXT_frag_depth",
@@ -17,15 +17,16 @@ const extensionsWebGL1 = [
   "ANGLE_instanced_arrays",
   "WEBGL_color_buffer_float",
   "WEBGL_draw_buffers",
+  "EXT_color_buffer_float",
 ];
 
-const extensionsWebGL2 = [
-  "EXT_color_buffer_float",
-  "EXT_texture_filter_anisotropic",
-  "OES_element_index_uint",
-  "OES_texture_float_linear",
-  "OES_texture_half_float_linear",
-];
+// const extensionsWebGL2 = [
+//   "EXT_color_buffer_float",
+//   "EXT_texture_filter_anisotropic",
+//   "OES_element_index_uint",
+//   "OES_texture_float_linear",
+//   "OES_texture_half_float_linear",
+// ];
 
 /**
  * Clear WebGL Context
@@ -38,7 +39,7 @@ const getExtensions = (mGL) => {
   const { gl } = mGL;
   const isWebGL2 = gl instanceof WebGL2RenderingContext;
   const extensions = {};
-  const extensionsList = isWebGL2 ? extensionsWebGL2 : extensionsWebGL1;
+  const extensionsList = extensionsWebGL;
   extensionsList.forEach((ext) => {
     extensions[ext] = gl.getExtension(ext);
   });
