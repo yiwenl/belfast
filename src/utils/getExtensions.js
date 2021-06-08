@@ -37,9 +37,7 @@ const extensionsWebGL = [
 
 const getExtensions = (mGL) => {
   const { gl } = mGL;
-  const isWebGL2 =
-    window.WebGL2RenderingContext &&
-    gl instanceof window.WebGL2RenderingContext;
+  const isWebGL2 = gl instanceof WebGL2RenderingContext;
   const extensions = {};
   const extensionsList = extensionsWebGL;
   extensionsList.forEach((ext) => {

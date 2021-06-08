@@ -72,10 +72,7 @@ function GLTool() {
       }
       this.gl = mSource.getContext(target, params);
     } else {
-      if (
-        window.WebGL2RenderingContext &&
-        mSource instanceof WebGL2RenderingContext
-      ) {
+      if (mSource instanceof WebGL2RenderingContext) {
         _webgl2 = true;
         this.gl = mSource;
         this.canvas = mSource.canvas;
