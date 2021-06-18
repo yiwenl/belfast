@@ -20,6 +20,9 @@ const canvas2 = document.createElement("canvas");
 document.body.appendChild(canvas1);
 document.body.appendChild(canvas2);
 
+import vs from "../shaders/instance.vert";
+import fs from "../shaders/test.frag";
+
 const webgl1 = false;
 GL.init(canvas1, { webgl1 });
 GL.setSize(window.innerWidth / 2, window.innerHeight);
@@ -46,9 +49,16 @@ function _init(mGL) {
   const shaderDiffuse = new DiffuseLightShader();
   shaderDiffuse.color = [Math.random(), Math.random(), Math.random()];
   shaderDiffuse.intensity = Math.random() * 0.5 + 0.25;
+
+  const mesh = Geom.cube(1, 1, 1);
+
+  const posOffsets = [[1, 0, 0], [-1, 0, 0]];
+  mesh.bufferInstance(posOffsets, "aPosOffset");
+
   const drawTest = new Draw(mGL)
-    .setMesh(Geom.sphere(1, 24))
-    .useProgram(shaderDiffuse);
+    // .setMesh(Geom.sphere(1, 24))
+    .setMesh(mesh)
+    .useProgram(vs, fs);
 
   // camera
   const camera = new CameraPerspective(Math.PI / 2, GL.getAspectRatio(), 1, 50);
