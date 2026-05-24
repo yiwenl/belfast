@@ -25,10 +25,13 @@ notes/         Planning docs
 ## Commands
 
 ```bash
-pnpm build          # build belfast library
-pnpm dev            # watch-build belfast
-pnpm dev:example    # run triangle example
-pnpm dev:all        # library watch + triangle example
+pnpm build                        # build belfast library
+pnpm dev                          # watch-build belfast
+pnpm dev:example                  # run default example (triangle)
+pnpm dev:example textured-quad    # run a specific example
+pnpm dev:all                      # library watch + default example
+pnpm dev:all textured-quad        # library watch + specific example
+pnpm examples                     # list available examples
 pnpm typecheck
 ```
 

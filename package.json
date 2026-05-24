@@ -6,8 +6,9 @@
   "scripts": {
     "build": "pnpm --filter belfast build",
     "dev": "pnpm --filter belfast dev",
-    "dev:example": "pnpm --filter @belfast/example-triangle dev",
-    "dev:all": "pnpm --parallel --filter belfast --filter @belfast/example-triangle dev",
+    "dev:example": "node scripts/dev-example.mjs",
+    "dev:all": "node scripts/dev-example.mjs --all",
+    "examples": "node scripts/list-examples.mjs",
     "typecheck": "pnpm --filter belfast typecheck"
   },
   "repository": {
