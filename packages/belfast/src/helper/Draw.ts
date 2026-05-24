@@ -1,3 +1,4 @@
+import type { BindGroup } from "../core/BindGroup";
 import type { Device } from "../core/Device";
 import type { Mesh } from "../core/Mesh";
 import { createRenderPipeline, createShaderModule } from "../core/GPUResources";
@@ -43,12 +44,18 @@ export class Draw {
     });
   }
 
+  getBindGroupLayout(index = 0): GPUBindGroupLayout {
+    return this.pipeline.getBindGroupLayout(index);
+  }
+
   draw(
     passEncoder: GPURenderPassEncoder,
     meshOrVertexCount: Mesh | number,
+    bindGroup?: BindGroup,
     instanceCount = 1,
   ): void {
     passEncoder.setPipeline(this.pipeline);
+    bindGroup?.bind(passEncoder);
     if (typeof meshOrVertexCount === "number") {
       passEncoder.draw(meshOrVertexCount, instanceCount);
     } else {

@@ -4,6 +4,7 @@ import { writeBuffer } from "./GPUResources";
 export const BufferUsage = {
   vertex: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   storage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  uniform: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   vertexStorage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
 } as const;
 
@@ -18,6 +19,11 @@ export class Buffer {
     this.size = size;
     this.usage = usage;
     this.label = label;
+  }
+
+  /** Rounds byte length up to WGSL uniform struct alignment (16 bytes). */
+  static uniformSize(byteLength: number): number {
+    return Math.ceil(byteLength / 16) * 16;
   }
 
   static create(device: Device, size: number, usage: GPUBufferUsageFlags, label?: string): Buffer {

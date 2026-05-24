@@ -4,6 +4,7 @@ Public exports from [`packages/belfast/src/index.ts`](../../packages/belfast/src
 
 ```ts
 import {
+  BindGroup,
   Buffer,
   Device,
   Draw,
@@ -22,6 +23,8 @@ import {
 | `DeviceOptions`                | type     | [Device.md](Device.md)         |
 | `Buffer`                       | class    | [Buffer.md](Buffer.md)         |
 | `BufferUsage`                  | const    | [Buffer.md](Buffer.md)         |
+| `BindGroup`                    | class    | [BindGroup.md](BindGroup.md)   |
+| `BindGroupResource`            | type     | [BindGroup.md](BindGroup.md)   |
 | `Mesh`                         | class    | [Mesh.md](Mesh.md)             |
 | `VertexBufferBinding`          | type     | [Mesh.md](Mesh.md)             |
 | `VertexAttributeDescriptor`    | type     | [Mesh.md](Mesh.md)             |

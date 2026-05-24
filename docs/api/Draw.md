@@ -38,17 +38,24 @@ Creates:
 
 ## Methods
 
-### `draw(passEncoder, meshOrVertexCount, instanceCount?)`
+### `getBindGroupLayout(index?)`
+
+Returns `pipeline.getBindGroupLayout(index)` for creating bind groups after the pipeline exists. Default `index` is `0`.
+
+Use with `BindGroup.create(device, layout, uniformBuffer)` when the shader declares `@group(0) @binding(0) var<uniform> ...`.
+
+### `draw(passEncoder, meshOrVertexCount, bindGroup?, instanceCount?)`
 
 | Argument            | Default | Description                                          |
 | ------------------- | ------- | ---------------------------------------------------- |
 | `passEncoder`       | —       | Active `GPURenderPassEncoder`                        |
 | `meshOrVertexCount` | —       | `Mesh` (binds buffers) or `number` (procedural draw) |
+| `bindGroup`         | —       | Optional `BindGroup` for resource bindings           |
 | `instanceCount`     | `1`     | Instance count                                       |
 
-With a `Mesh`, sets the pipeline, binds vertex buffers, and draws `mesh.vertexCount` vertices.
+With a `Mesh`, sets the pipeline, optional bind group, vertex buffers, and draws `mesh.vertexCount` vertices.
 
-With a `number`, sets the pipeline and draws that many vertices (no buffer bind). Use when the vertex shader uses `@builtin(vertex_index)` and `vertexBuffers` was empty at pipeline creation.
+With a `number`, sets the pipeline, optional bind group, and draws that many vertices (no vertex buffer bind). Use when the vertex shader uses `@builtin(vertex_index)` and `vertexBuffers` was empty at pipeline creation.
 
 ## WGSL requirements
 
@@ -80,8 +87,17 @@ const draw = new Draw(device, shaderCode, {
 draw.draw(pass, mesh);
 ```
 
+With uniforms:
+
+```ts
+const bindGroup = BindGroup.create(device, draw.getBindGroupLayout(0), uniformBuffer);
+uniformBuffer.write(device, new Float32Array([time, 0, 0, 0]));
+draw.draw(pass, mesh, bindGroup);
+```
+
 ## See also
 
+- [BindGroup](BindGroup.md) — uniform bind groups
 - [Mesh](Mesh.md) — vertex buffer bindings
 - [Device](Device.md) — must be created first
 - [RenderPass](RenderPass.md) — pass encoder for `draw()`

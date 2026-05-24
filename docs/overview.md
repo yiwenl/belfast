@@ -23,14 +23,15 @@ sequenceDiagram
   end
 ```
 
-| Step   | Belfast API              | WebGPU underneath               |
-| ------ | ------------------------ | ------------------------------- |
-| Setup  | `Device.create()`        | adapter, device, canvas context |
-| Buffer | `Buffer.fromData()`      | vertex data on GPU              |
-| Mesh   | `Mesh.addVertexBuffer()` | layouts + per-pass bind         |
-| Shader | `new Draw(device, wgsl)` | shader module + render pipeline |
-| Frame  | `beginRenderPass()`      | render pass encoder             |
-| Draw   | `draw.draw(pass, mesh)`  | `setPipeline` + `draw()`        |
+| Step    | Belfast API              | WebGPU underneath               |
+| ------- | ------------------------ | ------------------------------- |
+| Setup   | `Device.create()`        | adapter, device, canvas context |
+| Buffer  | `Buffer.fromData()`      | vertex data on GPU              |
+| Mesh    | `Mesh.addVertexBuffer()` | layouts + per-pass bind         |
+| Uniform | `Buffer` + `BindGroup`   | uniform buffer + bind group     |
+| Shader  | `new Draw(device, wgsl)` | shader module + render pipeline |
+| Frame   | `beginRenderPass()`      | render pass encoder             |
+| Draw    | `draw.draw(pass, mesh)`  | `setPipeline` + `draw()`        |
 
 ## Minimal render loop
 
@@ -67,13 +68,25 @@ Vertex attributes use `@location(N)` in WGSL, matching `Mesh` attribute `shaderL
 - Pass its view in `beginRenderPass(..., { depthStencilAttachment })`
 - Create `Draw` with `depthStencil` options enabled
 
+## Uniforms
+
+For shader uniforms (`@group(0) @binding(0) var<uniform> ...`):
+
+1. `Buffer.create(device, Buffer.uniformSize(n), BufferUsage.uniform)`
+2. `new Draw(...)` — pipeline with `layout: "auto"` infers bind layout from WGSL
+3. `BindGroup.create(device, draw.getBindGroupLayout(0), buffer)` — once per pipeline
+4. Each frame: `buffer.write(device, data)` then `draw.draw(pass, mesh, bindGroup)`
+
+See [triangle-time example](../examples/triangle-time/src/main.ts) for animated scale via a `time` uniform.
+
 ## What is not in the public API yet
 
 These exist internally or are planned; they are not exported from `belfast` today:
 
 - Cameras and scene graph
 - Index buffers / `drawIndexed`
-- Bind groups and uniforms
+- Textures and samplers (use `BindGroup.create` with a resource array)
+- Multiple bind groups (group indices 1+)
 - Loaders, math utilities
 
 When adding features, update [`api/README.md`](api/README.md) and add a focused page under `docs/api/`.
