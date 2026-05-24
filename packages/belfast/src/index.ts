@@ -1,3 +1,5 @@
+/// <reference types="@webgpu/types" />
+
 export { Device, type DeviceOptions } from "./core/Device";
 export { Buffer, BufferUsage } from "./core/Buffer";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";

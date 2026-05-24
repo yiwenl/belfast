@@ -16,6 +16,15 @@ export default defineConfig({
     dts({
       rollupTypes: true,
       tsconfigPath: "./tsconfig.json",
+      beforeWriteFile(filePath, content) {
+        if (!filePath.endsWith("index.d.ts") || content.includes("@webgpu/types")) {
+          return;
+        }
+        return {
+          filePath,
+          content: `/// <reference types="@webgpu/types" />\n\n${content}`,
+        };
+      },
     }),
   ],
 });

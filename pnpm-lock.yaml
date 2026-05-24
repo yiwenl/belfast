@@ -24,6 +24,9 @@ importers:
         specifier: workspace:*
         version: link:../../packages/belfast
     devDependencies:
+      '@webgpu/types':
+        specifier: ^0.1.44
+        version: 0.1.70
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
