@@ -44,3 +44,7 @@ Desktop.ini
 .sass-cache
 compass.txt
 note.txt
+
+# Belfast review MCP bridge
+mcp/.bridge/
+mcp/.venv/
