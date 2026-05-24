@@ -1,0 +1,32 @@
+{
+  "name": "belfast",
+  "version": "0.1.0",
+  "description": "WebGPU utility library",
+  "type": "module",
+  "sideEffects": false,
+  "files": ["dist"],
+  "main": "./dist/belfast.cjs",
+  "module": "./dist/belfast.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/belfast.js",
+      "require": "./dist/belfast.cjs"
+    }
+  },
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@webgpu/types": "^0.1.44",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vite-plugin-dts": "^4.4.0"
+  }
+}

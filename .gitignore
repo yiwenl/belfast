@@ -3,6 +3,9 @@
 .project
 _notes
 node_modules
+dist
+lib
+*.tsbuildinfo
 cinder/xcode/build
 *.scssc
 npm-debug.log
