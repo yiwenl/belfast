@@ -115,14 +115,24 @@ ball.draw(pass, sceneBindGroup, { position: [0, 0, 0], scale: 0.15, opacity: 0.6
 
 See [camera-orbit example](../examples/camera-orbit/src/main.ts).
 
+## Textures
+
+`Texture.load` uploads an image to the GPU with a default sampler. Use `createSceneTexturePipelineLayout` and bind `view` + `sampler` with the camera uniform.
+
+```ts
+const texture = await Texture.load(device, "/image.jpg");
+const { pipelineLayout, bindGroupLayout } = createSceneTexturePipelineLayout(device);
+```
+
+See [texture example](../examples/texture/src/main.ts).
+
 ## What is not in the public API yet
 
 These exist internally or are planned; they are not exported from `belfast` today:
 
 - Scene graph
-- Index buffers / `drawIndexed` (sphere geometry is expanded on CPU)
-- Textures and samplers (use `BindGroup.create` with a resource array)
+- Index buffers / `drawIndexed` (plane/sphere geometry expanded on CPU)
 - Full math library (only internal `mat4` helpers used by cameras)
-- Loaders
+- Texture mipmaps / cubemaps / render targets
 
 When adding features, update [`api/README.md`](api/README.md) and add a focused page under `docs/api/`.

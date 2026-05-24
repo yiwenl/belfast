@@ -73,3 +73,48 @@ export function createSceneBallPipelineLayout(
   });
   return { pipelineLayout, sceneBindGroupLayout, ballBindGroupLayout };
 }
+
+/**
+ * Group 0: `viewProj` uniform (binding 0) + `texture_2d` (1) + `sampler` (2).
+ * Binding 0 matches `createSceneUniformBindGroupLayout` so `AxisHelper` can share the bind group.
+ */
+export function createSceneTextureBindGroupLayout(
+  device: Device,
+  label = "SceneTextureBindGroupLayout",
+): GPUBindGroupLayout {
+  return device.device.createBindGroupLayout({
+    label,
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+        buffer: { type: "uniform" },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: { sampleType: "float" },
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.FRAGMENT,
+        sampler: { type: "filtering" },
+      },
+    ],
+  });
+}
+
+export function createSceneTexturePipelineLayout(
+  device: Device,
+  label = "SceneTexturePipelineLayout",
+): {
+  pipelineLayout: GPUPipelineLayout;
+  bindGroupLayout: GPUBindGroupLayout;
+} {
+  const bindGroupLayout = createSceneTextureBindGroupLayout(device, `${label}BindGroup`);
+  const pipelineLayout = device.device.createPipelineLayout({
+    label,
+    bindGroupLayouts: [bindGroupLayout],
+  });
+  return { pipelineLayout, bindGroupLayout };
+}

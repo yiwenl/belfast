@@ -1,0 +1,25 @@
+{
+  "slug": "texture",
+  "status": "ACKNOWLEDGED",
+  "title": "Texture loading and texture example",
+  "summary": "Adds Texture (load/fromBitmap, flipY default, COPY_DST|RENDER_ATTACHMENT for copyExternalImageToTexture). createSceneTexturePipelineLayout for viewProj+texture+sampler. createPlaneTriangleList for XY plane. examples/texture shows public/image.jpg with OrbitalControl and AxisHelper.",
+  "submitted_at": "2026-05-24T18:13:11Z",
+  "submitted_by": "cursor",
+  "implementation_paths": [
+    "packages/belfast/src/core/Texture.ts",
+    "packages/belfast/src/geom/plane.ts",
+    "packages/belfast/src/helper/sceneLayout.ts",
+    "packages/belfast/src/index.ts",
+    "examples/texture/src/main.ts",
+    "examples/texture/src/shaders/textured-plane.wgsl"
+  ],
+  "doc_paths": [
+    "docs/api/Texture.md",
+    "docs/api/README.md",
+    "docs/overview.md",
+    "docs/reviews/queue/texture-implementation.md"
+  ],
+  "feedback_path": "docs/reviews/texture-antigravity.md",
+  "handoff_message": "Antigravity review complete for \"texture\". In Cursor, ask the agent to use get_feedback_for_cursor for \"texture\".",
+  "cursor_notes": "Removed onSubmittedWorkDone stall from Texture.fromBitmap; upload is queued only. fromBitmap is sync again."
+}

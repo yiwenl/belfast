@@ -6,6 +6,7 @@ Public exports from [`packages/belfast/src/index.ts`](../../packages/belfast/src
 import {
   BindGroup,
   Buffer,
+  Texture,
   Camera,
   Device,
   AxisHelper,
@@ -31,6 +32,12 @@ import {
 | `BufferUsage`                       | const    | [Buffer.md](Buffer.md)                         |
 | `BindGroup`                         | class    | [BindGroup.md](BindGroup.md)                   |
 | `BindGroupResource`                 | type     | [BindGroup.md](BindGroup.md)                   |
+| `Texture`                           | class    | [Texture.md](Texture.md)                       |
+| `TextureOptions`                    | type     | [Texture.md](Texture.md)                       |
+| `createSceneTexturePipelineLayout`  | function | [Texture.md](Texture.md)                       |
+| `createSceneTextureBindGroupLayout` | function | [Texture.md](Texture.md)                       |
+| `createPlaneTriangleList`           | function | [Texture.md](Texture.md)                       |
+| `PlaneAxis`                         | type     | [Texture.md](Texture.md)                       |
 | `Mesh`                              | class    | [Mesh.md](Mesh.md)                             |
 | `VertexBufferBinding`               | type     | [Mesh.md](Mesh.md)                             |
 | `VertexAttributeDescriptor`         | type     | [Mesh.md](Mesh.md)                             |
