@@ -11,7 +11,8 @@
     "examples": "node scripts/list-examples.mjs",
     "typecheck": "pnpm --filter belfast typecheck",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
@@ -22,7 +23,12 @@
     "node": ">=20"
   },
   "packageManager": "pnpm@9.15.0",
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,tsx,json,md,yml,yaml}": "prettier --write"
+  },
   "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
     "prettier": "^3.5.3"
   }
 }

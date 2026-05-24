@@ -5,7 +5,7 @@ WebGPU utility library with the legacy WebGL library (`alfrid`) kept in-repo as 
 ## Quick start
 
 ```bash
-pnpm install
+pnpm install   # also sets up git hooks (Prettier on staged files)
 pnpm dev:all
 ```
 
@@ -37,6 +37,8 @@ pnpm typecheck
 pnpm format                       # format all files
 pnpm format:check                 # check formatting (CI)
 ```
+
+Pre-commit runs `lint-staged` (Prettier `--write` on staged files). CI still runs `format:check` on the full tree.
 
 ## WebGPU browser support
 

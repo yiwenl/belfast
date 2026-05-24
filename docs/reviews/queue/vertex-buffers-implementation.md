@@ -13,10 +13,10 @@ Moves triangle vertex positions from WGSL (`@builtin(vertex_index)`) into a GPU 
 
 ### New modules
 
-| File                                                                                   | Purpose                                        |
-| -------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| [`packages/belfast/src/core/Buffer.ts`](../../packages/belfast/src/core/Buffer.ts)     | `Buffer` class + `BufferUsage` presets         |
-| [`packages/belfast/src/core/Mesh.ts`](../../packages/belfast/src/core/Mesh.ts) | Multi-slot vertex bindings, layouts, pass bind |
+| File                                                                               | Purpose                                        |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------- |
+| [`packages/belfast/src/core/Buffer.ts`](../../packages/belfast/src/core/Buffer.ts) | `Buffer` class + `BufferUsage` presets         |
+| [`packages/belfast/src/core/Mesh.ts`](../../packages/belfast/src/core/Mesh.ts)     | Multi-slot vertex bindings, layouts, pass bind |
 
 ### Modified modules
 

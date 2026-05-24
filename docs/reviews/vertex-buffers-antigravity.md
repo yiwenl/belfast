@@ -11,12 +11,13 @@ This is a clean, well-designed feature that successfully moves the Belfast libra
 ## Critical
 
 - **Avoid sparse vertex buffer layouts with `undefined`**: In `Mesh.getVertexLayouts()`, if slot indices are non-contiguous (e.g. only slot 1 is populated), the resulting array will contain `undefined` at index 0. Standard TypeScript definitions and WebGPU expect a dense array where unused slots are explicitly filled with `null` (`(GPUVertexBufferLayout | null)[]`). Passing `undefined` can cause runtime validation errors in WebGPU or compilation issues.
-  
-  *Fix recommendation:* Explicitly fill gaps with `null` in `Mesh.getVertexLayouts()`:
+
+  _Fix recommendation:_ Explicitly fill gaps with `null` in `Mesh.getVertexLayouts()`:
+
   ```ts
   const layouts: (GPUVertexBufferLayout | null)[] = [];
   // Ensure the array is padded with null up to the maximum slot index
-  const maxSlot = Math.max(...this.bindings.map(b => b.slot ?? 0), -1);
+  const maxSlot = Math.max(...this.bindings.map((b) => b.slot ?? 0), -1);
   for (let i = 0; i <= maxSlot; i++) {
     layouts[i] = null;
   }
@@ -38,13 +39,13 @@ This is a clean, well-designed feature that successfully moves the Belfast libra
 ## Suggestions
 
 - **Robustify slot assignment logic in `Mesh.addVertexBuffer`**:
-  Currently, `const slot = binding.slot ?? this.bindings.length` is used. If a user manually binds a buffer to a high slot first (e.g., slot 1), adding a subsequent buffer without a specified slot will default to `this.bindings.length` (which is 1), triggering a collision error even though slot 0 is free. 
-  *Fix recommendation:* Implement a helper to find the lowest unused non-negative integer slot:
+  Currently, `const slot = binding.slot ?? this.bindings.length` is used. If a user manually binds a buffer to a high slot first (e.g., slot 1), adding a subsequent buffer without a specified slot will default to `this.bindings.length` (which is 1), triggering a collision error even though slot 0 is free.
+  _Fix recommendation:_ Implement a helper to find the lowest unused non-negative integer slot:
   ```ts
   let slot = binding.slot;
   if (slot === undefined) {
     slot = 0;
-    const occupied = this.bindings.map(b => b.slot);
+    const occupied = this.bindings.map((b) => b.slot);
     while (occupied.includes(slot)) {
       slot++;
     }
@@ -52,7 +53,7 @@ This is a clean, well-designed feature that successfully moves the Belfast libra
   ```
 - **Allow procedural / mesh-less drawing fallback in `Draw`**:
   Procedural drawing (like fullscreen quads or procedural particles) using pure vertex shader index math (via `@builtin(vertex_index)`) is extremely common and doesn't require vertex buffers. The breaking change of forcing `mesh: Mesh` into `draw()` completely disables this.
-  *Fix recommendation:* Make the `mesh` argument optional or support a `vertexCount: number` fallback in `Draw.draw()`:
+  _Fix recommendation:_ Make the `mesh` argument optional or support a `vertexCount: number` fallback in `Draw.draw()`:
   ```ts
   draw(passEncoder: GPURenderPassEncoder, meshOrVertexCount: Mesh | number, instanceCount = 1): void {
     passEncoder.setPipeline(this.pipeline);

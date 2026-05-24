@@ -23,13 +23,13 @@ new Draw(device: Device, shaderCode: string, optionsOrLabel?: DrawOptions | stri
 
 ### `DrawOptions`
 
-| Field           | Type                      | Default                         | Description                           |
-| --------------- | ------------------------- | ------------------------------- | ------------------------------------- |
-| `label`         | `string`                  | `"Draw"`                        | Debug label prefix                    |
-| `primitive`     | `GPUPrimitiveState`       | `{ topology: "triangle-list" }` | Primitive topology/culling/frontFace  |
-| `depthStencil`  | `GPUDepthStencilState`    | `undefined`                     | Enable depth/stencil pipeline state   |
-| `targets`       | `GPUColorTargetState[]`   | `[{ format: device.format }]`   | Color attachments for fragment output |
-| `vertexBuffers` | `(GPUVertexBufferLayout \| null)[]` | `[]`              | From `mesh.getVertexLayouts()`        |
+| Field           | Type                                | Default                         | Description                           |
+| --------------- | ----------------------------------- | ------------------------------- | ------------------------------------- |
+| `label`         | `string`                            | `"Draw"`                        | Debug label prefix                    |
+| `primitive`     | `GPUPrimitiveState`                 | `{ topology: "triangle-list" }` | Primitive topology/culling/frontFace  |
+| `depthStencil`  | `GPUDepthStencilState`              | `undefined`                     | Enable depth/stencil pipeline state   |
+| `targets`       | `GPUColorTargetState[]`             | `[{ format: device.format }]`   | Color attachments for fragment output |
+| `vertexBuffers` | `(GPUVertexBufferLayout \| null)[]` | `[]`                            | From `mesh.getVertexLayouts()`        |
 
 Creates:
 
@@ -40,11 +40,11 @@ Creates:
 
 ### `draw(passEncoder, meshOrVertexCount, instanceCount?)`
 
-| Argument            | Default | Description                                              |
-| ------------------- | ------- | -------------------------------------------------------- |
-| `passEncoder`       | —       | Active `GPURenderPassEncoder`                            |
-| `meshOrVertexCount` | —       | `Mesh` (binds buffers) or `number` (procedural draw)     |
-| `instanceCount`     | `1`     | Instance count                                           |
+| Argument            | Default | Description                                          |
+| ------------------- | ------- | ---------------------------------------------------- |
+| `passEncoder`       | —       | Active `GPURenderPassEncoder`                        |
+| `meshOrVertexCount` | —       | `Mesh` (binds buffers) or `number` (procedural draw) |
+| `instanceCount`     | `1`     | Instance count                                       |
 
 With a `Mesh`, sets the pipeline, binds vertex buffers, and draws `mesh.vertexCount` vertices.
 
