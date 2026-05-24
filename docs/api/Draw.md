@@ -6,6 +6,7 @@ Builds a render pipeline from WGSL source and issues draw calls on a render pass
 
 ```ts
 import { Draw, type DrawOptions } from "belfast";
+import type { Mesh } from "belfast";
 ```
 
 ## Constructor
@@ -22,68 +23,63 @@ new Draw(device: Device, shaderCode: string, optionsOrLabel?: DrawOptions | stri
 
 ### `DrawOptions`
 
-| Field          | Type                    | Default                         | Description                           |
-| -------------- | ----------------------- | ------------------------------- | ------------------------------------- |
-| `label`        | `string`                | `"Draw"`                        | Debug label prefix                    |
-| `primitive`    | `GPUPrimitiveState`     | `{ topology: "triangle-list" }` | Primitive topology/culling/frontFace  |
-| `depthStencil` | `GPUDepthStencilState`  | `undefined`                     | Enable depth/stencil pipeline state   |
-| `targets`      | `GPUColorTargetState[]` | `[{ format: device.format }]`   | Color attachments for fragment output |
+| Field           | Type                      | Default                         | Description                           |
+| --------------- | ------------------------- | ------------------------------- | ------------------------------------- |
+| `label`         | `string`                  | `"Draw"`                        | Debug label prefix                    |
+| `primitive`     | `GPUPrimitiveState`       | `{ topology: "triangle-list" }` | Primitive topology/culling/frontFace  |
+| `depthStencil`  | `GPUDepthStencilState`    | `undefined`                     | Enable depth/stencil pipeline state   |
+| `targets`       | `GPUColorTargetState[]`   | `[{ format: device.format }]`   | Color attachments for fragment output |
+| `vertexBuffers` | `GPUVertexBufferLayout[]` | `[]`                            | From `mesh.getVertexLayouts()`        |
 
 Creates:
 
 - A `GPUShaderModule` with entry points `vs_main` and `fs_main`
-- A `GPURenderPipeline` with `layout: "auto"` and configurable primitive/depth/target state
+- A `GPURenderPipeline` with `layout: "auto"`, vertex buffer layouts, and configurable state
 
 ## Methods
 
-### `draw(passEncoder, vertexCount?, instanceCount?)`
+### `draw(passEncoder, mesh, instanceCount?)`
 
-| Argument        | Default | Description                            |
-| --------------- | ------- | -------------------------------------- |
-| `passEncoder`   | —       | Active `GPURenderPassEncoder`          |
-| `vertexCount`   | `3`     | Vertices to draw (3 = single triangle) |
-| `instanceCount` | `1`     | Instance count                         |
+| Argument        | Default | Description                   |
+| --------------- | ------- | ----------------------------- |
+| `passEncoder`   | —       | Active `GPURenderPassEncoder` |
+| `mesh`          | —       | `Mesh` with bound buffers     |
+| `instanceCount` | `1`     | Instance count                |
 
-Sets the pipeline and calls `passEncoder.draw(vertexCount, instanceCount)`.
+Sets the pipeline, binds mesh vertex buffers, and draws `mesh.vertexCount` vertices.
 
 ## WGSL requirements
 
-Your shader module must define:
+Your shader module must define vertex inputs matching `Mesh` attribute locations:
 
 ```wgsl
+struct VertexInput {
+  @location(0) position: vec2<f32>,
+}
+
 @vertex
-fn vs_main(...) -> @builtin(position) vec4<f32> { ... }
-
-@fragment
-fn fs_main(...) -> @location(0) vec4<f32> { ... }
+fn vs_main(input: VertexInput) -> @builtin(position) vec4<f32> { ... }
 ```
-
-The triangle example uses `@builtin(vertex_index)` and no vertex buffers.
 
 ## Example
 
 ```ts
-import shaderCode from "./shaders/triangle.wgsl?raw";
-
-const draw = new Draw(device, shaderCode, "Triangle");
-
-// inside render loop, after beginRenderPass:
-draw.draw(pass);
-```
-
-```ts
-const drawWithDepth = new Draw(device, shaderCode, {
-  label: "Mesh",
-  primitive: { topology: "triangle-list", cullMode: "back" },
-  depthStencil: {
-    depthWriteEnabled: true,
-    depthCompare: "less",
-    format: "depth24plus",
-  },
+const mesh = new Mesh(3).addVertexBuffer({
+  buffer: positionBuffer,
+  arrayStride: 8,
+  attributes: [{ shaderLocation: 0, format: "float32x2", offset: 0 }],
 });
+
+const draw = new Draw(device, shaderCode, {
+  label: "Triangle",
+  vertexBuffers: mesh.getVertexLayouts(),
+});
+
+draw.draw(pass, mesh);
 ```
 
 ## See also
 
+- [Mesh](Mesh.md) — vertex buffer bindings
 - [Device](Device.md) — must be created first
 - [RenderPass](RenderPass.md) — pass encoder for `draw()`

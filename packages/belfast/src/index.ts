@@ -1,6 +1,8 @@
 export { Device, type DeviceOptions } from "./core/Device";
+export { Buffer, BufferUsage } from "./core/Buffer";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";
 export { Draw, type DrawOptions } from "./helper/Draw";
+export { Mesh, type VertexAttributeDescriptor, type VertexBufferBinding } from "./core/Mesh";
 
 import { Device } from "./core/Device";
 

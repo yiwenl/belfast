@@ -4,8 +4,10 @@ Public exports from [`packages/belfast/src/index.ts`](../../packages/belfast/src
 
 ```ts
 import {
+  Buffer,
   Device,
   Draw,
+  Mesh,
   beginRenderPass,
   assertWebGPUSupport,
   showWebGPUUnavailableMessage,
@@ -18,6 +20,11 @@ import {
 | ------------------------------ | -------- | ------------------------------ |
 | `Device`                       | class    | [Device.md](Device.md)         |
 | `DeviceOptions`                | type     | [Device.md](Device.md)         |
+| `Buffer`                       | class    | [Buffer.md](Buffer.md)         |
+| `BufferUsage`                  | const    | [Buffer.md](Buffer.md)         |
+| `Mesh`                         | class    | [Mesh.md](Mesh.md)             |
+| `VertexBufferBinding`          | type     | [Mesh.md](Mesh.md)             |
+| `VertexAttributeDescriptor`    | type     | [Mesh.md](Mesh.md)             |
 | `Draw`                         | class    | [Draw.md](Draw.md)             |
 | `DrawOptions`                  | type     | [Draw.md](Draw.md)             |
 | `beginRenderPass`              | function | [RenderPass.md](RenderPass.md) |

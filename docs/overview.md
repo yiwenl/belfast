@@ -26,9 +26,11 @@ sequenceDiagram
 | Step   | Belfast API              | WebGPU underneath               |
 | ------ | ------------------------ | ------------------------------- |
 | Setup  | `Device.create()`        | adapter, device, canvas context |
+| Buffer | `Buffer.fromData()`      | vertex data on GPU              |
+| Mesh   | `Mesh.addVertexBuffer()` | layouts + per-pass bind         |
 | Shader | `new Draw(device, wgsl)` | shader module + render pipeline |
 | Frame  | `beginRenderPass()`      | render pass encoder             |
-| Draw   | `draw.draw(pass)`        | `setPipeline` + `draw()`        |
+| Draw   | `draw.draw(pass, mesh)`  | `setPipeline` + `draw()`        |
 
 ## Minimal render loop
 
@@ -36,12 +38,13 @@ See the [triangle example](../examples/triangle/src/main.ts):
 
 1. `assertWebGPUSupport()` — fail fast if WebGPU is unavailable
 2. `Device.create(canvas)` — configure the swapchain
-3. `new Draw(device, shaderWgsl)` — compile WGSL (`vs_main` / `fs_main`)
-4. Each frame:
+3. `Buffer.fromData` + `Mesh.addVertexBuffer` — upload positions, describe `@location(0)`
+4. `new Draw(device, shaderWgsl, { vertexBuffers })` — compile WGSL + vertex layouts
+5. Each frame:
    - `device.resize()` — match canvas pixel size
    - `device.getCurrentTexture().createView()` — swapchain texture
    - `beginRenderPass(encoder, view)` — clear and draw to screen
-   - `draw.draw(pass)` — issue draw call
+   - `draw.draw(pass, mesh)` — bind buffers and draw
    - `pass.end()` and `queue.submit([encoder.finish()])`
 
 You can optionally pass `DrawOptions` to configure pipeline state (for example culling, color targets, and depth-stencil state).
@@ -54,7 +57,7 @@ You can optionally pass `DrawOptions` to configure pipeline state (for example c
 - Fragment entry point: `fs_main`
 - Fragment output matching the swapchain `format` from `device.format`
 
-For a fullscreen-style triangle with no vertex buffers, use `@builtin(vertex_index)` in the vertex shader (as in the triangle example).
+Vertex attributes use `@location(N)` in WGSL, matching `Mesh` attribute `shaderLocation` values.
 
 ## Depth-ready path
 
@@ -69,7 +72,8 @@ For a fullscreen-style triangle with no vertex buffers, use `@builtin(vertex_ind
 These exist internally or are planned; they are not exported from `belfast` today:
 
 - Cameras and scene graph
-- Texture / buffer helpers (see `packages/belfast/src/core/GPUResources.ts` — may be exported later)
+- Index buffers / `drawIndexed`
+- Bind groups and uniforms
 - Loaders, math utilities
 
 When adding features, update [`api/README.md`](api/README.md) and add a focused page under `docs/api/`.

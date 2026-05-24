@@ -1,5 +1,15 @@
-import { assertWebGPUSupport, beginRenderPass, Device, Draw } from "belfast";
+import {
+  assertWebGPUSupport,
+  beginRenderPass,
+  Buffer,
+  BufferUsage,
+  Device,
+  Draw,
+  Mesh,
+} from "belfast";
 import shaderCode from "./shaders/triangle.wgsl?raw";
+
+const positions = new Float32Array([0.0, 0.5, -0.5, -0.5, 0.5, -0.5]);
 
 async function main() {
   await assertWebGPUSupport();
@@ -9,14 +19,32 @@ async function main() {
   document.body.appendChild(canvas);
 
   const device = await Device.create(canvas);
-  const draw = new Draw(device, shaderCode, "Triangle");
+
+  const positionBuffer = Buffer.fromData(
+    device,
+    positions,
+    BufferUsage.vertex,
+    "triangle-positions",
+  );
+
+  const mesh = new Mesh(3).addVertexBuffer({
+    buffer: positionBuffer,
+    arrayStride: 8,
+    attributes: [{ shaderLocation: 0, format: "float32x2", offset: 0 }],
+    slot: 0,
+  });
+
+  const draw = new Draw(device, shaderCode, {
+    label: "Triangle",
+    vertexBuffers: mesh.getVertexLayouts(),
+  });
 
   const render = () => {
     device.resize();
     const textureView = device.getCurrentTexture().createView();
     const encoder = device.device.createCommandEncoder();
     const pass = beginRenderPass(encoder, textureView);
-    draw.draw(pass);
+    draw.draw(pass, mesh);
     pass.end();
     device.device.queue.submit([encoder.finish()]);
     requestAnimationFrame(render);

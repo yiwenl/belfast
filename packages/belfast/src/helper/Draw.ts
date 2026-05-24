@@ -1,4 +1,5 @@
 import type { Device } from "../core/Device";
+import type { Mesh } from "../core/Mesh";
 import { createRenderPipeline, createShaderModule } from "../core/GPUResources";
 
 export interface DrawOptions {
@@ -6,6 +7,7 @@ export interface DrawOptions {
   primitive?: GPUPrimitiveState;
   depthStencil?: GPUDepthStencilState;
   targets?: GPUColorTargetState[];
+  vertexBuffers?: GPUVertexBufferLayout[];
 }
 
 export class Draw {
@@ -18,6 +20,7 @@ export class Draw {
       primitive = { topology: "triangle-list" },
       depthStencil,
       targets = [{ format: device.format }],
+      vertexBuffers = [],
     } = options;
 
     const module = createShaderModule(device, shaderCode, `${label}Shader`);
@@ -28,6 +31,7 @@ export class Draw {
       vertex: {
         module,
         entryPoint: "vs_main",
+        buffers: vertexBuffers,
       },
       fragment: {
         module,
@@ -39,8 +43,9 @@ export class Draw {
     });
   }
 
-  draw(passEncoder: GPURenderPassEncoder, vertexCount = 3, instanceCount = 1): void {
+  draw(passEncoder: GPURenderPassEncoder, mesh: Mesh, instanceCount = 1): void {
     passEncoder.setPipeline(this.pipeline);
-    passEncoder.draw(vertexCount, instanceCount);
+    mesh.bind(passEncoder);
+    passEncoder.draw(mesh.vertexCount, instanceCount);
   }
 }
