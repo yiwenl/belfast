@@ -107,6 +107,12 @@ const axes = new AxisHelper(device);
 axes.draw(pass, bindGroup);
 ```
 
+`BallHelper` draws a sphere with per-call position, scale, color, and opacity:
+
+```ts
+ball.draw(pass, sceneBindGroup, { position: [0, 0, 0], scale: 0.15, opacity: 0.6 });
+```
+
 See [camera-orbit example](../examples/camera-orbit/src/main.ts).
 
 ## What is not in the public API yet
@@ -114,9 +120,8 @@ See [camera-orbit example](../examples/camera-orbit/src/main.ts).
 These exist internally or are planned; they are not exported from `belfast` today:
 
 - Scene graph
-- Index buffers / `drawIndexed`
+- Index buffers / `drawIndexed` (sphere geometry is expanded on CPU)
 - Textures and samplers (use `BindGroup.create` with a resource array)
-- Multiple bind groups (group indices 1+)
 - Full math library (only internal `mat4` helpers used by cameras)
 - Loaders
 

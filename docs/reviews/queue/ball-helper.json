@@ -1,0 +1,26 @@
+{
+  "slug": "ball-helper",
+  "status": "ACKNOWLEDGED",
+  "title": "BallHelper debug sphere",
+  "summary": "Adds BallHelper with per-draw position, scale, color, opacity (alfrid DrawBall parity). Sphere geometry expanded to triangle-list; two bind groups (scene viewProj + instance). createSceneBallPipelineLayout for shared camera bind group. Alpha blend with depthWrite disabled; camera-orbit draws opaque then transparent.",
+  "submitted_at": "2026-05-24T17:41:43Z",
+  "submitted_by": "cursor",
+  "implementation_paths": [
+    "packages/belfast/src/geom/sphere.ts",
+    "packages/belfast/src/helper/BallHelper.ts",
+    "packages/belfast/src/helper/sceneLayout.ts",
+    "packages/belfast/src/helper/Draw.ts",
+    "packages/belfast/src/index.ts",
+    "examples/camera-orbit/src/main.ts"
+  ],
+  "doc_paths": [
+    "docs/api/BallHelper.md",
+    "docs/api/Draw.md",
+    "docs/api/README.md",
+    "docs/overview.md",
+    "docs/reviews/queue/ball-helper-implementation.md"
+  ],
+  "feedback_path": "docs/reviews/ball-helper-antigravity.md",
+  "handoff_message": "Antigravity review complete for \"ball-helper\". In Cursor, ask the agent to use get_feedback_for_cursor for \"ball-helper\".",
+  "cursor_notes": "Documented one draw per BallHelper per frame; Math.round in sphere geom; transparency depthWrite fix already in tree."
+}

@@ -12,9 +12,12 @@ export { Buffer, BufferUsage } from "./core/Buffer";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";
 export { Draw, type DrawOptions } from "./helper/Draw";
 export { AxisHelper, type AxisHelperOptions } from "./helper/AxisHelper";
+export { BallHelper, type BallHelperOptions, type BallDrawParams } from "./helper/BallHelper";
 export {
   createSceneUniformBindGroupLayout,
   createSceneUniformPipelineLayout,
+  createBallInstanceBindGroupLayout,
+  createSceneBallPipelineLayout,
 } from "./helper/sceneLayout";
 export { Mesh, type VertexAttributeDescriptor, type VertexBufferBinding } from "./core/Mesh";
 

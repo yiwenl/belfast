@@ -1,6 +1,7 @@
 import {
   assertWebGPUSupport,
   AxisHelper,
+  BallHelper,
   beginRenderPass,
   BindGroup,
   Buffer,
@@ -75,10 +76,12 @@ async function main() {
   });
 
   const axes = new AxisHelper(device, { pipelineLayout });
+  const ball = new BallHelper(device);
 
   window.addEventListener("beforeunload", () => {
     control.destroy();
     axes.destroy();
+    ball.destroy();
   });
 
   const bindGroup = BindGroup.create(
@@ -140,6 +143,16 @@ async function main() {
     });
     axes.draw(pass, bindGroup);
     draw.draw(pass, mesh, bindGroup);
+    ball.draw(pass, bindGroup, {
+      position: [1, 0, 0],
+      scale: 0.02,
+      color: [1, 1, 1],
+    });
+    ball.draw(pass, bindGroup, {
+      position: [-1, 0, 0],
+      scale: 0.02,
+      color: [1, 0, 1],
+    });
     pass.end();
     device.device.queue.submit([encoder.finish()]);
     requestAnimationFrame(render);

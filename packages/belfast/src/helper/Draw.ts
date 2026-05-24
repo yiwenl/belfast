@@ -54,11 +54,16 @@ export class Draw {
   draw(
     passEncoder: GPURenderPassEncoder,
     meshOrVertexCount: Mesh | number,
-    bindGroup?: BindGroup,
+    bindGroup?: BindGroup | readonly BindGroup[],
     instanceCount = 1,
   ): void {
     passEncoder.setPipeline(this.pipeline);
-    bindGroup?.bind(passEncoder);
+    if (bindGroup) {
+      const groups = Array.isArray(bindGroup) ? bindGroup : [bindGroup];
+      for (let i = 0; i < groups.length; i++) {
+        groups[i].bind(passEncoder, i);
+      }
+    }
     if (typeof meshOrVertexCount === "number") {
       passEncoder.draw(meshOrVertexCount, instanceCount);
     } else {

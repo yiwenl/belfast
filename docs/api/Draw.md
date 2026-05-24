@@ -47,12 +47,12 @@ Use with `BindGroup.create(device, layout, uniformBuffer)` when the shader decla
 
 ### `draw(passEncoder, meshOrVertexCount, bindGroup?, instanceCount?)`
 
-| Argument            | Default | Description                                          |
-| ------------------- | ------- | ---------------------------------------------------- |
-| `passEncoder`       | —       | Active `GPURenderPassEncoder`                        |
-| `meshOrVertexCount` | —       | `Mesh` (binds buffers) or `number` (procedural draw) |
-| `bindGroup`         | —       | Optional `BindGroup` for resource bindings           |
-| `instanceCount`     | `1`     | Instance count                                       |
+| Argument            | Default | Description                                           |
+| ------------------- | ------- | ----------------------------------------------------- |
+| `passEncoder`       | —       | Active `GPURenderPassEncoder`                         |
+| `meshOrVertexCount` | —       | `Mesh` (binds buffers) or `number` (procedural draw)  |
+| `bindGroup`         | —       | Optional `BindGroup` or array (bound at indices 0..n) |
+| `instanceCount`     | `1`     | Instance count                                        |
 
 With a `Mesh`, sets the pipeline, optional bind group, vertex buffers, and draws `mesh.vertexCount` vertices.
 

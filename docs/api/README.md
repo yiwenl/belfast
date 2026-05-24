@@ -9,6 +9,7 @@ import {
   Camera,
   Device,
   AxisHelper,
+  BallHelper,
   Draw,
   Mesh,
   PerspectiveCamera,
@@ -46,6 +47,11 @@ import {
 | `AxisHelperOptions`                 | type     | [AxisHelper.md](AxisHelper.md)                 |
 | `createSceneUniformPipelineLayout`  | function | [AxisHelper.md](AxisHelper.md)                 |
 | `createSceneUniformBindGroupLayout` | function | [AxisHelper.md](AxisHelper.md)                 |
+| `BallHelper`                        | class    | [BallHelper.md](BallHelper.md)                 |
+| `BallHelperOptions`                 | type     | [BallHelper.md](BallHelper.md)                 |
+| `BallDrawParams`                    | type     | [BallHelper.md](BallHelper.md)                 |
+| `createSceneBallPipelineLayout`     | function | [BallHelper.md](BallHelper.md)                 |
+| `createBallInstanceBindGroupLayout` | function | [BallHelper.md](BallHelper.md)                 |
 | `Draw`                              | class    | [Draw.md](Draw.md)                             |
 | `DrawOptions`                       | type     | [Draw.md](Draw.md)                             |
 | `beginRenderPass`                   | function | [RenderPass.md](RenderPass.md)                 |
