@@ -11,7 +11,7 @@ Vertex positions move from hardcoded WGSL (`@builtin(vertex_index)`) into GPU ve
 | `Buffer`      | Wraps `GPUBuffer` with create / fromData / write / destroy     |
 | `BufferUsage` | Presets: `vertex`, `storage`, `vertexStorage`                  |
 | `Mesh`        | Vertex count + `addVertexBuffer` + `bind` + `getVertexLayouts` |
-| `Draw`        | `vertexBuffers` in options; `draw(pass, mesh)`                 |
+| `Draw`        | `vertexBuffers` in options; `draw(pass, mesh \| vertexCount)`  |
 
 ## Triangle usage
 

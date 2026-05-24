@@ -14,13 +14,17 @@ export interface VertexBufferBinding {
   stepMode?: GPUVertexStepMode;
 }
 
+interface ResolvedVertexBufferBinding extends VertexBufferBinding {
+  slot: number;
+}
+
 /**
  * Vertex layout and buffer bindings for draw calls.
  * Named "Mesh" for now; in many engines mesh implies geometry + material — material/shader stay on Draw.
  */
 export class Mesh {
   readonly vertexCount: number;
-  private readonly bindings: VertexBufferBinding[] = [];
+  private readonly bindings: ResolvedVertexBufferBinding[] = [];
 
   constructor(vertexCount: number) {
     if (vertexCount <= 0) {
@@ -30,9 +34,9 @@ export class Mesh {
   }
 
   addVertexBuffer(binding: VertexBufferBinding): this {
-    const slot = binding.slot ?? this.bindings.length;
+    const slot = binding.slot ?? this.nextFreeSlot();
 
-    if (this.bindings.some((entry) => (entry.slot ?? this.bindings.indexOf(entry)) === slot)) {
+    if (this.bindings.some((entry) => entry.slot === slot)) {
       throw new Error(`Vertex buffer slot ${slot} is already in use.`);
     }
 
@@ -40,12 +44,19 @@ export class Mesh {
     return this;
   }
 
-  getVertexLayouts(): GPUVertexBufferLayout[] {
-    const layouts: GPUVertexBufferLayout[] = [];
+  getVertexLayouts(): (GPUVertexBufferLayout | null)[] {
+    if (this.bindings.length === 0) {
+      return [];
+    }
+
+    const maxSlot = Math.max(...this.bindings.map((binding) => binding.slot));
+    const layouts: (GPUVertexBufferLayout | null)[] = Array.from(
+      { length: maxSlot + 1 },
+      () => null,
+    );
 
     for (const binding of this.bindings) {
-      const slot = binding.slot ?? layouts.length;
-      layouts[slot] = {
+      layouts[binding.slot] = {
         arrayStride: binding.arrayStride,
         stepMode: binding.stepMode ?? "vertex",
         attributes: binding.attributes.map((attribute) => ({
@@ -61,8 +72,16 @@ export class Mesh {
 
   bind(passEncoder: GPURenderPassEncoder): void {
     for (const binding of this.bindings) {
-      const slot = binding.slot ?? this.bindings.indexOf(binding);
-      passEncoder.setVertexBuffer(slot, binding.buffer.gpu);
+      passEncoder.setVertexBuffer(binding.slot, binding.buffer.gpu);
     }
+  }
+
+  private nextFreeSlot(): number {
+    const occupied = new Set(this.bindings.map((binding) => binding.slot));
+    let slot = 0;
+    while (occupied.has(slot)) {
+      slot++;
+    }
+    return slot;
   }
 }

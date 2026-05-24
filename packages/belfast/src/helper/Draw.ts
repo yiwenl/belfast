@@ -7,7 +7,7 @@ export interface DrawOptions {
   primitive?: GPUPrimitiveState;
   depthStencil?: GPUDepthStencilState;
   targets?: GPUColorTargetState[];
-  vertexBuffers?: GPUVertexBufferLayout[];
+  vertexBuffers?: (GPUVertexBufferLayout | null)[];
 }
 
 export class Draw {
@@ -43,9 +43,17 @@ export class Draw {
     });
   }
 
-  draw(passEncoder: GPURenderPassEncoder, mesh: Mesh, instanceCount = 1): void {
+  draw(
+    passEncoder: GPURenderPassEncoder,
+    meshOrVertexCount: Mesh | number,
+    instanceCount = 1,
+  ): void {
     passEncoder.setPipeline(this.pipeline);
-    mesh.bind(passEncoder);
-    passEncoder.draw(mesh.vertexCount, instanceCount);
+    if (typeof meshOrVertexCount === "number") {
+      passEncoder.draw(meshOrVertexCount, instanceCount);
+    } else {
+      meshOrVertexCount.bind(passEncoder);
+      passEncoder.draw(meshOrVertexCount.vertexCount, instanceCount);
+    }
   }
 }

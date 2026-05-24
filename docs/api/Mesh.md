@@ -23,16 +23,16 @@ new Mesh(vertexCount: number)
 | `buffer`      | Belfast `Buffer`                                   |
 | `arrayStride` | Bytes between consecutive vertices                 |
 | `attributes`  | `shaderLocation`, `format`, `offset` per attribute |
-| `slot`        | Vertex buffer slot (default: next free slot)       |
+| `slot`        | Vertex buffer slot (default: lowest unused slot)   |
 | `stepMode`    | `"vertex"` (default) or `"instance"`               |
 
 Returns `this` for chaining.
 
 ## Methods
 
-### `getVertexLayouts(): GPUVertexBufferLayout[]`
+### `getVertexLayouts(): (GPUVertexBufferLayout | null)[]`
 
-Pass to `Draw` options as `vertexBuffers` when creating the pipeline.
+Pass to `Draw` options as `vertexBuffers` when creating the pipeline. Unused slots between bindings are filled with `null` (required by WebGPU for non-contiguous vertex buffer indices).
 
 ### `bind(passEncoder)`
 
@@ -50,5 +50,5 @@ const mesh = new Mesh(3).addVertexBuffer({
 
 ## See also
 
-- [Draw](Draw.md) — `draw(pass, mesh)`
+- [Draw](Draw.md) — `draw(pass, mesh)` or procedural `draw(pass, vertexCount)`
 - [Buffer](Buffer.md)

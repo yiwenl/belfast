@@ -29,7 +29,7 @@ new Draw(device: Device, shaderCode: string, optionsOrLabel?: DrawOptions | stri
 | `primitive`     | `GPUPrimitiveState`       | `{ topology: "triangle-list" }` | Primitive topology/culling/frontFace  |
 | `depthStencil`  | `GPUDepthStencilState`    | `undefined`                     | Enable depth/stencil pipeline state   |
 | `targets`       | `GPUColorTargetState[]`   | `[{ format: device.format }]`   | Color attachments for fragment output |
-| `vertexBuffers` | `GPUVertexBufferLayout[]` | `[]`                            | From `mesh.getVertexLayouts()`        |
+| `vertexBuffers` | `(GPUVertexBufferLayout \| null)[]` | `[]`              | From `mesh.getVertexLayouts()`        |
 
 Creates:
 
@@ -38,15 +38,17 @@ Creates:
 
 ## Methods
 
-### `draw(passEncoder, mesh, instanceCount?)`
+### `draw(passEncoder, meshOrVertexCount, instanceCount?)`
 
-| Argument        | Default | Description                   |
-| --------------- | ------- | ----------------------------- |
-| `passEncoder`   | —       | Active `GPURenderPassEncoder` |
-| `mesh`          | —       | `Mesh` with bound buffers     |
-| `instanceCount` | `1`     | Instance count                |
+| Argument            | Default | Description                                              |
+| ------------------- | ------- | -------------------------------------------------------- |
+| `passEncoder`       | —       | Active `GPURenderPassEncoder`                            |
+| `meshOrVertexCount` | —       | `Mesh` (binds buffers) or `number` (procedural draw)     |
+| `instanceCount`     | `1`     | Instance count                                           |
 
-Sets the pipeline, binds mesh vertex buffers, and draws `mesh.vertexCount` vertices.
+With a `Mesh`, sets the pipeline, binds vertex buffers, and draws `mesh.vertexCount` vertices.
+
+With a `number`, sets the pipeline and draws that many vertices (no buffer bind). Use when the vertex shader uses `@builtin(vertex_index)` and `vertexBuffers` was empty at pipeline creation.
 
 ## WGSL requirements
 

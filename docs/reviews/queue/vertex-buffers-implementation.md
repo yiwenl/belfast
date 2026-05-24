@@ -59,9 +59,9 @@ Each binding specifies `buffer`, `arrayStride`, `attributes`, and optional `slot
 
 Matches WebGPU: layouts are immutable on the pipeline; buffers are bound per pass.
 
-### 4. Breaking change: `draw(pass, mesh)`
+### 4. `draw(pass, mesh | vertexCount)`
 
-Removed `draw(pass, vertexCount?)` without mesh. Triangle is the only example and now always uses `Mesh`. Simpler than supporting both vertex-index and buffer paths.
+Primary path: `draw(pass, mesh)` binds buffers and draws. Procedural path: `draw(pass, vertexCount)` when the pipeline has no vertex buffers (e.g. `@builtin(vertex_index)`).
 
 ## Data flow
 
@@ -93,7 +93,7 @@ const buffer = Buffer.create(device, size, BufferUsage.vertexStorage);
 ## Review checklist
 
 - [ ] `Buffer.write` uses zero-allocation path (no `.slice()` on views)
-- [ ] `Mesh.getVertexLayouts()` slot indices align with `bind()` slots
+- [x] `Mesh.getVertexLayouts()` pads unused slots with `null`; aligns with `bind()` slots
 - [ ] `Draw` pipeline `vertex.buffers` matches WGSL `@location` attributes
 - [ ] Triangle example runs unchanged visually
 - [ ] API docs match exports in `index.ts`
@@ -119,5 +119,5 @@ pnpm dev:example triangle
 ## Open questions for reviewer
 
 1. Should `Draw` accept `Mesh` in the constructor to avoid passing layouts manually?
-2. Should empty `vertexBuffers` keep a legacy `draw(pass, count)` path for shader-only triangles?
+2. ~~Should empty `vertexBuffers` keep a legacy `draw(pass, count)` path?~~ Yes — implemented per Antigravity feedback.
 3. Is `Mesh` the right name vs `Geometry` (alfrid uses `Mesh`)?

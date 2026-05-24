@@ -31,7 +31,7 @@ export class Buffer {
     usage: GPUBufferUsageFlags,
     label?: string,
   ): Buffer {
-    const byteLength = data instanceof ArrayBuffer ? data.byteLength : data.byteLength;
+    const byteLength = data.byteLength;
     const buffer = Buffer.create(device, byteLength, usage, label);
     buffer.write(device, data);
     return buffer;
