@@ -18,6 +18,22 @@ importers:
         specifier: ^3.5.3
         version: 3.8.3
 
+  examples/camera-orbit:
+    dependencies:
+      belfast:
+        specifier: workspace:*
+        version: link:../../packages/belfast
+    devDependencies:
+      '@webgpu/types':
+        specifier: ^0.1.44
+        version: 0.1.70
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.3
+        version: 6.4.2(yaml@2.9.0)
+
   examples/camera-ortho:
     dependencies:
       belfast:
@@ -83,6 +99,10 @@ importers:
         version: 6.4.2(yaml@2.9.0)
 
   packages/belfast:
+    dependencies:
+      scheduling:
+        specifier: ^1.4.4
+        version: 1.4.4
     devDependencies:
       '@webgpu/types':
         specifier: ^0.1.44
@@ -790,6 +810,9 @@ packages:
     resolution: {integrity: sha512-WHeFSbZYsPu3+bLoNRUuAO+wavNlocOPf3wSHTP7hcFKVnJeWsYlCDbr3mTS14FCizf9ccIxXA8sGL8zKeQN3g==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
+
+  scheduling@1.4.4:
+    resolution: {integrity: sha512-WHjvxpz83W5q/o2iBQMFb8xtRPbpKCU0ZQt/LuSFhh+w5e6Ejh+DMiFrc5F6BnR2NMoXVOcap+Jmz2xo3Vw4Rw==}
 
   semver@7.7.4:
     resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
@@ -1531,6 +1554,8 @@ snapshots:
       '@rollup/rollup-win32-x64-gnu': 4.60.4
       '@rollup/rollup-win32-x64-msvc': 4.60.4
       fsevents: 2.3.3
+
+  scheduling@1.4.4: {}
 
   semver@7.7.4: {}
 

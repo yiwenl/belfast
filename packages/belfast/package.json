@@ -25,6 +25,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "dependencies": {
+    "scheduling": "^1.4.4"
+  },
   "peerDependencies": {
     "@webgpu/types": ">=0.1.40"
   },

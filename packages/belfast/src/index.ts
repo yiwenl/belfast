@@ -1,9 +1,11 @@
 /// <reference types="@webgpu/types" />
 
+export { OrbitalControl, type OrbitalControlOptions } from "./controls/OrbitalControl";
+export { EaseNumber } from "./utils/EaseNumber";
 export { Camera } from "./camera/Camera";
 export { PerspectiveCamera } from "./camera/PerspectiveCamera";
 export { OrthographicCamera } from "./camera/OrthographicCamera";
-export type { Vec3, Mat4 } from "./math/types";
+export type { Vec3, MutVec3, Mat4 } from "./math/types";
 export { Device, type DeviceOptions } from "./core/Device";
 export { BindGroup, type BindGroupResource } from "./core/BindGroup";
 export { Buffer, BufferUsage } from "./core/Buffer";

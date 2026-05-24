@@ -11,6 +11,8 @@ import {
   Draw,
   Mesh,
   PerspectiveCamera,
+  OrbitalControl,
+  EaseNumber,
   beginRenderPass,
   assertWebGPUSupport,
   showWebGPUUnavailableMessage,
@@ -34,7 +36,11 @@ import {
 | `PerspectiveCamera`            | class    | [PerspectiveCamera.md](PerspectiveCamera.md)   |
 | `OrthographicCamera`           | class    | [OrthographicCamera.md](OrthographicCamera.md) |
 | `Vec3`                         | type     | [Camera.md](Camera.md)                         |
+| `MutVec3`                      | type     | [Camera.md](Camera.md)                         |
 | `Mat4`                         | type     | [Camera.md](Camera.md)                         |
+| `EaseNumber`                   | class    | [EaseNumber.md](EaseNumber.md)                 |
+| `OrbitalControl`               | class    | [OrbitalControl.md](OrbitalControl.md)         |
+| `OrbitalControlOptions`        | type     | [OrbitalControl.md](OrbitalControl.md)         |
 | `Draw`                         | class    | [Draw.md](Draw.md)                             |
 | `DrawOptions`                  | type     | [Draw.md](Draw.md)                             |
 | `beginRenderPass`              | function | [RenderPass.md](RenderPass.md)                 |

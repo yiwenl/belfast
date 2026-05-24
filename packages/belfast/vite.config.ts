@@ -4,6 +4,9 @@ import { resolve } from "node:path";
 
 export default defineConfig({
   build: {
+    rollupOptions: {
+      external: ["scheduling"],
+    },
     lib: {
       entry: resolve(__dirname, "src/index.ts"),
       name: "belfast",

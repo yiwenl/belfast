@@ -86,6 +86,18 @@ See [triangle-time example](../examples/triangle-time/src/main.ts) for animated 
 
 See [camera-triangle](../examples/camera-triangle/src/main.ts) (perspective) and [camera-ortho](../examples/camera-ortho/src/main.ts) (orthographic) for 3D rendering with depth testing.
 
+## Orbital controls
+
+`OrbitalControl` drives a camera with drag-to-orbit and wheel zoom via [`scheduling`](https://www.npmjs.com/package/scheduling) enterframe updates. `EaseNumber` smooths radius and rotation.
+
+```ts
+const control = new OrbitalControl(camera, { listenerTarget: canvas, radius: 2.5 });
+// render loop: camera.getViewProjectionMatrix() — no control.update() needed
+control.destroy(); // on teardown
+```
+
+See [camera-orbit example](../examples/camera-orbit/src/main.ts).
+
 ## What is not in the public API yet
 
 These exist internally or are planned; they are not exported from `belfast` today:
