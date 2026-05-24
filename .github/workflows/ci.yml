@@ -20,6 +20,8 @@ jobs:
 
       - run: pnpm install
 
+      - run: pnpm format:check
+
       - run: pnpm build
 
       - run: pnpm typecheck

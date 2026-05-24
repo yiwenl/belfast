@@ -1,0 +1,12 @@
+node_modules
+dist
+lib
+pnpm-lock.yaml
+package-lock.json
+packages/alfrid
+
+# Shaders
+*.wgsl
+*.vert
+*.frag
+*.glsl

@@ -1,10 +1,6 @@
 import type { Device } from "./Device";
 
-export function createShaderModule(
-  device: Device,
-  code: string,
-  label?: string,
-): GPUShaderModule {
+export function createShaderModule(device: Device, code: string, label?: string): GPUShaderModule {
   return device.device.createShaderModule({ code, label });
 }
 
@@ -30,10 +26,16 @@ export function writeBuffer(
   data: ArrayBuffer | ArrayBufferView,
   bufferOffset = 0,
 ): void {
-  const source =
-    data instanceof ArrayBuffer
-      ? data
-      : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  if (data instanceof ArrayBuffer) {
+    device.device.queue.writeBuffer(buffer, bufferOffset, data);
+    return;
+  }
 
-  device.device.queue.writeBuffer(buffer, bufferOffset, source);
+  device.device.queue.writeBuffer(
+    buffer,
+    bufferOffset,
+    data.buffer,
+    data.byteOffset,
+    data.byteLength,
+  );
 }

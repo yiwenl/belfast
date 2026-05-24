@@ -28,6 +28,8 @@ pnpm dev:example                  # run default example (triangle)
 pnpm dev:example textured-quad    # run a specific example
 pnpm dev:all textured-quad        # library watch + specific example
 pnpm examples                     # list available examples
+pnpm format                       # format all files
+pnpm format:check                 # check formatting (CI)
 ```
 
 Direct pnpm filters also work:
@@ -45,6 +47,10 @@ pnpm --filter "./examples/*" build
 3. Run `pnpm dev:example <name>` — no root script changes needed
 
 The workspace glob `examples/*` auto-discovers new examples. Root dev commands are parameterized via [`scripts/dev-example.mjs`](../scripts/dev-example.mjs) (default example: `triangle`).
+
+## Documentation
+
+API explanations live in [`docs/`](../docs/README.md). Add a page under `docs/api/` when exporting new public APIs from `packages/belfast`.
 
 ## alfrid reference
 

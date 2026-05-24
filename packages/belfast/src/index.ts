@@ -1,6 +1,6 @@
 export { Device, type DeviceOptions } from "./core/Device";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";
-export { Draw } from "./helper/Draw";
+export { Draw, type DrawOptions } from "./helper/Draw";
 
 import { Device } from "./core/Device";
 

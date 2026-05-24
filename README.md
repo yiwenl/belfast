@@ -19,6 +19,7 @@ packages/
   alfrid/      WebGL reference source (not built or published)
 examples/
   triangle/    Hello triangle — first WebGPU example
+docs/          Library API reference and guides
 notes/         Planning docs
 ```
 
@@ -33,6 +34,8 @@ pnpm dev:all                      # library watch + default example
 pnpm dev:all textured-quad        # library watch + specific example
 pnpm examples                     # list available examples
 pnpm typecheck
+pnpm format                       # format all files
+pnpm format:check                 # check formatting (CI)
 ```
 
 ## WebGPU browser support
@@ -43,4 +46,5 @@ Requires Chrome 113+, Edge 113+, or Safari 18+.
 
 Build incrementally from the triangle example: textured quad, buffers, then port ideas from `packages/alfrid/src/` as needed.
 
-See [`notes/webgpu-restructure-plan.md`](notes/webgpu-restructure-plan.md) for the full plan.
+- [Library docs](docs/README.md) — API reference and overview
+- [Restructure plan](notes/webgpu-restructure-plan.md) — repo and tooling notes

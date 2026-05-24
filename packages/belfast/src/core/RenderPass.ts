@@ -2,6 +2,7 @@ export interface RenderPassOptions {
   clearColor?: GPUColor;
   loadOp?: GPULoadOp;
   storeOp?: GPUStoreOp;
+  depthStencilAttachment?: GPURenderPassDepthStencilAttachment;
 }
 
 export function beginRenderPass(
@@ -13,6 +14,7 @@ export function beginRenderPass(
     clearColor = { r: 0.05, g: 0.05, b: 0.08, a: 1 },
     loadOp = "clear",
     storeOp = "store",
+    depthStencilAttachment,
   } = options;
 
   return commandEncoder.beginRenderPass({
@@ -24,5 +26,6 @@ export function beginRenderPass(
         storeOp,
       },
     ],
+    depthStencilAttachment,
   });
 }

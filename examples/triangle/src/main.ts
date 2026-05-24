@@ -1,9 +1,4 @@
-import {
-  assertWebGPUSupport,
-  beginRenderPass,
-  Device,
-  Draw,
-} from "belfast";
+import { assertWebGPUSupport, beginRenderPass, Device, Draw } from "belfast";
 import shaderCode from "./shaders/triangle.wgsl?raw";
 
 async function main() {

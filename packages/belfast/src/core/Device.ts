@@ -29,10 +29,7 @@ export class Device {
     return adapter !== null;
   }
 
-  static async create(
-    canvas: HTMLCanvasElement,
-    options: DeviceOptions = {},
-  ): Promise<Device> {
+  static async create(canvas: HTMLCanvasElement, options: DeviceOptions = {}): Promise<Device> {
     if (!navigator.gpu) {
       throw new Error("WebGPU is not supported in this browser.");
     }
