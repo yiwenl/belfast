@@ -18,6 +18,38 @@ importers:
         specifier: ^3.5.3
         version: 3.8.3
 
+  examples/camera-ortho:
+    dependencies:
+      belfast:
+        specifier: workspace:*
+        version: link:../../packages/belfast
+    devDependencies:
+      '@webgpu/types':
+        specifier: ^0.1.44
+        version: 0.1.70
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.3
+        version: 6.4.2(yaml@2.9.0)
+
+  examples/camera-triangle:
+    dependencies:
+      belfast:
+        specifier: workspace:*
+        version: link:../../packages/belfast
+    devDependencies:
+      '@webgpu/types':
+        specifier: ^0.1.44
+        version: 0.1.70
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.3
+        version: 6.4.2(yaml@2.9.0)
+
   examples/triangle:
     dependencies:
       belfast:

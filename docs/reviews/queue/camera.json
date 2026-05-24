@@ -1,0 +1,29 @@
+{
+  "slug": "camera",
+  "status": "ACKNOWLEDGED",
+  "title": "Camera (Perspective + Orthographic)",
+  "summary": "Adds Camera base class with view/projection matrices, PerspectiveCamera and OrthographicCamera subclasses, internal mat4 math (no gl-matrix), and camera-triangle example with viewProj uniform, depth testing, and orbiting perspective camera. Public getters: getPosition, getLookAtTarget, getFieldOfView (perspective only, radians).",
+  "submitted_at": "2026-05-24T15:30:19Z",
+  "submitted_by": "cursor",
+  "implementation_paths": [
+    "packages/belfast/src/math/types.ts",
+    "packages/belfast/src/math/mat4.ts",
+    "packages/belfast/src/camera/Camera.ts",
+    "packages/belfast/src/camera/PerspectiveCamera.ts",
+    "packages/belfast/src/camera/OrthographicCamera.ts",
+    "packages/belfast/src/index.ts",
+    "examples/camera-triangle/src/main.ts",
+    "examples/camera-triangle/src/shaders/triangle.wgsl"
+  ],
+  "doc_paths": [
+    "docs/api/Camera.md",
+    "docs/api/PerspectiveCamera.md",
+    "docs/api/OrthographicCamera.md",
+    "docs/api/README.md",
+    "docs/overview.md",
+    "docs/reviews/queue/camera-implementation.md"
+  ],
+  "feedback_path": "docs/reviews/camera-antigravity.md",
+  "handoff_message": "Antigravity review complete for \"camera\". In Cursor, ask the agent to use get_feedback_for_cursor for \"camera\".",
+  "cursor_notes": "Fixed mat4.ortho WebGPU Z [0,1]. OrthographicCamera uses left,right,bottom,top order. Added camera-ortho example. camera-triangle aspect updates only on resize. Draw.md already correct."
+}

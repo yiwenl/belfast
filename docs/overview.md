@@ -29,6 +29,7 @@ sequenceDiagram
 | Buffer  | `Buffer.fromData()`      | vertex data on GPU              |
 | Mesh    | `Mesh.addVertexBuffer()` | layouts + per-pass bind         |
 | Uniform | `Buffer` + `BindGroup`   | uniform buffer + bind group     |
+| Camera  | `PerspectiveCamera`      | view / projection matrices      |
 | Shader  | `new Draw(device, wgsl)` | shader module + render pipeline |
 | Frame   | `beginRenderPass()`      | render pass encoder             |
 | Draw    | `draw.draw(pass, mesh)`  | `setPipeline` + `draw()`        |
@@ -79,14 +80,21 @@ For shader uniforms (`@group(0) @binding(0) var<uniform> ...`):
 
 See [triangle-time example](../examples/triangle-time/src/main.ts) for animated scale via a `time` uniform.
 
+## Cameras
+
+`PerspectiveCamera` and `OrthographicCamera` extend `Camera` with projection matrices. Use `lookAt(eye, target)` for the view matrix and `getViewProjectionMatrix()` for a `mat4x4` uniform.
+
+See [camera-triangle](../examples/camera-triangle/src/main.ts) (perspective) and [camera-ortho](../examples/camera-ortho/src/main.ts) (orthographic) for 3D rendering with depth testing.
+
 ## What is not in the public API yet
 
 These exist internally or are planned; they are not exported from `belfast` today:
 
-- Cameras and scene graph
+- Scene graph
 - Index buffers / `drawIndexed`
 - Textures and samplers (use `BindGroup.create` with a resource array)
 - Multiple bind groups (group indices 1+)
-- Loaders, math utilities
+- Full math library (only internal `mat4` helpers used by cameras)
+- Loaders
 
 When adding features, update [`api/README.md`](api/README.md) and add a focused page under `docs/api/`.
