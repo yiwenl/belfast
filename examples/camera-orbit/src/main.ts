@@ -1,9 +1,11 @@
 import {
   assertWebGPUSupport,
+  AxisHelper,
   beginRenderPass,
   BindGroup,
   Buffer,
   BufferUsage,
+  createSceneUniformPipelineLayout,
   Device,
   Draw,
   Mesh,
@@ -56,10 +58,14 @@ async function main() {
     radius: 2.5,
   });
 
-  window.addEventListener("beforeunload", () => control.destroy());
+  const { pipelineLayout, bindGroupLayout } = createSceneUniformPipelineLayout(
+    device,
+    "CameraOrbitScene",
+  );
 
   const draw = new Draw(device, shaderCode, {
     label: "CameraOrbit",
+    layout: pipelineLayout,
     vertexBuffers: mesh.getVertexLayouts(),
     depthStencil: {
       format: "depth24plus",
@@ -68,9 +74,16 @@ async function main() {
     },
   });
 
+  const axes = new AxisHelper(device, { pipelineLayout });
+
+  window.addEventListener("beforeunload", () => {
+    control.destroy();
+    axes.destroy();
+  });
+
   const bindGroup = BindGroup.create(
     device,
-    draw.getBindGroupLayout(0),
+    bindGroupLayout,
     uniformBuffer,
     0,
     "camera-bind-group",
@@ -125,6 +138,7 @@ async function main() {
         depthStoreOp: "store",
       },
     });
+    axes.draw(pass, bindGroup);
     draw.draw(pass, mesh, bindGroup);
     pass.end();
     device.device.queue.submit([encoder.finish()]);

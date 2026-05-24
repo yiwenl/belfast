@@ -11,6 +11,11 @@ export { BindGroup, type BindGroupResource } from "./core/BindGroup";
 export { Buffer, BufferUsage } from "./core/Buffer";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";
 export { Draw, type DrawOptions } from "./helper/Draw";
+export { AxisHelper, type AxisHelperOptions } from "./helper/AxisHelper";
+export {
+  createSceneUniformBindGroupLayout,
+  createSceneUniformPipelineLayout,
+} from "./helper/sceneLayout";
 export { Mesh, type VertexAttributeDescriptor, type VertexBufferBinding } from "./core/Mesh";
 
 import { Device } from "./core/Device";

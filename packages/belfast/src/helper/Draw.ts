@@ -5,6 +5,8 @@ import { createRenderPipeline, createShaderModule } from "../core/GPUResources";
 
 export interface DrawOptions {
   label?: string;
+  /** Defaults to `"auto"`. Use a shared layout (e.g. from `createSceneUniformPipelineLayout`) to reuse bind groups across pipelines. */
+  layout?: GPUPipelineLayout | "auto";
   primitive?: GPUPrimitiveState;
   depthStencil?: GPUDepthStencilState;
   targets?: GPUColorTargetState[];
@@ -18,6 +20,7 @@ export class Draw {
     const options = typeof optionsOrLabel === "string" ? { label: optionsOrLabel } : optionsOrLabel;
     const {
       label = "Draw",
+      layout = "auto",
       primitive = { topology: "triangle-list" },
       depthStencil,
       targets = [{ format: device.format }],
@@ -28,7 +31,7 @@ export class Draw {
 
     this.pipeline = createRenderPipeline(device, {
       label: `${label}Pipeline`,
-      layout: "auto",
+      layout,
       vertex: {
         module,
         entryPoint: "vs_main",

@@ -23,18 +23,19 @@ new Draw(device: Device, shaderCode: string, optionsOrLabel?: DrawOptions | stri
 
 ### `DrawOptions`
 
-| Field           | Type                                | Default                         | Description                           |
-| --------------- | ----------------------------------- | ------------------------------- | ------------------------------------- |
-| `label`         | `string`                            | `"Draw"`                        | Debug label prefix                    |
-| `primitive`     | `GPUPrimitiveState`                 | `{ topology: "triangle-list" }` | Primitive topology/culling/frontFace  |
-| `depthStencil`  | `GPUDepthStencilState`              | `undefined`                     | Enable depth/stencil pipeline state   |
-| `targets`       | `GPUColorTargetState[]`             | `[{ format: device.format }]`   | Color attachments for fragment output |
-| `vertexBuffers` | `(GPUVertexBufferLayout \| null)[]` | `[]`                            | From `mesh.getVertexLayouts()`        |
+| Field           | Type                                | Default                         | Description                                                                                       |
+| --------------- | ----------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `label`         | `string`                            | `"Draw"`                        | Debug label prefix                                                                                |
+| `layout`        | `GPUPipelineLayout \| "auto"`       | `"auto"`                        | Pipeline layout; use a shared layout from `createSceneUniformPipelineLayout` to reuse bind groups |
+| `primitive`     | `GPUPrimitiveState`                 | `{ topology: "triangle-list" }` | Primitive topology/culling/frontFace                                                              |
+| `depthStencil`  | `GPUDepthStencilState`              | `undefined`                     | Enable depth/stencil pipeline state                                                               |
+| `targets`       | `GPUColorTargetState[]`             | `[{ format: device.format }]`   | Color attachments for fragment output                                                             |
+| `vertexBuffers` | `(GPUVertexBufferLayout \| null)[]` | `[]`                            | From `mesh.getVertexLayouts()`                                                                    |
 
 Creates:
 
 - A `GPUShaderModule` with entry points `vs_main` and `fs_main`
-- A `GPURenderPipeline` with `layout: "auto"`, vertex buffer layouts, and configurable state
+- A `GPURenderPipeline` with `layout` (default `"auto"`), vertex buffer layouts, and configurable state
 
 ## Methods
 

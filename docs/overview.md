@@ -98,6 +98,17 @@ control.destroy(); // on teardown
 
 See [camera-orbit example](../examples/camera-orbit/src/main.ts).
 
+## Debug helpers
+
+`AxisHelper` draws long RGB lines on the X/Y/Z axes (default length 1000, alfrid-style). Share the same view-projection uniform bind group as other 3D draws.
+
+```ts
+const axes = new AxisHelper(device);
+axes.draw(pass, bindGroup);
+```
+
+See [camera-orbit example](../examples/camera-orbit/src/main.ts).
+
 ## What is not in the public API yet
 
 These exist internally or are planned; they are not exported from `belfast` today:
