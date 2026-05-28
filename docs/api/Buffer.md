@@ -13,6 +13,7 @@ import { Buffer, BufferUsage } from "belfast";
 | Preset          | Flags                           | Typical use                             |
 | --------------- | ------------------------------- | --------------------------------------- |
 | `vertex`        | `VERTEX \| COPY_DST`            | Static or CPU-updated vertex data       |
+| `index`         | `INDEX \| COPY_DST`             | Index data for indexed rendering        |
 | `storage`       | `STORAGE \| COPY_DST`           | Compute read/write                      |
 | `uniform`       | `UNIFORM \| COPY_DST`           | Shader uniform data                     |
 | `vertexStorage` | `VERTEX \| STORAGE \| COPY_DST` | Compute output consumed as vertex input |

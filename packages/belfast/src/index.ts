@@ -10,10 +10,19 @@ export { Device, type DeviceOptions } from "./core/Device";
 export { BindGroup, type BindGroupResource } from "./core/BindGroup";
 export { Buffer, BufferUsage } from "./core/Buffer";
 export { Texture, type TextureOptions } from "./core/Texture";
+export { RenderTarget, type RenderTargetOptions } from "./core/RenderTarget";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";
 export { Draw, type DrawOptions } from "./helper/Draw";
 export { AxisHelper, type AxisHelperOptions } from "./helper/AxisHelper";
 export { BallHelper, type BallHelperOptions, type BallDrawParams } from "./helper/BallHelper";
+export { CopyHelper, type CopyHelperOptions } from "./helper/CopyHelper";
+export {
+  Geom,
+  type GeometryData,
+  type PlaneOptions,
+  type SphereOptions,
+  type CubeOptions,
+} from "./helper/Geom";
 export {
   createSceneUniformBindGroupLayout,
   createSceneUniformPipelineLayout,
@@ -22,7 +31,12 @@ export {
   createSceneTextureBindGroupLayout,
   createSceneTexturePipelineLayout,
 } from "./helper/sceneLayout";
-export { Mesh, type VertexAttributeDescriptor, type VertexBufferBinding } from "./core/Mesh";
+export {
+  Mesh,
+  type VertexAttributeDescriptor,
+  type VertexBufferBinding,
+  type MeshIndexFormat,
+} from "./core/Mesh";
 export { createPlaneTriangleList, type PlaneAxis, type PlaneTriangleList } from "./geom/plane";
 
 import { Device } from "./core/Device";

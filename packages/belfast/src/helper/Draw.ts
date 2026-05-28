@@ -68,7 +68,11 @@ export class Draw {
       passEncoder.draw(meshOrVertexCount, instanceCount);
     } else {
       meshOrVertexCount.bind(passEncoder);
-      passEncoder.draw(meshOrVertexCount.vertexCount, instanceCount);
+      if (meshOrVertexCount.hasIndexBuffer()) {
+        passEncoder.drawIndexed(meshOrVertexCount.getIndexCount(), instanceCount);
+      } else {
+        passEncoder.draw(meshOrVertexCount.vertexCount, instanceCount);
+      }
     }
   }
 }

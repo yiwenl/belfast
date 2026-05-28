@@ -7,10 +7,13 @@ import {
   BindGroup,
   Buffer,
   Texture,
+  RenderTarget,
   Camera,
   Device,
   AxisHelper,
   BallHelper,
+  CopyHelper,
+  Geom,
   Draw,
   Mesh,
   PerspectiveCamera,
@@ -38,9 +41,17 @@ import {
 | `createSceneTextureBindGroupLayout` | function | [Texture.md](Texture.md)                       |
 | `createPlaneTriangleList`           | function | [Texture.md](Texture.md)                       |
 | `PlaneAxis`                         | type     | [Texture.md](Texture.md)                       |
+| `RenderTarget`                      | class    | [RenderTarget.md](RenderTarget.md)             |
+| `RenderTargetOptions`               | type     | [RenderTarget.md](RenderTarget.md)             |
 | `Mesh`                              | class    | [Mesh.md](Mesh.md)                             |
+| `MeshIndexFormat`                   | type     | [Mesh.md](Mesh.md)                             |
 | `VertexBufferBinding`               | type     | [Mesh.md](Mesh.md)                             |
 | `VertexAttributeDescriptor`         | type     | [Mesh.md](Mesh.md)                             |
+| `Geom`                              | class    | [Geom.md](Geom.md)                             |
+| `GeometryData`                      | type     | [Geom.md](Geom.md)                             |
+| `PlaneOptions`                      | type     | [Geom.md](Geom.md)                             |
+| `SphereOptions`                     | type     | [Geom.md](Geom.md)                             |
+| `CubeOptions`                       | type     | [Geom.md](Geom.md)                             |
 | `Camera`                            | class    | [Camera.md](Camera.md)                         |
 | `PerspectiveCamera`                 | class    | [PerspectiveCamera.md](PerspectiveCamera.md)   |
 | `OrthographicCamera`                | class    | [OrthographicCamera.md](OrthographicCamera.md) |
@@ -59,6 +70,8 @@ import {
 | `BallDrawParams`                    | type     | [BallHelper.md](BallHelper.md)                 |
 | `createSceneBallPipelineLayout`     | function | [BallHelper.md](BallHelper.md)                 |
 | `createBallInstanceBindGroupLayout` | function | [BallHelper.md](BallHelper.md)                 |
+| `CopyHelper`                        | class    | [CopyHelper.md](CopyHelper.md)                 |
+| `CopyHelperOptions`                 | type     | [CopyHelper.md](CopyHelper.md)                 |
 | `Draw`                              | class    | [Draw.md](Draw.md)                             |
 | `DrawOptions`                       | type     | [Draw.md](Draw.md)                             |
 | `beginRenderPass`                   | function | [RenderPass.md](RenderPass.md)                 |

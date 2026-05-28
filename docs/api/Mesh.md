@@ -38,6 +38,34 @@ Pass to `Draw` options as `vertexBuffers` when creating the pipeline. Unused slo
 
 Calls `setVertexBuffer` for each binding. Used internally by `Draw.draw`.
 
+### `setIndexBuffer(buffer, count, format?)`
+
+Assigns index buffer and index metadata for indexed rendering.
+
+| Argument | Description                                       |
+| -------- | ------------------------------------------------- |
+| `buffer` | Belfast `Buffer` created with `BufferUsage.index` |
+| `count`  | Number of indices                                 |
+| `format` | `"uint16"` (default) or `"uint32"`                |
+
+When set, `Draw.draw(pass, mesh)` will use `drawIndexed(...)` automatically.
+
+### `setIndexBufferFromData(device, indices, label?)`
+
+Creates an index `Buffer` from `Uint16Array` or `Uint32Array`, infers index format, binds it to the mesh, and returns the created `Buffer`.
+
+| Argument  | Description                                           |
+| --------- | ----------------------------------------------------- |
+| `device`  | Belfast `Device`                                      |
+| `indices` | `Uint16Array` or `Uint32Array`                        |
+| `label`   | Optional GPU buffer label (default: `"mesh-indices"`) |
+
+Use this helper when you want one call for upload + bind:
+
+```ts
+const indexBuffer = mesh.setIndexBufferFromData(device, geom.indices, "cube-indices");
+```
+
 ## Example
 
 ```ts
@@ -46,6 +74,8 @@ const mesh = new Mesh(3).addVertexBuffer({
   arrayStride: 8,
   attributes: [{ shaderLocation: 0, format: "float32x2", offset: 0 }],
 });
+
+mesh.setIndexBuffer(indexBuffer, indexCount, "uint16");
 ```
 
 ## See also

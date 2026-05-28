@@ -5,9 +5,14 @@ export interface RenderPassOptions {
   depthStencilAttachment?: GPURenderPassDepthStencilAttachment;
 }
 
+export interface RenderPassTarget {
+  colorView: GPUTextureView;
+  depthView?: GPUTextureView;
+}
+
 export function beginRenderPass(
   commandEncoder: GPUCommandEncoder,
-  view: GPUTextureView,
+  viewOrTarget: GPUTextureView | RenderPassTarget,
   options: RenderPassOptions = {},
 ): GPURenderPassEncoder {
   const {
@@ -17,15 +22,27 @@ export function beginRenderPass(
     depthStencilAttachment,
   } = options;
 
+  const resolvedView = "colorView" in viewOrTarget ? viewOrTarget.colorView : viewOrTarget;
+  const resolvedDepthAttachment =
+    depthStencilAttachment ??
+    ("colorView" in viewOrTarget && viewOrTarget.depthView
+      ? {
+          view: viewOrTarget.depthView,
+          depthLoadOp: "clear",
+          depthClearValue: 1,
+          depthStoreOp: "store",
+        }
+      : undefined);
+
   return commandEncoder.beginRenderPass({
     colorAttachments: [
       {
-        view,
+        view: resolvedView,
         clearValue: clearColor,
         loadOp,
         storeOp,
       },
     ],
-    depthStencilAttachment,
+    depthStencilAttachment: resolvedDepthAttachment,
   });
 }

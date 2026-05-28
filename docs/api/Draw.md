@@ -54,7 +54,10 @@ Use with `BindGroup.create(device, layout, uniformBuffer)` when the shader decla
 | `bindGroup`         | —       | Optional `BindGroup` or array (bound at indices 0..n) |
 | `instanceCount`     | `1`     | Instance count                                        |
 
-With a `Mesh`, sets the pipeline, optional bind group, vertex buffers, and draws `mesh.vertexCount` vertices.
+With a `Mesh`, sets the pipeline and bind groups, binds vertex buffers, and:
+
+- calls `drawIndexed(...)` if `mesh.setIndexBuffer(...)` was used
+- otherwise calls `draw(...)` with `mesh.vertexCount`
 
 With a `number`, sets the pipeline, optional bind group, and draws that many vertices (no vertex buffer bind). Use when the vertex shader uses `@builtin(vertex_index)` and `vertexBuffers` was empty at pipeline creation.
 

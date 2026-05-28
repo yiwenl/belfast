@@ -23,16 +23,16 @@ sequenceDiagram
   end
 ```
 
-| Step    | Belfast API              | WebGPU underneath               |
-| ------- | ------------------------ | ------------------------------- |
-| Setup   | `Device.create()`        | adapter, device, canvas context |
-| Buffer  | `Buffer.fromData()`      | vertex data on GPU              |
-| Mesh    | `Mesh.addVertexBuffer()` | layouts + per-pass bind         |
-| Uniform | `Buffer` + `BindGroup`   | uniform buffer + bind group     |
-| Camera  | `PerspectiveCamera`      | view / projection matrices      |
-| Shader  | `new Draw(device, wgsl)` | shader module + render pipeline |
-| Frame   | `beginRenderPass()`      | render pass encoder             |
-| Draw    | `draw.draw(pass, mesh)`  | `setPipeline` + `draw()`        |
+| Step    | Belfast API              | WebGPU underneath                      |
+| ------- | ------------------------ | -------------------------------------- |
+| Setup   | `Device.create()`        | adapter, device, canvas context        |
+| Buffer  | `Buffer.fromData()`      | vertex data on GPU                     |
+| Mesh    | `Mesh.addVertexBuffer()` | layouts + per-pass bind                |
+| Uniform | `Buffer` + `BindGroup`   | uniform buffer + bind group            |
+| Camera  | `PerspectiveCamera`      | view / projection matrices             |
+| Shader  | `new Draw(device, wgsl)` | shader module + render pipeline        |
+| Frame   | `beginRenderPass()`      | render pass encoder                    |
+| Draw    | `draw.draw(pass, mesh)`  | `setPipeline` + `draw()/drawIndexed()` |
 
 ## Minimal render loop
 
@@ -126,13 +126,23 @@ const { pipelineLayout, bindGroupLayout } = createSceneTexturePipelineLayout(dev
 
 See [texture example](../examples/texture/src/main.ts).
 
+## Render to texture
+
+`RenderTarget` provides an offscreen color/depth target and `CopyHelper` blits the rendered texture to the screen.
+
+```ts
+const target = RenderTarget.create(device, { width, height, withDepth: true });
+const copy = new CopyHelper(device);
+```
+
+See [render-to-texture example](../examples/render-to-texture/src/main.ts).
+
 ## What is not in the public API yet
 
 These exist internally or are planned; they are not exported from `belfast` today:
 
 - Scene graph
-- Index buffers / `drawIndexed` (plane/sphere geometry expanded on CPU)
 - Full math library (only internal `mat4` helpers used by cameras)
-- Texture mipmaps / cubemaps / render targets
+- Texture mipmaps / cubemaps
 
 When adding features, update [`api/README.md`](api/README.md) and add a focused page under `docs/api/`.

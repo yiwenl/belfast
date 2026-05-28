@@ -3,6 +3,7 @@ import { writeBuffer } from "./GPUResources";
 
 export const BufferUsage = {
   vertex: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+  index: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
   storage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   uniform: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   vertexStorage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,

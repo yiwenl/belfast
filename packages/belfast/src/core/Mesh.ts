@@ -1,4 +1,5 @@
-import type { Buffer } from "./Buffer";
+import { Buffer, BufferUsage } from "./Buffer";
+import type { Device } from "./Device";
 
 export interface VertexAttributeDescriptor {
   shaderLocation: number;
@@ -14,6 +15,8 @@ export interface VertexBufferBinding {
   stepMode?: GPUVertexStepMode;
 }
 
+export type MeshIndexFormat = "uint16" | "uint32";
+
 interface ResolvedVertexBufferBinding extends VertexBufferBinding {
   slot: number;
 }
@@ -25,6 +28,9 @@ interface ResolvedVertexBufferBinding extends VertexBufferBinding {
 export class Mesh {
   readonly vertexCount: number;
   private readonly bindings: ResolvedVertexBufferBinding[] = [];
+  private indexBuffer?: Buffer;
+  private indexCount = 0;
+  private indexFormat: MeshIndexFormat = "uint16";
 
   constructor(vertexCount: number) {
     if (vertexCount <= 0) {
@@ -74,6 +80,38 @@ export class Mesh {
     for (const binding of this.bindings) {
       passEncoder.setVertexBuffer(binding.slot, binding.buffer.gpu);
     }
+    if (this.indexBuffer) {
+      passEncoder.setIndexBuffer(this.indexBuffer.gpu, this.indexFormat);
+    }
+  }
+
+  setIndexBuffer(buffer: Buffer, count: number, format: MeshIndexFormat = "uint16"): this {
+    if (count <= 0) {
+      throw new Error("Mesh index count must be greater than 0.");
+    }
+    this.indexBuffer = buffer;
+    this.indexCount = count;
+    this.indexFormat = format;
+    return this;
+  }
+
+  setIndexBufferFromData(
+    device: Device,
+    indices: Uint16Array | Uint32Array,
+    label = "mesh-indices",
+  ): Buffer {
+    const format: MeshIndexFormat = indices instanceof Uint32Array ? "uint32" : "uint16";
+    const buffer = Buffer.fromData(device, indices, BufferUsage.index, label);
+    this.setIndexBuffer(buffer, indices.length, format);
+    return buffer;
+  }
+
+  hasIndexBuffer(): boolean {
+    return this.indexBuffer !== undefined;
+  }
+
+  getIndexCount(): number {
+    return this.indexCount;
   }
 
   private nextFreeSlot(): number {
