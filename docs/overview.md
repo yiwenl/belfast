@@ -80,6 +80,18 @@ For shader uniforms (`@group(0) @binding(0) var<uniform> ...`):
 
 See [triangle-time example](../examples/triangle-time/src/main.ts) for animated scale via a `time` uniform.
 
+For named uniform packing without manual float offsets, use `UniformBlock`:
+
+```ts
+const sceneUniforms = UniformBlock.create({
+  viewProj: "mat4x4f",
+  model: "mat4x4f",
+  lightDir: "vec4f",
+});
+sceneUniforms.set("viewProj", camera.getViewProjectionMatrix());
+sceneUniforms.writeToBuffer(uniformBuffer, device);
+```
+
 ## Cameras
 
 `PerspectiveCamera` and `OrthographicCamera` extend `Camera` with projection matrices. Use `lookAt(eye, target)` for the view matrix and `getViewProjectionMatrix()` for a `mat4x4` uniform.

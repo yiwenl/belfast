@@ -6,6 +6,7 @@ Public exports from [`packages/belfast/src/index.ts`](../../packages/belfast/src
 import {
   BindGroup,
   Buffer,
+  UniformBlock,
   Texture,
   RenderTarget,
   Camera,
@@ -33,6 +34,9 @@ import {
 | `DeviceOptions`                     | type     | [Device.md](Device.md)                         |
 | `Buffer`                            | class    | [Buffer.md](Buffer.md)                         |
 | `BufferUsage`                       | const    | [Buffer.md](Buffer.md)                         |
+| `UniformBlock`                      | class    | [UniformBlock.md](UniformBlock.md)             |
+| `UniformBlockSchema`                | type     | [UniformBlock.md](UniformBlock.md)             |
+| `UniformFieldType`                  | type     | [UniformBlock.md](UniformBlock.md)             |
 | `BindGroup`                         | class    | [BindGroup.md](BindGroup.md)                   |
 | `BindGroupResource`                 | type     | [BindGroup.md](BindGroup.md)                   |
 | `Texture`                           | class    | [Texture.md](Texture.md)                       |

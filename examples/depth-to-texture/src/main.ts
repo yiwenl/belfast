@@ -11,6 +11,7 @@ import {
   Mesh,
   OrbitalControl,
   PerspectiveCamera,
+  UniformBlock,
 } from "belfast";
 import depthOnlyShaderCode from "./shaders/depth-only.wgsl?raw";
 import depthPreviewShaderCode from "./shaders/depth-preview.wgsl?raw";
@@ -53,10 +54,32 @@ async function main() {
   });
   const indexBuffer = mesh.setIndexBufferFromData(device, cube.indices, "depth-cube-indices");
 
-  const sceneUniformData = new Float32Array(36);
+  const sceneUniforms = UniformBlock.create({
+    viewProj: "mat4x4f",
+    model: "mat4x4f",
+    lightDir: "vec4f",
+  });
+  const modelIdentity = new Float32Array([
+    1,
+    0,
+    0,
+    0, //
+    0,
+    1,
+    0,
+    0, //
+    0,
+    0,
+    1,
+    0, //
+    0,
+    0,
+    0,
+    1,
+  ]);
   const sceneUniformBuffer = Buffer.create(
     device,
-    Buffer.uniformSize(sceneUniformData.byteLength),
+    Buffer.uniformSize(sceneUniforms.byteSize),
     BufferUsage.uniform,
     "depth-scene-uniforms",
   );
@@ -178,17 +201,10 @@ async function main() {
     device.resize();
     updateAspectAndTargets();
 
-    sceneUniformData.set(camera.getViewProjectionMatrix(), 0);
-    sceneUniformData.fill(0, 16, 32);
-    sceneUniformData[16] = 1;
-    sceneUniformData[21] = 1;
-    sceneUniformData[26] = 1;
-    sceneUniformData[31] = 1;
-    sceneUniformData[32] = -0.6;
-    sceneUniformData[33] = -0.7;
-    sceneUniformData[34] = -0.4;
-    sceneUniformData[35] = 0;
-    sceneUniformBuffer.write(device, sceneUniformData);
+    sceneUniforms.set("viewProj", camera.getViewProjectionMatrix());
+    sceneUniforms.set("model", modelIdentity);
+    sceneUniforms.set("lightDir", [-0.6, -0.7, -0.4, 0]);
+    sceneUniforms.writeToBuffer(sceneUniformBuffer, device);
 
     const encoder = device.device.createCommandEncoder();
 
@@ -232,12 +248,6 @@ async function main() {
       previewHeight,
       0,
       1,
-    );
-    screenPreviewPass.setScissorRect(
-      0,
-      Math.max(0, canvas.height - previewHeight),
-      previewWidth,
-      previewHeight,
     );
     previewDraw.draw(screenPreviewPass, 3, previewBindGroup!);
     screenPreviewPass.end();

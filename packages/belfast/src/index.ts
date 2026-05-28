@@ -9,6 +9,7 @@ export type { Vec3, MutVec3, Mat4 } from "./math/types";
 export { Device, type DeviceOptions } from "./core/Device";
 export { BindGroup, type BindGroupResource } from "./core/BindGroup";
 export { Buffer, BufferUsage } from "./core/Buffer";
+export { UniformBlock, type UniformFieldType, type UniformBlockSchema } from "./core/UniformBlock";
 export { Texture, type TextureOptions } from "./core/Texture";
 export { RenderTarget, type RenderTargetOptions } from "./core/RenderTarget";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";

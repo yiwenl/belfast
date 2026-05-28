@@ -1,0 +1,22 @@
+{
+  "slug": "uniformblock",
+  "status": "ACKNOWLEDGED",
+  "title": "UniformBlock v1 named uniform packing",
+  "summary": "Adds a reusable explicit-schema UniformBlock for flat WGSL uniform field types (f32/vec2f/vec3f/vec4f/mat4x4f), replacing manual float-index packing with named setters and packed writes. Integrates UniformBlock in depth-to-texture scene uniforms and updates API docs/overview.",
+  "submitted_at": "2026-05-28T10:45:17Z",
+  "submitted_by": "cursor",
+  "implementation_paths": [
+    "packages/belfast/src/core/UniformBlock.ts",
+    "packages/belfast/src/index.ts",
+    "examples/depth-to-texture/src/main.ts"
+  ],
+  "doc_paths": [
+    "docs/api/UniformBlock.md",
+    "docs/api/README.md",
+    "docs/overview.md",
+    "docs/reviews/queue/uniformblock-implementation.md"
+  ],
+  "feedback_path": "docs/reviews/uniformblock-antigravity.md",
+  "handoff_message": "Antigravity review complete for \"uniformblock\". In Cursor, ask the agent to use get_feedback_for_cursor for \"uniformblock\".",
+  "cursor_notes": "Implemented critical GC fix in UniformBlock.set() by removing Array.from(...).slice(...) and using zero-allocation paths (Float32Array subarray or indexed copy loop). Added requested read-only data getter (`get data()`), updated UniformBlock docs, and re-ran typecheck/build for belfast + depth-to-texture example."
+}
