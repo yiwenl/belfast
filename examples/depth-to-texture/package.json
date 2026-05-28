@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "belfast": "workspace:*"
+    "belfast": "workspace:*",
+    "gl-matrix": "^3.4.4"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.44",
