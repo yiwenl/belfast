@@ -34,6 +34,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 export interface CopyHelperOptions {
   label?: string;
   targets?: GPUColorTargetState[];
+  /** Must match the render pass when drawing into a pass that has a depth attachment. */
+  depthStencil?: GPUDepthStencilState;
 }
 
 export interface CopyDrawOptions {
@@ -58,6 +60,7 @@ export class CopyHelper {
       label,
       targets: options.targets ?? [{ format: device.format }],
       primitive: { topology: "triangle-list", cullMode: "none" },
+      depthStencil: options.depthStencil,
     });
     this.bindGroupLayout = this.drawPass.getBindGroupLayout(0);
   }
