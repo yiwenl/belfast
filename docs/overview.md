@@ -2,6 +2,8 @@
 
 Belfast is a thin wrapper around the WebGPU API. It does not hide the GPU — you still create command encoders, submit work to the queue, and write WGSL shaders. The library reduces boilerplate for common setup steps.
 
+Math across camera/control internals now uses `gl-matrix` primitives.
+
 ## Mental model
 
 ```mermaid
@@ -154,7 +156,7 @@ See [render-to-texture example](../examples/render-to-texture/src/main.ts).
 These exist internally or are planned; they are not exported from `belfast` today:
 
 - Scene graph
-- Full math library (only internal `mat4` helpers used by cameras)
+- Full math library utilities beyond the camera/control surface
 - Texture mipmaps / cubemaps
 
 When adding features, update [`api/README.md`](api/README.md) and add a focused page under `docs/api/`.

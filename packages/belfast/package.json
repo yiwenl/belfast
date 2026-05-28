@@ -26,6 +26,7 @@
     "access": "public"
   },
   "dependencies": {
+    "gl-matrix": "^3.4.4",
     "scheduling": "^1.4.4"
   },
   "peerDependencies": {

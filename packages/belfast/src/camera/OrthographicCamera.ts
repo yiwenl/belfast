@@ -1,5 +1,5 @@
 import { Camera } from "./Camera";
-import * as mat4 from "../math/mat4";
+import { mat4 } from "gl-matrix";
 
 export class OrthographicCamera extends Camera {
   private left = -1;
@@ -28,7 +28,7 @@ export class OrthographicCamera extends Camera {
     this.top = top;
     this.near = near;
     this.far = far;
-    mat4.ortho(this.getProjectionMatrix(), left, right, bottom, top, near, far);
+    mat4.orthoZO(this.getProjectionMatrix(), left, right, bottom, top, near, far);
     return this;
   }
 

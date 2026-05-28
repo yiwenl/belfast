@@ -1,8 +1,8 @@
 import { BindGroup } from "../core/BindGroup";
+import type { ReadonlyVec3 } from "gl-matrix";
 import type { Device } from "../core/Device";
 import { Buffer, BufferUsage } from "../core/Buffer";
 import { Mesh } from "../core/Mesh";
-import type { Vec3 } from "../math/types";
 import { createSphereTriangleList } from "../geom/sphere";
 import { Draw } from "./Draw";
 import { createSceneBallPipelineLayout } from "./sceneLayout";
@@ -77,15 +77,15 @@ export interface BallHelperOptions {
 }
 
 export interface BallDrawParams {
-  position?: Vec3;
+  position?: ReadonlyVec3;
   /** Uniform scale or per-axis scale (default 1). */
-  scale?: number | Vec3;
-  color?: Vec3;
+  scale?: number | ReadonlyVec3;
+  color?: ReadonlyVec3;
   opacity?: number;
 }
 
-function toVec3(value: number | Vec3): Vec3 {
-  return typeof value === "number" ? [value, value, value] : value;
+function toVec3(value: number | ReadonlyVec3): ReadonlyVec3 {
+  return typeof value === "number" ? ([value, value, value] as const) : value;
 }
 
 function writeInstanceUniform(buffer: Buffer, device: Device, params: BallDrawParams): void {

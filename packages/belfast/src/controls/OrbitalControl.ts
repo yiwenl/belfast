@@ -1,13 +1,13 @@
 import Scheduler from "scheduling";
+import { vec3, type ReadonlyVec3 } from "gl-matrix";
 import type { Camera } from "../camera/Camera";
-import type { MutVec3, Vec3 } from "../math/types";
 import { EaseNumber } from "../utils/EaseNumber";
 
 export interface OrbitalControlOptions {
   listenerTarget?: HTMLElement;
-  center?: Vec3;
+  center?: ReadonlyVec3;
   radius?: number;
-  up?: Vec3;
+  up?: ReadonlyVec3;
   sensitivity?: number;
   /** Multiplier for wheel zoom (default 1). */
   zoomSpeed?: number;
@@ -45,35 +45,27 @@ function normalizeWheelDelta(event: WheelEvent): number {
   return -delta / 120;
 }
 
-function normalizeVec3(v: Vec3): [number, number, number] {
-  const len = Math.hypot(v[0], v[1], v[2]);
-  if (len === 0) {
-    return [0, 0, 0];
-  }
-  return [v[0] / len, v[1] / len, v[2] / len];
-}
-
-function cross(a: Vec3, b: Vec3): [number, number, number] {
-  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-}
-
 export class OrbitalControl {
   readonly radius: EaseNumber;
-  readonly position: MutVec3 = [0, 0, 0];
-  positionOffset: MutVec3 = [0, 0, 0];
-  center: MutVec3;
+  readonly position = vec3.create();
+  positionOffset = vec3.create();
+  center: vec3;
   sensitivity = 1;
   zoomSpeed = 1;
   panSpeed = 0.01;
 
   private readonly _camera: Camera;
   private readonly _listenerTarget: HTMLElement;
-  private readonly _up: Vec3;
+  private readonly _up: vec3;
   private readonly _rx: EaseNumber;
   private readonly _ry: EaseNumber;
   private readonly _mouse: MousePoint = { x: 0, y: 0 };
   private readonly _preMouse: MousePoint = { x: 0, y: 0 };
-  private readonly _panCenterStart: MutVec3 = [0, 0, 0];
+  private readonly _panCenterStart = vec3.create();
+  private readonly _eye = vec3.create();
+  private readonly _forward = vec3.create();
+  private readonly _right = vec3.create();
+  private readonly _camUp = vec3.create();
   private readonly _efIndex: number;
 
   private _preRX = 0;
@@ -94,8 +86,12 @@ export class OrbitalControl {
   constructor(camera: Camera, options: OrbitalControlOptions = {}) {
     this._camera = camera;
     this._listenerTarget = options.listenerTarget ?? document.body;
-    this.center = options.center ? [...options.center] : [0, 0, 0];
-    this._up = options.up ? [...options.up] : [0, 1, 0];
+    this.center = options.center
+      ? vec3.fromValues(options.center[0], options.center[1], options.center[2])
+      : vec3.create();
+    this._up = options.up
+      ? vec3.fromValues(options.up[0], options.up[1], options.up[2])
+      : vec3.fromValues(0, 1, 0);
     this.sensitivity = options.sensitivity ?? 1;
     this.zoomSpeed = options.zoomSpeed ?? 1;
     this.panSpeed = options.panSpeed ?? 0.01;
@@ -222,19 +218,21 @@ export class OrbitalControl {
 
   private _panByPixels(diffX: number, diffY: number): void {
     this._updatePosition();
-    const eye: Vec3 = [this.position[0], this.position[1], this.position[2]];
-    const forward = normalizeVec3([
-      this.center[0] - eye[0],
-      this.center[1] - eye[1],
-      this.center[2] - eye[2],
-    ]);
-    const right = normalizeVec3(cross(forward, this._up));
-    const camUp = normalizeVec3(cross(right, forward));
+    vec3.set(this._eye, this.position[0], this.position[1], this.position[2]);
+    vec3.sub(this._forward, this.center, this._eye);
+    vec3.normalize(this._forward, this._forward);
+    vec3.cross(this._right, this._forward, this._up);
+    vec3.normalize(this._right, this._right);
+    vec3.cross(this._camUp, this._right, this._forward);
+    vec3.normalize(this._camUp, this._camUp);
 
     const scale = this.panSpeed * this.sensitivity;
-    this.center[0] = this._panCenterStart[0] - right[0] * diffX * scale + camUp[0] * diffY * scale;
-    this.center[1] = this._panCenterStart[1] - right[1] * diffX * scale + camUp[1] * diffY * scale;
-    this.center[2] = this._panCenterStart[2] - right[2] * diffX * scale + camUp[2] * diffY * scale;
+    this.center[0] =
+      this._panCenterStart[0] - this._right[0] * diffX * scale + this._camUp[0] * diffY * scale;
+    this.center[1] =
+      this._panCenterStart[1] - this._right[1] * diffX * scale + this._camUp[1] * diffY * scale;
+    this.center[2] =
+      this._panCenterStart[2] - this._right[2] * diffX * scale + this._camUp[2] * diffY * scale;
   }
 
   private _onDown(event: MouseEvent | TouchEvent): void {

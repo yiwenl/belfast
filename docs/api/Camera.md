@@ -1,6 +1,6 @@
 # Camera
 
-Base camera with view and projection matrices (CPU-side math, no GPU resources).
+Base camera with view and projection matrices (CPU-side math via `gl-matrix`, no GPU resources).
 
 ## Import
 
@@ -8,6 +8,8 @@ Base camera with view and projection matrices (CPU-side math, no GPU resources).
 import { Camera } from "belfast";
 import type { Vec3, Mat4 } from "belfast";
 ```
+
+`Vec3` is now backed by `gl-matrix` `ReadonlyVec3`, and `Mat4` is `Float32Array` matrix data compatible with `gl-matrix` `mat4` operations.
 
 ## Methods
 

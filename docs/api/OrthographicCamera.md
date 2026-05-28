@@ -23,7 +23,7 @@ new OrthographicCamera(left, right, bottom, top, near?, far?)
 | `near`   | `0.1`   | Near clip            |
 | `far`    | `100`   | Far clip             |
 
-Parameter order matches `mat4.ortho(left, right, bottom, top, near, far)`.
+Parameter order matches `gl-matrix` `mat4.orthoZO(left, right, bottom, top, near, far)`.
 
 ## Methods
 

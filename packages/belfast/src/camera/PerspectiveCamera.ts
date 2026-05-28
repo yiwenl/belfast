@@ -1,5 +1,5 @@
 import { Camera } from "./Camera";
-import * as mat4 from "../math/mat4";
+import { mat4 } from "gl-matrix";
 
 export class PerspectiveCamera extends Camera {
   private fov = Math.PI / 4;
@@ -17,7 +17,7 @@ export class PerspectiveCamera extends Camera {
     this.aspect = aspect;
     this.near = near;
     this.far = far;
-    mat4.perspective(this.getProjectionMatrix(), fov, aspect, near, far);
+    mat4.perspectiveZO(this.getProjectionMatrix(), fov, aspect, near, far);
     return this;
   }
 
