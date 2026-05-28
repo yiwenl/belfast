@@ -16,14 +16,14 @@ RenderTarget.create(device: Device, options: RenderTargetOptions)
 
 ### `RenderTargetOptions`
 
-| Field         | Default          | Description               |
-| ------------- | ---------------- | ------------------------- |
-| `width`       | required         | Target width in pixels    |
-| `height`      | required         | Target height in pixels   |
-| `label`       | `"RenderTarget"` | Debug label prefix        |
-| `format`      | `device.format`  | Offscreen color format    |
-| `withDepth`   | `false`          | Allocate depth attachment |
-| `depthFormat` | `"depth24plus"`  | Depth format when enabled |
+| Field         | Default                                           | Description               |
+| ------------- | ------------------------------------------------- | ------------------------- |
+| `width`       | required                                          | Target width in pixels    |
+| `height`      | required                                          | Target height in pixels   |
+| `label`       | `"RenderTarget"`                                  | Debug label prefix        |
+| `format`      | `device.format` (`rgba16float` when `device.hdr`) | Offscreen color format    |
+| `withDepth`   | `false`                                           | Allocate depth attachment |
+| `depthFormat` | `"depth24plus"`                                   | Depth format when enabled |
 
 ## Properties
 
@@ -68,3 +68,5 @@ passA.end();
 ```
 
 Use `target.colorView` and `target.sampler` in a later pass (for example with `CopyHelper`).
+
+When `Device.create(..., { hdr: true })` is used and `format` is omitted, `RenderTarget` defaults to `rgba16float` to support 16-bit HDR rendering pipelines.

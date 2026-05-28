@@ -28,7 +28,7 @@ export class RenderTarget {
   private constructor(device: Device, options: RenderTargetOptions) {
     this.device = device;
     this.label = options.label ?? "RenderTarget";
-    this.format = options.format ?? device.format;
+    this.format = options.format ?? (device.hdr ? "rgba16float" : device.format);
     this.withDepth = options.withDepth ?? false;
     this.depthFormat = this.withDepth ? (options.depthFormat ?? "depth24plus") : undefined;
     this.widthInternal = Math.max(1, Math.floor(options.width));

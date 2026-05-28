@@ -16,6 +16,7 @@ import {
 import depthOnlyShaderCode from "./shaders/depth-only.wgsl?raw";
 import depthPreviewShaderCode from "./shaders/depth-preview.wgsl?raw";
 import cubeLitShaderCode from "./shaders/cube-lit.wgsl?raw";
+import { mat4 } from "gl-matrix";
 
 async function main() {
   await assertWebGPUSupport();
@@ -59,24 +60,7 @@ async function main() {
     model: "mat4x4f",
     lightDir: "vec4f",
   });
-  const modelIdentity = new Float32Array([
-    1,
-    0,
-    0,
-    0, //
-    0,
-    1,
-    0,
-    0, //
-    0,
-    0,
-    1,
-    0, //
-    0,
-    0,
-    0,
-    1,
-  ]);
+  const modelIdentity = mat4.create();
   const sceneUniformBuffer = Buffer.create(
     device,
     Buffer.uniformSize(sceneUniforms.byteSize),

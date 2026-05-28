@@ -1,6 +1,17 @@
 export interface DeviceOptions {
   powerPreference?: GPUPowerPreference;
   alpha?: boolean;
+  /**
+   * Enable HDR-oriented defaults:
+   * - canvas format: `rgba16float`
+   * - canvas colorSpace: `srgb` (Rec.709 — matches typical .hdr/.exr env maps)
+   * - toneMapping: `{ mode: "extended" }`
+   */
+  hdr?: boolean;
+  /** Canvas color space for presentation. Defaults to "srgb". */
+  colorSpace?: PredefinedColorSpace;
+  /** Canvas tone mapping mode. Defaults to "standard". */
+  toneMappingMode?: GPUCanvasToneMappingMode;
 }
 
 export class Device {
@@ -8,17 +19,26 @@ export class Device {
   readonly context: GPUCanvasContext;
   readonly device: GPUDevice;
   readonly format: GPUTextureFormat;
+  readonly colorSpace: PredefinedColorSpace;
+  readonly toneMappingMode: GPUCanvasToneMappingMode;
+  readonly hdr: boolean;
 
   private constructor(
     canvas: HTMLCanvasElement,
     context: GPUCanvasContext,
     device: GPUDevice,
     format: GPUTextureFormat,
+    colorSpace: PredefinedColorSpace,
+    toneMappingMode: GPUCanvasToneMappingMode,
+    hdr: boolean,
   ) {
     this.canvas = canvas;
     this.context = context;
     this.device = device;
     this.format = format;
+    this.colorSpace = colorSpace;
+    this.toneMappingMode = toneMappingMode;
+    this.hdr = hdr;
   }
 
   static async isSupported(): Promise<boolean> {
@@ -49,15 +69,21 @@ export class Device {
       throw new Error("Failed to get WebGPU canvas context.");
     }
 
-    const format = navigator.gpu.getPreferredCanvasFormat();
+    const hdr = options.hdr ?? false;
+    const colorSpace = options.colorSpace ?? "srgb";
+    const toneMappingMode = options.toneMappingMode ?? (hdr ? "extended" : "standard");
+    // Extended HDR presentation needs a float swapchain; 8-bit formats clamp > 1.0.
+    const format: GPUTextureFormat = hdr ? "rgba16float" : navigator.gpu.getPreferredCanvasFormat();
 
     context.configure({
       device,
       format,
       alphaMode: options.alpha === false ? "opaque" : "premultiplied",
+      colorSpace,
+      toneMapping: { mode: toneMappingMode },
     });
 
-    return new Device(canvas, context, device, format);
+    return new Device(canvas, context, device, format, colorSpace, toneMappingMode, hdr);
   }
 
   resize(width?: number, height?: number): void {

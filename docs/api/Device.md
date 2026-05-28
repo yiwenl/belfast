@@ -10,10 +10,13 @@ import { Device, type DeviceOptions } from "belfast";
 
 ## `DeviceOptions`
 
-| Field             | Type                 | Default                | Description                                           |
-| ----------------- | -------------------- | ---------------------- | ----------------------------------------------------- |
-| `powerPreference` | `GPUPowerPreference` | adapter default        | Passed to `requestAdapter`                            |
-| `alpha`           | `boolean`            | `true` (premultiplied) | Set `false` for opaque canvas (`alphaMode: "opaque"`) |
+| Field             | Type                       | Default                               | Description                                                            |
+| ----------------- | -------------------------- | ------------------------------------- | ---------------------------------------------------------------------- |
+| `powerPreference` | `GPUPowerPreference`       | adapter default                       | Passed to `requestAdapter`                                             |
+| `alpha`           | `boolean`                  | `true` (premultiplied)                | Set `false` for opaque canvas (`alphaMode: "opaque"`)                  |
+| `hdr`             | `boolean`                  | `false`                               | Enables HDR defaults (`rgba16float` swapchain + extended tone mapping) |
+| `colorSpace`      | `PredefinedColorSpace`     | `srgb`                                | Presentation color space                                               |
+| `toneMappingMode` | `GPUCanvasToneMappingMode` | `standard` (or `extended` when `hdr`) | Canvas tone mapping mode                                               |
 
 ## Static methods
 
@@ -35,14 +38,24 @@ document.body.appendChild(canvas);
 const device = await Device.create(canvas);
 ```
 
+HDR-oriented setup:
+
+```ts
+const device = await Device.create(canvas, { hdr: true });
+// rgba16float swapchain, colorSpace: "srgb", toneMappingMode: "extended"
+```
+
 ## Instance properties
 
-| Property  | Type                | Description                          |
-| --------- | ------------------- | ------------------------------------ |
-| `canvas`  | `HTMLCanvasElement` | The canvas passed to `create`        |
-| `context` | `GPUCanvasContext`  | WebGPU canvas context                |
-| `device`  | `GPUDevice`         | Use for encoders, pipelines, buffers |
-| `format`  | `GPUTextureFormat`  | Swapchain format (used by `Draw`)    |
+| Property          | Type                       | Description                          |
+| ----------------- | -------------------------- | ------------------------------------ |
+| `canvas`          | `HTMLCanvasElement`        | The canvas passed to `create`        |
+| `context`         | `GPUCanvasContext`         | WebGPU canvas context                |
+| `device`          | `GPUDevice`                | Use for encoders, pipelines, buffers |
+| `format`          | `GPUTextureFormat`         | Swapchain format (used by `Draw`)    |
+| `colorSpace`      | `PredefinedColorSpace`     | Configured canvas color space        |
+| `toneMappingMode` | `GPUCanvasToneMappingMode` | Configured canvas tone mapping mode  |
+| `hdr`             | `boolean`                  | Whether HDR defaults were enabled    |
 
 ## Instance methods
 
