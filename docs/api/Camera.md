@@ -27,6 +27,25 @@ Projection matrix from the subclass (`PerspectiveCamera` or `OrthographicCamera`
 
 Returns `projection * view` for `clip = viewProj * vec4(position, 1.0)`. Reuses an internal buffer when `out` is omitted.
 
+### `Camera.uniformFloatCount` / `Camera.uniformByteSize()`
+
+Uniform packing constants for camera-related shaders:
+
+- `uniformFloatCount`: `24`
+- `uniformByteSize()`: `96` bytes
+
+Layout:
+
+- `mat4 viewProj` (16 floats)
+- `vec4 cameraRight` (4 floats, `w = 0`)
+- `vec4 cameraUp` (4 floats, `w = 0`)
+
+### `writeUniformData(out, offset?)`
+
+Writes the packed camera uniform layout above into `out` (with optional float offset).
+
+This is compatible with both `PerspectiveCamera` and `OrthographicCamera` because both use the same orthogonal view basis from `lookAt`.
+
 ### `getPosition()`
 
 Copy of the last `lookAt` eye position.

@@ -1,0 +1,18 @@
+{
+  "slug": "instancing-planes",
+  "status": "FEEDBACK_READY",
+  "title": "Instancing planes example",
+  "summary": "Adds new instancing-planes example rendering a large batch of small planes via one instanced draw call. Each instance has random position, size, and color, with OrbitalControl and AxisHelper. Includes camera-facing billboarding using cameraRight/cameraUp packed by Camera.writeUniformData().",
+  "submitted_at": "2026-05-28T06:23:49Z",
+  "submitted_by": "cursor",
+  "implementation_paths": [
+    "examples/instancing-planes/src/main.ts",
+    "examples/instancing-planes/src/shaders/instanced-planes.wgsl",
+    "examples/instancing-planes/package.json",
+    "packages/belfast/src/camera/Camera.ts"
+  ],
+  "doc_paths": ["docs/reviews/queue/instancing-planes-implementation.md"],
+  "feedback_path": "docs/reviews/instancing-planes-antigravity.md",
+  "handoff_message": "Antigravity review complete for \"instancing-planes\". In Cursor, ask the agent to use get_feedback_for_cursor for \"instancing-planes\".",
+  "cursor_notes": null
+}
