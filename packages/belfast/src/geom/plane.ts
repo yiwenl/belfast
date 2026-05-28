@@ -94,3 +94,21 @@ export function createPlaneTriangleList(
     uvs: new Float32Array(uvs),
   };
 }
+
+export interface BillboardDiscTriangle {
+  /**
+   * 3 vertices × 4 floats: xy = billboard offset (unit disc radius 0.5),
+   * zw = disc UV (circle centered at 0.5, 0.5 — use `discard` outside radius 0.5).
+   */
+  corners: Float32Array;
+  vertexCount: number;
+}
+
+/** Single-triangle billboard that circumscribes a unit disc (replaces a 2-triangle quad). */
+export function createBillboardDiscTriangle(): BillboardDiscTriangle {
+  const r = 1 / Math.sqrt(3);
+  return {
+    corners: new Float32Array([0, r, 0.5, 1, -0.5, -r * 0.5, 0, 0, 0.5, -r * 0.5, 1, 0]),
+    vertexCount: 3,
+  };
+}

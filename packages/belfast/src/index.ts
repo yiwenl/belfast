@@ -39,7 +39,13 @@ export {
   type VertexBufferBinding,
   type MeshIndexFormat,
 } from "./core/Mesh";
-export { createPlaneTriangleList, type PlaneAxis, type PlaneTriangleList } from "./geom/plane";
+export {
+  createPlaneTriangleList,
+  createBillboardDiscTriangle,
+  type PlaneAxis,
+  type PlaneTriangleList,
+  type BillboardDiscTriangle,
+} from "./geom/plane";
 
 import { Device } from "./core/Device";
 
