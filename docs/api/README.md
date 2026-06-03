@@ -16,6 +16,7 @@ import {
   CopyHelper,
   Geom,
   Draw,
+  Compute,
   Mesh,
   PerspectiveCamera,
   OrbitalControl,
@@ -78,6 +79,9 @@ import {
 | `CopyHelperOptions`                 | type     | [CopyHelper.md](CopyHelper.md)                 |
 | `Draw`                              | class    | [Draw.md](Draw.md)                             |
 | `DrawOptions`                       | type     | [Draw.md](Draw.md)                             |
+| `Compute`                           | class    | [Compute.md](Compute.md)                       |
+| `ComputeOptions`                    | type     | [Compute.md](Compute.md)                       |
+| `WorkgroupCount`                    | type     | [Compute.md](Compute.md)                       |
 | `beginRenderPass`                   | function | [RenderPass.md](RenderPass.md)                 |
 | `RenderPassOptions`                 | type     | [RenderPass.md](RenderPass.md)                 |
 | `assertWebGPUSupport`               | function | [utilities.md](utilities.md)                   |

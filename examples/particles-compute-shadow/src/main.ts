@@ -4,6 +4,7 @@ import {
   BindGroup,
   Buffer,
   BufferUsage,
+  Compute,
   createBillboardDiscTriangle,
   Device,
   Draw,
@@ -30,9 +31,15 @@ const PARTICLE_OFFSET = {
 } as const;
 const WORKGROUP_SIZE = 256;
 
-/** scene (24) + lightViewProj (16) */
-const DRAW_UNIFORM_FLOATS = 40;
+/** scene (24) + lightViewProj (16) + lightDir vec4 (4) */
+const DRAW_UNIFORM_FLOATS = 44;
 const SHADOW_DEPTH_FORMAT: GPUTextureFormat = "depth32float";
+
+const LIGHT_POSITION: [number, number, number] = [
+  MAX_RADIUS * 1.4,
+  MAX_RADIUS * 1.8,
+  MAX_RADIUS * 1.4,
+];
 
 const simUniforms = UniformBlock.create({
   time: "f32",
@@ -84,13 +91,7 @@ function buildInitialParticles(): Float32Array {
 
 function setupLightCamera(): OrthographicCamera {
   const halfExtent = MAX_RADIUS * 1.5;
-  const lightPos: [number, number, number] = [MAX_RADIUS * 1.4, MAX_RADIUS * 1.8, MAX_RADIUS * 1.4];
-  const lightTarget: [number, number, number] = [0, 0, 0];
-  const lightDistance = Math.hypot(
-    lightPos[0] - lightTarget[0],
-    lightPos[1] - lightTarget[1],
-    lightPos[2] - lightTarget[2],
-  );
+  const lightDistance = Math.hypot(LIGHT_POSITION[0], LIGHT_POSITION[1], LIGHT_POSITION[2]);
 
   const lightCamera = new OrthographicCamera(
     -halfExtent,
@@ -100,7 +101,7 @@ function setupLightCamera(): OrthographicCamera {
     0.1,
     lightDistance + MAX_RADIUS * 2,
   );
-  lightCamera.lookAt(lightPos, lightTarget);
+  lightCamera.lookAt(LIGHT_POSITION, [0, 0, 0]);
   return lightCamera;
 }
 
@@ -175,14 +176,14 @@ async function main() {
     radius: 55,
   });
 
-  const shadowMapTexture = device.device.createTexture({
+  const shadowMapTexture = device.gpu.createTexture({
     label: "shadow-map",
     size: [SHADOW_MAP_SIZE, SHADOW_MAP_SIZE],
     format: SHADOW_DEPTH_FORMAT,
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
   });
   const shadowMapView = shadowMapTexture.createView();
-  const shadowCompareSampler = device.device.createSampler({
+  const shadowCompareSampler = device.gpu.createSampler({
     label: "shadow-compare-sampler",
     compare: "less-equal",
     magFilter: "linear",
@@ -191,7 +192,7 @@ async function main() {
     addressModeV: "clamp-to-edge",
   });
 
-  const drawBindGroupLayout = device.device.createBindGroupLayout({
+  const drawBindGroupLayout = device.gpu.createBindGroupLayout({
     label: "ParticlesDrawShadowBindGroupLayout",
     entries: [
       {
@@ -212,12 +213,12 @@ async function main() {
     ],
   });
 
-  const drawPipelineLayout = device.device.createPipelineLayout({
+  const drawPipelineLayout = device.gpu.createPipelineLayout({
     label: "ParticlesDrawShadowPipelineLayout",
     bindGroupLayouts: [drawBindGroupLayout],
   });
 
-  const shadowDepthBindGroupLayout = device.device.createBindGroupLayout({
+  const shadowDepthBindGroupLayout = device.gpu.createBindGroupLayout({
     label: "ParticlesShadowDepthBindGroupLayout",
     entries: [
       {
@@ -227,19 +228,25 @@ async function main() {
       },
     ],
   });
-  const shadowDepthPipeline = device.device.createRenderPipeline({
+  const shadowDepthModule = device.gpu.createShaderModule({
+    code: shadowDepthShaderCode,
+    label: "ParticlesShadowDepthShader",
+  });
+  const shadowDepthPipeline = device.gpu.createRenderPipeline({
     label: "ParticlesShadowDepthPipeline",
-    layout: device.device.createPipelineLayout({
+    layout: device.gpu.createPipelineLayout({
       label: "ParticlesShadowDepthPipelineLayout",
       bindGroupLayouts: [shadowDepthBindGroupLayout],
     }),
     vertex: {
-      module: device.device.createShaderModule({
-        code: shadowDepthShaderCode,
-        label: "ParticlesShadowDepthShader",
-      }),
+      module: shadowDepthModule,
       entryPoint: "vs_main",
       buffers: mesh.getVertexLayouts(),
+    },
+    fragment: {
+      module: shadowDepthModule,
+      entryPoint: "fs_main",
+      targets: [],
     },
     primitive: { topology: "triangle-list", cullMode: "none" },
     depthStencil: {
@@ -288,45 +295,20 @@ async function main() {
     "draw-shadow-bind-group",
   );
 
-  const computeBindGroupLayout = device.device.createBindGroupLayout({
-    label: "ParticlesComputeBindGroupLayout",
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.COMPUTE,
-        buffer: { type: "uniform" },
-      },
-      {
-        binding: 1,
-        visibility: GPUShaderStage.COMPUTE,
-        buffer: { type: "storage" },
-      },
-    ],
+  const compute = new Compute(device, computeShaderCode, {
+    label: "ParticlesCompute",
+    entryPoint: "cs_main",
   });
 
-  const computePipeline = device.device.createComputePipeline({
-    label: "ParticlesComputePipeline",
-    layout: device.device.createPipelineLayout({
-      label: "ParticlesComputePipelineLayout",
-      bindGroupLayouts: [computeBindGroupLayout],
-    }),
-    compute: {
-      module: device.device.createShaderModule({
-        code: computeShaderCode,
-        label: "ParticlesComputeShader",
-      }),
-      entryPoint: "cs_main",
-    },
-  });
-
-  const computeBindGroup = device.device.createBindGroup({
-    label: "particles-compute-bind-group",
-    layout: computeBindGroupLayout,
-    entries: [
-      { binding: 0, resource: { buffer: simUniformBuffer.gpu } },
-      { binding: 1, resource: { buffer: particleBuffer.gpu } },
+  const computeBindGroup = BindGroup.create(
+    device,
+    compute.getBindGroupLayout(0),
+    [
+      { binding: 0, resource: simUniformBuffer },
+      { binding: 1, resource: particleBuffer },
     ],
-  });
+    "particles-compute-bind-group",
+  );
 
   window.addEventListener("beforeunload", () => {
     control.destroy();
@@ -361,7 +343,7 @@ async function main() {
       return depthTexture.createView();
     }
     depthTexture?.destroy();
-    depthTexture = device.device.createTexture({
+    depthTexture = device.gpu.createTexture({
       label: "depth-texture",
       size: [width, height],
       format: "depth24plus",
@@ -370,9 +352,20 @@ async function main() {
     return depthTexture.createView();
   };
 
+  const lightDirLength = Math.hypot(LIGHT_POSITION[0], LIGHT_POSITION[1], LIGHT_POSITION[2]);
+  const lightDir: [number, number, number] = [
+    LIGHT_POSITION[0] / lightDirLength,
+    LIGHT_POSITION[1] / lightDirLength,
+    LIGHT_POSITION[2] / lightDirLength,
+  ];
+
   const writeDrawUniforms = () => {
     camera.writeUniformData(drawUniformData);
     drawUniformData.set(lightCamera.getViewProjectionMatrix(), 24);
+    drawUniformData[40] = lightDir[0];
+    drawUniformData[41] = lightDir[1];
+    drawUniformData[42] = lightDir[2];
+    drawUniformData[43] = 0;
     drawUniformBuffer.write(device, drawUniformData);
   };
 
@@ -402,13 +395,14 @@ async function main() {
 
     const colorView = device.getCurrentTexture().createView();
     const depthView = ensureDepthTexture();
-    const encoder = device.device.createCommandEncoder({ label: "particles-shadow-frame" });
+    const encoder = device.gpu.createCommandEncoder({ label: "particles-shadow-frame" });
 
-    const computePass = encoder.beginComputePass({ label: "particles-sim" });
-    computePass.setPipeline(computePipeline);
-    computePass.setBindGroup(0, computeBindGroup);
-    computePass.dispatchWorkgroups(Math.ceil(PARTICLE_COUNT / WORKGROUP_SIZE));
-    computePass.end();
+    compute.run(
+      encoder,
+      computeBindGroup,
+      Math.ceil(PARTICLE_COUNT / WORKGROUP_SIZE),
+      "particles-sim",
+    );
 
     const shadowPass = encoder.beginRenderPass({
       label: "shadow-map-pass",
@@ -439,7 +433,7 @@ async function main() {
     draw.draw(pass, mesh, drawBindGroup, PARTICLE_COUNT);
 
     pass.end();
-    device.device.queue.submit([encoder.finish()]);
+    device.gpu.queue.submit([encoder.finish()]);
     requestAnimationFrame(render);
   };
 

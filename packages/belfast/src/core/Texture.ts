@@ -62,7 +62,7 @@ export class Texture {
       throw new Error("Texture source must have positive width and height.");
     }
 
-    const gpu = device.device.createTexture({
+    const gpu = device.gpu.createTexture({
       label,
       size: [width, height, 1],
       format,
@@ -74,13 +74,13 @@ export class Texture {
     });
 
     const flipY = options.flipY ?? true;
-    device.device.queue.copyExternalImageToTexture({ source: bitmap, flipY }, { texture: gpu }, [
+    device.gpu.queue.copyExternalImageToTexture({ source: bitmap, flipY }, { texture: gpu }, [
       width,
       height,
     ]);
 
     const view = gpu.createView({ label: `${label}View` });
-    const sampler = device.device.createSampler({
+    const sampler = device.gpu.createSampler({
       label: `${label}Sampler`,
       addressModeU: options.addressModeU ?? "clamp-to-edge",
       addressModeV: options.addressModeV ?? "clamp-to-edge",

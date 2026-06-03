@@ -47,11 +47,11 @@ async function main() {
   const render = () => {
     device.resize();
     const textureView = device.getCurrentTexture().createView();
-    const encoder = device.device.createCommandEncoder();
+    const encoder = device.gpu.createCommandEncoder();
     const pass = beginRenderPass(encoder, textureView);
     draw.draw(pass, mesh);
     pass.end();
-    device.device.queue.submit([encoder.finish()]);
+    device.gpu.queue.submit([encoder.finish()]);
     requestAnimationFrame(render);
   };
 

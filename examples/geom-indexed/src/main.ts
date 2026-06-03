@@ -119,7 +119,7 @@ async function main() {
       return depthTexture.createView();
     }
     depthTexture?.destroy();
-    depthTexture = device.device.createTexture({
+    depthTexture = device.gpu.createTexture({
       label: "geom-indexed-depth",
       size: [width, height],
       format: "depth24plus",
@@ -140,7 +140,7 @@ async function main() {
     sceneUniformData[35] = 0;
     uniformBuffer.write(device, sceneUniformData);
 
-    const encoder = device.device.createCommandEncoder();
+    const encoder = device.gpu.createCommandEncoder();
     const pass = beginRenderPass(encoder, device.getCurrentTexture().createView(), {
       clearColor: { r: 0.01, g: 0.01, b: 0.015, a: 1 },
       depthStencilAttachment: {
@@ -155,7 +155,7 @@ async function main() {
     draw.draw(pass, mesh, bindGroup);
     pass.end();
 
-    device.device.queue.submit([encoder.finish()]);
+    device.gpu.queue.submit([encoder.finish()]);
     requestAnimationFrame(render);
   };
 

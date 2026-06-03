@@ -82,11 +82,11 @@ async function main() {
     radius: 3,
   });
 
-  const depthModule = device.device.createShaderModule({
+  const depthModule = device.gpu.createShaderModule({
     label: "DepthOnlyShader",
     code: depthOnlyShaderCode,
   });
-  const depthPipeline = device.device.createRenderPipeline({
+  const depthPipeline = device.gpu.createRenderPipeline({
     label: "DepthOnlyPipeline",
     layout: "auto",
     vertex: {
@@ -144,7 +144,7 @@ async function main() {
 
   const recreateDepthTexture = (width: number, height: number) => {
     depthTexture?.destroy();
-    depthTexture = device.device.createTexture({
+    depthTexture = device.gpu.createTexture({
       label: "shadow-depth-texture",
       size: [Math.max(1, width), Math.max(1, height)],
       format: "depth24plus",
@@ -173,7 +173,7 @@ async function main() {
     }
     recreateDepthTexture(lastWidth, lastHeight);
     screenDepthTexture?.destroy();
-    screenDepthTexture = device.device.createTexture({
+    screenDepthTexture = device.gpu.createTexture({
       label: "screen-depth-texture",
       size: [Math.max(1, lastWidth), Math.max(1, lastHeight)],
       format: "depth24plus",
@@ -190,7 +190,7 @@ async function main() {
     sceneUniforms.set("lightDir", [-0.6, -0.7, -0.4, 0]);
     sceneUniforms.writeToBuffer(sceneUniformBuffer, device);
 
-    const encoder = device.device.createCommandEncoder();
+    const encoder = device.gpu.createCommandEncoder();
 
     const depthPass = encoder.beginRenderPass({
       colorAttachments: [],
@@ -236,7 +236,7 @@ async function main() {
     previewDraw.draw(screenPreviewPass, 3, previewBindGroup!);
     screenPreviewPass.end();
 
-    device.device.queue.submit([encoder.finish()]);
+    device.gpu.queue.submit([encoder.finish()]);
     requestAnimationFrame(render);
   };
 

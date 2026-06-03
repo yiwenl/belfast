@@ -48,3 +48,7 @@ note.txt
 # Belfast review MCP bridge
 mcp/.bridge/
 mcp/.venv/
+
+# HDR / EXR environment maps (local assets for hdr-display example)
+examples/hdr-display/public/*.hdr
+examples/hdr-display/public/*.exr

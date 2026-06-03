@@ -61,7 +61,7 @@ export class BindGroup {
     resources: BindGroupResource[],
     label?: string,
   ): BindGroup {
-    const gpu = device.device.createBindGroup({
+    const gpu = device.gpu.createBindGroup({
       label,
       layout,
       entries: resources.map(({ binding, resource }) => ({

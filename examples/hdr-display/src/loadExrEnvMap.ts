@@ -68,14 +68,14 @@ function uploadRgba16FloatTexture(
   const pixels = float32RgbaToFloat16(rgba);
   const pixelBytes = new Uint8Array(pixels.buffer, pixels.byteOffset, pixels.byteLength);
 
-  const texture = device.device.createTexture({
+  const texture = device.gpu.createTexture({
     label,
     size: [width, height, 1],
     format: "rgba16float",
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
   });
 
-  device.device.queue.writeTexture(
+  device.gpu.queue.writeTexture(
     { texture },
     pixelBytes as BufferSource,
     { bytesPerRow: width * 8, rowsPerImage: height },
@@ -95,7 +95,7 @@ export async function loadExrEnvMap(device: Device, url: string): Promise<EnvMap
   const { width, height, data } = decodeEnvMap(new Uint8Array(await response.arrayBuffer()), url);
   const texture = uploadRgba16FloatTexture(device, width, height, data, "env-map");
 
-  const sampler = device.device.createSampler({
+  const sampler = device.gpu.createSampler({
     label: "env-map-sampler",
     magFilter: "linear",
     minFilter: "linear",

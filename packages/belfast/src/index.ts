@@ -15,6 +15,7 @@ export { Texture, type TextureOptions } from "./core/Texture";
 export { RenderTarget, type RenderTargetOptions } from "./core/RenderTarget";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";
 export { Draw, type DrawOptions } from "./helper/Draw";
+export { Compute, type ComputeOptions, type WorkgroupCount } from "./helper/Compute";
 export { AxisHelper, type AxisHelperOptions } from "./helper/AxisHelper";
 export { BallHelper, type BallHelperOptions, type BallDrawParams } from "./helper/BallHelper";
 export { CopyHelper, type CopyHelperOptions } from "./helper/CopyHelper";

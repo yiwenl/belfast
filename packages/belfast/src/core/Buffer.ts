@@ -28,7 +28,7 @@ export class Buffer {
   }
 
   static create(device: Device, size: number, usage: GPUBufferUsageFlags, label?: string): Buffer {
-    const gpu = device.device.createBuffer({ size, usage, label });
+    const gpu = device.gpu.createBuffer({ size, usage, label });
     return new Buffer(gpu, size, usage, label);
   }
 

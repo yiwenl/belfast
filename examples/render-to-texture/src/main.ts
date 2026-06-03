@@ -130,7 +130,7 @@ async function main() {
     }
     renderTarget.resize(lastWidth, lastHeight);
     screenDepthTexture?.destroy();
-    screenDepthTexture = device.device.createTexture({
+    screenDepthTexture = device.gpu.createTexture({
       label: "screen-depth-texture",
       size: [Math.max(1, lastWidth), Math.max(1, lastHeight)],
       format: "depth24plus",
@@ -150,7 +150,7 @@ async function main() {
     sceneUniformData[35] = 0;
     uniformBuffer.write(device, sceneUniformData);
 
-    const encoder = device.device.createCommandEncoder();
+    const encoder = device.gpu.createCommandEncoder();
 
     const offscreenPass = renderTarget.beginRenderPass(encoder, {
       clearColor: { r: 0.03, g: 0.03, b: 0.06, a: 1 },
@@ -186,7 +186,7 @@ async function main() {
     });
     screenCopyPass.end();
 
-    device.device.queue.submit([encoder.finish()]);
+    device.gpu.queue.submit([encoder.finish()]);
     requestAnimationFrame(render);
   };
 

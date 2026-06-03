@@ -1,14 +1,21 @@
 import type { Device } from "./Device";
 
 export function createShaderModule(device: Device, code: string, label?: string): GPUShaderModule {
-  return device.device.createShaderModule({ code, label });
+  return device.gpu.createShaderModule({ code, label });
 }
 
 export function createRenderPipeline(
   device: Device,
   descriptor: GPURenderPipelineDescriptor,
 ): GPURenderPipeline {
-  return device.device.createRenderPipeline(descriptor);
+  return device.gpu.createRenderPipeline(descriptor);
+}
+
+export function createComputePipeline(
+  device: Device,
+  descriptor: GPUComputePipelineDescriptor,
+): GPUComputePipeline {
+  return device.gpu.createComputePipeline(descriptor);
 }
 
 export function createBuffer(
@@ -17,7 +24,7 @@ export function createBuffer(
   usage: GPUBufferUsageFlags,
   label?: string,
 ): GPUBuffer {
-  return device.device.createBuffer({ size, usage, label });
+  return device.gpu.createBuffer({ size, usage, label });
 }
 
 export function writeBuffer(
@@ -27,15 +34,9 @@ export function writeBuffer(
   bufferOffset = 0,
 ): void {
   if (data instanceof ArrayBuffer) {
-    device.device.queue.writeBuffer(buffer, bufferOffset, data);
+    device.gpu.queue.writeBuffer(buffer, bufferOffset, data);
     return;
   }
 
-  device.device.queue.writeBuffer(
-    buffer,
-    bufferOffset,
-    data.buffer,
-    data.byteOffset,
-    data.byteLength,
-  );
+  device.gpu.queue.writeBuffer(buffer, bufferOffset, data.buffer, data.byteOffset, data.byteLength);
 }

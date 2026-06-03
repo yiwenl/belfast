@@ -34,7 +34,7 @@ export class RenderTarget {
     this.widthInternal = Math.max(1, Math.floor(options.width));
     this.heightInternal = Math.max(1, Math.floor(options.height));
 
-    this.sampler = device.device.createSampler({
+    this.sampler = device.gpu.createSampler({
       label: `${this.label}Sampler`,
       addressModeU: "clamp-to-edge",
       addressModeV: "clamp-to-edge",
@@ -106,7 +106,7 @@ export class RenderTarget {
     depthTexture: GPUTexture | null;
     depthView: GPUTextureView | undefined;
   } {
-    const colorTexture = this.device.device.createTexture({
+    const colorTexture = this.device.gpu.createTexture({
       label: `${this.label}ColorTexture`,
       size: [this.widthInternal, this.heightInternal],
       format: this.format,
@@ -118,7 +118,7 @@ export class RenderTarget {
       return { colorTexture, colorView, depthTexture: null, depthView: undefined };
     }
 
-    const depthTexture = this.device.device.createTexture({
+    const depthTexture = this.device.gpu.createTexture({
       label: `${this.label}DepthTexture`,
       size: [this.widthInternal, this.heightInternal],
       format: this.depthFormat,

@@ -4,6 +4,7 @@ import {
   BindGroup,
   Buffer,
   BufferUsage,
+  Compute,
   createBillboardDiscTriangle,
   createSceneUniformPipelineLayout,
   Device,
@@ -147,49 +148,20 @@ async function main() {
     "ParticlesScene",
   );
 
-  const computeBindGroupLayout = device.device.createBindGroupLayout({
-    label: "ParticlesComputeBindGroupLayout",
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.COMPUTE,
-        buffer: { type: "uniform" },
-      },
-      {
-        binding: 1,
-        visibility: GPUShaderStage.COMPUTE,
-        buffer: { type: "storage" },
-      },
+  const compute = new Compute(device, computeShaderCode, {
+    label: "ParticlesCompute",
+    entryPoint: "cs_main",
+  });
+
+  const computeBindGroup = BindGroup.create(
+    device,
+    compute.getBindGroupLayout(0),
+    [
+      { binding: 0, resource: simUniformBuffer },
+      { binding: 1, resource: particleBuffer },
     ],
-  });
-
-  const computePipelineLayout = device.device.createPipelineLayout({
-    label: "ParticlesComputePipelineLayout",
-    bindGroupLayouts: [computeBindGroupLayout],
-  });
-
-  const computeModule = device.device.createShaderModule({
-    code: computeShaderCode,
-    label: "ParticlesComputeShader",
-  });
-
-  const computePipeline = device.device.createComputePipeline({
-    label: "ParticlesComputePipeline",
-    layout: computePipelineLayout,
-    compute: {
-      module: computeModule,
-      entryPoint: "cs_main",
-    },
-  });
-
-  const computeBindGroup = device.device.createBindGroup({
-    label: "particles-compute-bind-group",
-    layout: computeBindGroupLayout,
-    entries: [
-      { binding: 0, resource: { buffer: simUniformBuffer.gpu } },
-      { binding: 1, resource: { buffer: particleBuffer.gpu } },
-    ],
-  });
+    "particles-compute-bind-group",
+  );
 
   const draw = new Draw(device, drawShaderCode, {
     label: "ParticlesDraw",
@@ -245,7 +217,7 @@ async function main() {
       return depthTexture.createView();
     }
     depthTexture?.destroy();
-    depthTexture = device.device.createTexture({
+    depthTexture = device.gpu.createTexture({
       label: "depth-texture",
       size: [width, height],
       format: "depth24plus",
@@ -279,13 +251,14 @@ async function main() {
 
     const colorView = device.getCurrentTexture().createView();
     const depthView = ensureDepthTexture();
-    const encoder = device.device.createCommandEncoder({ label: "particles-frame" });
+    const encoder = device.gpu.createCommandEncoder({ label: "particles-frame" });
 
-    const computePass = encoder.beginComputePass({ label: "particles-sim" });
-    computePass.setPipeline(computePipeline);
-    computePass.setBindGroup(0, computeBindGroup);
-    computePass.dispatchWorkgroups(Math.ceil(PARTICLE_COUNT / WORKGROUP_SIZE));
-    computePass.end();
+    compute.run(
+      encoder,
+      computeBindGroup,
+      Math.ceil(PARTICLE_COUNT / WORKGROUP_SIZE),
+      "particles-sim",
+    );
 
     const pass = beginRenderPass(encoder, colorView, {
       clearColor: { r: 0.02, g: 0.02, b: 0.04, a: 1 },
@@ -300,7 +273,7 @@ async function main() {
     draw.draw(pass, mesh, bindGroup, PARTICLE_COUNT);
 
     pass.end();
-    device.device.queue.submit([encoder.finish()]);
+    device.gpu.queue.submit([encoder.finish()]);
     requestAnimationFrame(render);
   };
 

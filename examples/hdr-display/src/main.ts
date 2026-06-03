@@ -163,7 +163,7 @@ async function main() {
     skyboxViewProjection(camera, sceneUniformData);
     sceneUniformBuffer.write(device, sceneUniformData);
 
-    const encoder = device.device.createCommandEncoder();
+    const encoder = device.gpu.createCommandEncoder();
 
     const hdrPass = hdrTarget.beginRenderPass(encoder, {
       clearColor: { r: 0, g: 0, b: 0, a: 1 },
@@ -177,7 +177,7 @@ async function main() {
     toneMapDraw.draw(screenPass, 3, toneMapBindGroup!);
     screenPass.end();
 
-    device.device.queue.submit([encoder.finish()]);
+    device.gpu.queue.submit([encoder.finish()]);
     requestAnimationFrame(render);
   };
 

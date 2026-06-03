@@ -91,7 +91,7 @@ async function main() {
       return depthTexture.createView();
     }
     depthTexture?.destroy();
-    depthTexture = device.device.createTexture({
+    depthTexture = device.gpu.createTexture({
       label: "depth-texture",
       size: [width, height],
       format: "depth24plus",
@@ -115,7 +115,7 @@ async function main() {
 
     const textureView = device.getCurrentTexture().createView();
     const depthView = ensureDepthTexture();
-    const encoder = device.device.createCommandEncoder();
+    const encoder = device.gpu.createCommandEncoder();
     const pass = beginRenderPass(encoder, textureView, {
       depthStencilAttachment: {
         view: depthView,
@@ -126,7 +126,7 @@ async function main() {
     });
     draw.draw(pass, mesh, bindGroup);
     pass.end();
-    device.device.queue.submit([encoder.finish()]);
+    device.gpu.queue.submit([encoder.finish()]);
     requestAnimationFrame(render);
   };
 

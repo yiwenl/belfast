@@ -5,7 +5,7 @@ export function createSceneUniformBindGroupLayout(
   device: Device,
   label = "SceneUniformBindGroupLayout",
 ): GPUBindGroupLayout {
-  return device.device.createBindGroupLayout({
+  return device.gpu.createBindGroupLayout({
     label,
     entries: [
       {
@@ -29,7 +29,7 @@ export function createSceneUniformPipelineLayout(
   bindGroupLayout: GPUBindGroupLayout;
 } {
   const bindGroupLayout = createSceneUniformBindGroupLayout(device, `${label}BindGroup`);
-  const pipelineLayout = device.device.createPipelineLayout({
+  const pipelineLayout = device.gpu.createPipelineLayout({
     label,
     bindGroupLayouts: [bindGroupLayout],
   });
@@ -41,7 +41,7 @@ export function createBallInstanceBindGroupLayout(
   device: Device,
   label = "BallInstanceBindGroupLayout",
 ): GPUBindGroupLayout {
-  return device.device.createBindGroupLayout({
+  return device.gpu.createBindGroupLayout({
     label,
     entries: [
       {
@@ -67,7 +67,7 @@ export function createSceneBallPipelineLayout(
 } {
   const sceneBindGroupLayout = createSceneUniformBindGroupLayout(device, `${label}Scene`);
   const ballBindGroupLayout = createBallInstanceBindGroupLayout(device, `${label}Ball`);
-  const pipelineLayout = device.device.createPipelineLayout({
+  const pipelineLayout = device.gpu.createPipelineLayout({
     label,
     bindGroupLayouts: [sceneBindGroupLayout, ballBindGroupLayout],
   });
@@ -82,7 +82,7 @@ export function createSceneTextureBindGroupLayout(
   device: Device,
   label = "SceneTextureBindGroupLayout",
 ): GPUBindGroupLayout {
-  return device.device.createBindGroupLayout({
+  return device.gpu.createBindGroupLayout({
     label,
     entries: [
       {
@@ -112,7 +112,7 @@ export function createSceneTexturePipelineLayout(
   bindGroupLayout: GPUBindGroupLayout;
 } {
   const bindGroupLayout = createSceneTextureBindGroupLayout(device, `${label}BindGroup`);
-  const pipelineLayout = device.device.createPipelineLayout({
+  const pipelineLayout = device.gpu.createPipelineLayout({
     label,
     bindGroupLayouts: [bindGroupLayout],
   });

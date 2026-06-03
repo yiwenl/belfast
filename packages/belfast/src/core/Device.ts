@@ -41,6 +41,11 @@ export class Device {
     this.hdr = hdr;
   }
 
+  /** Alias for the underlying `GPUDevice`, matching the `.gpu` convention on Buffer/BindGroup/Texture. */
+  get gpu(): GPUDevice {
+    return this.device;
+  }
+
   static async isSupported(): Promise<boolean> {
     if (!navigator.gpu) {
       return false;
