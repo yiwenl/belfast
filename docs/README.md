@@ -24,6 +24,8 @@ Library API reference and guides for the WebGPU `belfast` package.
 | [Draw](api/Draw.md)             | WGSL shader → render pipeline → draw call  |
 | [RenderPass](api/RenderPass.md) | Begin a color render pass on the swapchain |
 | [Utilities](api/utilities.md)   | WebGPU support checks and fallback UI      |
+| [Ray](api/Ray.md)               | Ray math for picking and intersection      |
+| [HitTestor](api/HitTestor.md)   | Event-driven mouse/touch hit testing       |
 
 ## Related
 

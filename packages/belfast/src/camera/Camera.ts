@@ -1,4 +1,5 @@
 import { mat4, vec3, type ReadonlyVec3 } from "gl-matrix";
+import { Ray } from "../math/Ray";
 
 const DEFAULT_UP = vec3.fromValues(0, 1, 0);
 
@@ -13,7 +14,7 @@ export class Camera {
   protected readonly projectionMatrix: ReturnType<typeof mat4.create>;
   private readonly viewProjectionMatrix: ReturnType<typeof mat4.create>;
 
-  private readonly position = vec3.fromValues(0, 0, 1);
+  protected readonly position = vec3.fromValues(0, 0, 1);
   private readonly target = vec3.fromValues(0, 0, 0);
   private readonly up = vec3.create();
 
@@ -75,6 +76,28 @@ export class Camera {
     out[offset + 23] = 0;
 
     return out;
+  }
+
+  /**
+   * Generate a picking ray from a clip-space screen position.
+   * `screenPos` should be `[ndcX, ndcY, 0]` where ndc is in [-1, 1].
+   */
+  generateRay(screenPos: ReadonlyVec3, out?: Ray): Ray {
+    const invViewProj = mat4.create();
+    const dir = vec3.create();
+
+    mat4.multiply(invViewProj, this.projectionMatrix, this.viewMatrix);
+    mat4.invert(invViewProj, invViewProj);
+
+    vec3.transformMat4(dir, screenPos, invViewProj);
+    vec3.sub(dir, dir, this.position);
+    vec3.normalize(dir, dir);
+
+    if (out) {
+      out.set(this.position, dir);
+      return out;
+    }
+    return new Ray(this.position, dir);
   }
 
   getPosition(): ReturnType<typeof vec3.clone> {

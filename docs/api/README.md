@@ -23,6 +23,8 @@ import {
   PerspectiveCamera,
   OrbitalControl,
   EaseNumber,
+  Ray,
+  HitTestor,
   beginRenderPass,
   assertWebGPUSupport,
   showWebGPUUnavailableMessage,
@@ -90,6 +92,10 @@ import {
 | `Compute`                             | class    | [Compute.md](Compute.md)                       |
 | `ComputeOptions`                      | type     | [Compute.md](Compute.md)                       |
 | `WorkgroupCount`                      | type     | [Compute.md](Compute.md)                       |
+| `Ray`                                 | class    | [Ray.md](Ray.md)                               |
+| `HitTestor`                           | class    | [HitTestor.md](HitTestor.md)                   |
+| `HitTestorOptions`                    | type     | [HitTestor.md](HitTestor.md)                   |
+| `HitDetail`                           | type     | [HitTestor.md](HitTestor.md)                   |
 | `beginRenderPass`                     | function | [RenderPass.md](RenderPass.md)                 |
 | `RenderPassOptions`                   | type     | [RenderPass.md](RenderPass.md)                 |
 | `assertWebGPUSupport`                 | function | [utilities.md](utilities.md)                   |

@@ -52,6 +52,18 @@ This is compatible with both `PerspectiveCamera` and `OrthographicCamera` becaus
 
 Copy of the last `lookAt` eye position.
 
+### `generateRay(screenPos, out?)`
+
+Unprojects a clip-space screen position into a world-space picking ray. `screenPos` should be `[ndcX, ndcY, 0]` where NDC values are in `[-1, 1]`.
+
+```ts
+const mx = (pixelX / viewportWidth) * 2 - 1;
+const my = -(pixelY / viewportHeight) * 2 + 1;
+const ray = camera.generateRay([mx, my, 0]);
+```
+
+If `out` ([Ray](Ray.md)) is provided, it is mutated in-place and returned; otherwise a new `Ray` is allocated.
+
 ### `getLookAtTarget()`
 
 Copy of the last `lookAt` target.

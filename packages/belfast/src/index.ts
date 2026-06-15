@@ -2,6 +2,8 @@
 
 export { OrbitalControl, type OrbitalControlOptions } from "./controls/OrbitalControl";
 export { EaseNumber } from "./utils/EaseNumber";
+export { Ray } from "./math/Ray";
+export { HitTestor, type HitTestorOptions, type HitDetail } from "./utils/HitTestor";
 export { Camera } from "./camera/Camera";
 export { PerspectiveCamera } from "./camera/PerspectiveCamera";
 export { OrthographicCamera } from "./camera/OrthographicCamera";
