@@ -118,3 +118,49 @@ export function createSceneTexturePipelineLayout(
   });
   return { pipelineLayout, bindGroupLayout };
 }
+
+/**
+ * Group 0: `viewProj` uniform (binding 0) + `texture_3d` (1) + `sampler` (2).
+ * Texture and sampler are visible in vertex stage for field sampling in VS.
+ */
+export function createSceneTexture3DBindGroupLayout(
+  device: Device,
+  label = "SceneTexture3DBindGroupLayout",
+): GPUBindGroupLayout {
+  const stage = GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT;
+  return device.gpu.createBindGroupLayout({
+    label,
+    entries: [
+      {
+        binding: 0,
+        visibility: stage,
+        buffer: { type: "uniform" },
+      },
+      {
+        binding: 1,
+        visibility: stage,
+        texture: { sampleType: "unfilterable-float", viewDimension: "3d" },
+      },
+      {
+        binding: 2,
+        visibility: stage,
+        sampler: { type: "non-filtering" },
+      },
+    ],
+  });
+}
+
+export function createSceneTexture3DPipelineLayout(
+  device: Device,
+  label = "SceneTexture3DPipelineLayout",
+): {
+  pipelineLayout: GPUPipelineLayout;
+  bindGroupLayout: GPUBindGroupLayout;
+} {
+  const bindGroupLayout = createSceneTexture3DBindGroupLayout(device, `${label}BindGroup`);
+  const pipelineLayout = device.gpu.createPipelineLayout({
+    label,
+    bindGroupLayouts: [bindGroupLayout],
+  });
+  return { pipelineLayout, bindGroupLayout };
+}

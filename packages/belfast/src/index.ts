@@ -12,6 +12,7 @@ export { BindGroup, type BindGroupResource } from "./core/BindGroup";
 export { Buffer, BufferUsage } from "./core/Buffer";
 export { UniformBlock, type UniformFieldType, type UniformBlockSchema } from "./core/UniformBlock";
 export { Texture, type TextureOptions } from "./core/Texture";
+export { Texture3D, type Texture3DOptions } from "./core/Texture3D";
 export { RenderTarget, type RenderTargetOptions } from "./core/RenderTarget";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";
 export { Draw, type DrawOptions } from "./helper/Draw";
@@ -19,6 +20,7 @@ export { Compute, type ComputeOptions, type WorkgroupCount } from "./helper/Comp
 export { AxisHelper, type AxisHelperOptions } from "./helper/AxisHelper";
 export { BallHelper, type BallHelperOptions, type BallDrawParams } from "./helper/BallHelper";
 export { CopyHelper, type CopyHelperOptions } from "./helper/CopyHelper";
+export { Texture3DPingPong, type Texture3DPingPongOptions } from "./helper/Texture3DPingPong";
 export {
   Geom,
   type GeometryData,
@@ -33,6 +35,8 @@ export {
   createSceneBallPipelineLayout,
   createSceneTextureBindGroupLayout,
   createSceneTexturePipelineLayout,
+  createSceneTexture3DBindGroupLayout,
+  createSceneTexture3DPipelineLayout,
 } from "./helper/sceneLayout";
 export {
   Mesh,

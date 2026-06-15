@@ -4,17 +4,14 @@
   "description": "WebGPU utility library",
   "type": "module",
   "sideEffects": false,
-  "files": [
-    "dist"
-  ],
-  "main": "./dist/belfast.cjs",
-  "module": "./dist/belfast.js",
-  "types": "./dist/index.d.ts",
+  "main": "../../dist/belfast.cjs",
+  "module": "../../dist/belfast.js",
+  "types": "../../dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/belfast.js",
-      "require": "./dist/belfast.cjs"
+      "types": "../../dist/index.d.ts",
+      "import": "../../dist/belfast.js",
+      "require": "../../dist/belfast.cjs"
     }
   },
   "scripts": {

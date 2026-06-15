@@ -14,8 +14,9 @@ Opens the triangle example with the library in watch mode.
 ## Repo layout
 
 ```
+dist/          Built belfast library (ESM, CJS, types)
 packages/
-  belfast/     WebGPU library (TypeScript + Vite)
+  belfast/     WebGPU library source (TypeScript + Vite)
   alfrid/      WebGL reference source (not built or published)
 examples/
   triangle/    Hello triangle — first WebGPU example
