@@ -4,19 +4,19 @@
   "description": "WebGPU utility library",
   "type": "module",
   "sideEffects": false,
-  "main": "../../dist/belfast.cjs",
-  "module": "../../dist/belfast.js",
-  "types": "../../dist/index.d.ts",
+  "main": "./dist/belfast.cjs",
+  "module": "./dist/belfast.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "../../dist/index.d.ts",
-      "import": "../../dist/belfast.js",
-      "require": "../../dist/belfast.cjs"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/belfast.js",
+      "require": "./dist/belfast.cjs"
     }
   },
   "scripts": {
     "dev": "vite build --watch",
-    "build": "vite build",
+    "build": "vite build && node -e \"import('fs').then(fs => { fs.rmSync('../../dist', {recursive:true, force:true}); fs.cpSync('dist', '../../dist', {recursive:true}); })\"",
     "typecheck": "tsc --noEmit"
   },
   "publishConfig": {

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageDir = fileURLToPath(new URL(".", import.meta.url));
-const distDir = resolve(packageDir, "../../dist");
+const distDir = resolve(packageDir, "dist");
 
 export default defineConfig({
   build: {
