@@ -13,6 +13,10 @@ import {
   OrthographicCamera,
   PerspectiveCamera,
   UniformBlock,
+  ShadowMap,
+  DepthDraw,
+  fitOrthographicCameraToSphere,
+  wgslShadowPcf3x3,
 } from "belfast";
 import computeShaderCode from "./shaders/particles-compute.wgsl?raw";
 import drawShaderCode from "./shaders/particles-draw-shadow.wgsl?raw";
@@ -90,19 +94,14 @@ function buildInitialParticles(): Float32Array {
 }
 
 function setupLightCamera(): OrthographicCamera {
-  const halfExtent = MAX_RADIUS * 1.5;
-  const lightDistance = Math.hypot(LIGHT_POSITION[0], LIGHT_POSITION[1], LIGHT_POSITION[2]);
-
-  const lightCamera = new OrthographicCamera(
-    -halfExtent,
-    halfExtent,
-    -halfExtent,
-    halfExtent,
-    0.1,
-    lightDistance + MAX_RADIUS * 2,
-  );
-  lightCamera.lookAt(LIGHT_POSITION, [0, 0, 0]);
-  return lightCamera;
+  const camera = new OrthographicCamera(-1, 1, -1, 1, 0.1, 100);
+  return fitOrthographicCameraToSphere({
+    camera,
+    center: [0, 0, 0],
+    radius: MAX_RADIUS,
+    eye: LIGHT_POSITION,
+    padding: 0.5,
+  });
 }
 
 async function main() {
@@ -176,20 +175,10 @@ async function main() {
     radius: 55,
   });
 
-  const shadowMapTexture = device.gpu.createTexture({
-    label: "shadow-map",
-    size: [SHADOW_MAP_SIZE, SHADOW_MAP_SIZE],
+  const shadowMap = ShadowMap.create(device, {
+    size: SHADOW_MAP_SIZE,
     format: SHADOW_DEPTH_FORMAT,
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-  });
-  const shadowMapView = shadowMapTexture.createView();
-  const shadowCompareSampler = device.gpu.createSampler({
-    label: "shadow-compare-sampler",
-    compare: "less-equal",
-    magFilter: "linear",
-    minFilter: "linear",
-    addressModeU: "clamp-to-edge",
-    addressModeV: "clamp-to-edge",
+    label: "particles-shadow",
   });
 
   const drawBindGroupLayout = device.gpu.createBindGroupLayout({
@@ -218,52 +207,23 @@ async function main() {
     bindGroupLayouts: [drawBindGroupLayout],
   });
 
-  const shadowDepthBindGroupLayout = device.gpu.createBindGroupLayout({
-    label: "ParticlesShadowDepthBindGroupLayout",
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.VERTEX,
-        buffer: { type: "uniform" },
-      },
-    ],
-  });
-  const shadowDepthModule = device.gpu.createShaderModule({
-    code: shadowDepthShaderCode,
-    label: "ParticlesShadowDepthShader",
-  });
-  const shadowDepthPipeline = device.gpu.createRenderPipeline({
-    label: "ParticlesShadowDepthPipeline",
-    layout: device.gpu.createPipelineLayout({
-      label: "ParticlesShadowDepthPipelineLayout",
-      bindGroupLayouts: [shadowDepthBindGroupLayout],
-    }),
-    vertex: {
-      module: shadowDepthModule,
-      entryPoint: "vs_main",
-      buffers: mesh.getVertexLayouts(),
-    },
-    fragment: {
-      module: shadowDepthModule,
-      entryPoint: "fs_main",
-      targets: [],
-    },
+  const shadowDepthDraw = new DepthDraw(device, shadowDepthShaderCode, {
+    label: "ParticlesShadowDepth",
+    vertexBuffers: mesh.getVertexLayouts(),
     primitive: { topology: "triangle-list", cullMode: "none" },
-    depthStencil: {
-      format: SHADOW_DEPTH_FORMAT,
-      depthWriteEnabled: true,
-      depthCompare: "less",
-    },
+    depthFormat: SHADOW_DEPTH_FORMAT,
   });
   const shadowDepthBindGroup = BindGroup.create(
     device,
-    shadowDepthBindGroupLayout,
+    shadowDepthDraw.getBindGroupLayout(0),
     lightUniformBuffer,
     0,
     "shadow-depth-bind-group",
   );
 
-  const draw = new Draw(device, drawShaderCode, {
+  const drawShaderWithShadows = wgslShadowPcf3x3 + drawShaderCode;
+
+  const draw = new Draw(device, drawShaderWithShadows, {
     label: "ParticlesDrawShadow",
     layout: drawPipelineLayout,
     vertexBuffers: mesh.getVertexLayouts(),
@@ -289,8 +249,8 @@ async function main() {
     drawBindGroupLayout,
     [
       { binding: 0, resource: drawUniformBuffer },
-      { binding: 1, resource: shadowMapView },
-      { binding: 2, resource: shadowCompareSampler },
+      { binding: 1, resource: shadowMap.view },
+      { binding: 2, resource: shadowMap.sampler },
     ],
     "draw-shadow-bind-group",
   );
@@ -317,7 +277,7 @@ async function main() {
     drawUniformBuffer.destroy();
     lightUniformBuffer.destroy();
     simUniformBuffer.destroy();
-    shadowMapTexture.destroy();
+    shadowMap.destroy();
   });
 
   let depthTexture: GPUTexture | null = null;
@@ -404,20 +364,8 @@ async function main() {
       "particles-sim",
     );
 
-    const shadowPass = encoder.beginRenderPass({
-      label: "shadow-map-pass",
-      colorAttachments: [],
-      depthStencilAttachment: {
-        view: shadowMapView,
-        depthLoadOp: "clear",
-        depthClearValue: 1,
-        depthStoreOp: "store",
-      },
-    });
-    shadowPass.setPipeline(shadowDepthPipeline);
-    shadowDepthBindGroup.bind(shadowPass, 0);
-    mesh.bind(shadowPass);
-    shadowPass.draw(vertexCount, PARTICLE_COUNT);
+    const shadowPass = shadowMap.beginRenderPass(encoder);
+    shadowDepthDraw.draw(shadowPass, mesh, shadowDepthBindGroup, PARTICLE_COUNT);
     shadowPass.end();
 
     const pass = beginRenderPass(encoder, colorView, {

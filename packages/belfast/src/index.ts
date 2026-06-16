@@ -7,6 +7,12 @@ export { HitTestor, type HitTestorOptions, type HitDetail } from "./utils/HitTes
 export { Camera } from "./camera/Camera";
 export { PerspectiveCamera } from "./camera/PerspectiveCamera";
 export { OrthographicCamera } from "./camera/OrthographicCamera";
+export {
+  fitOrthographicCameraToSphere,
+  fitOrthographicCameraToBounds,
+  type FitOrthographicCameraToSphereOptions,
+  type FitOrthographicCameraToBoundsOptions,
+} from "./camera/cameraFit";
 export type { ReadonlyVec3 as Vec3, vec3 as MutVec3 } from "gl-matrix";
 export type Mat4 = Float32Array;
 export { Device, type DeviceOptions } from "./core/Device";
@@ -18,6 +24,9 @@ export { Texture3D, type Texture3DOptions } from "./core/Texture3D";
 export { RenderTarget, type RenderTargetOptions } from "./core/RenderTarget";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";
 export { Draw, type DrawOptions } from "./helper/Draw";
+export { DepthDraw, type DepthDrawOptions } from "./helper/DepthDraw";
+export { ShadowMap, type ShadowMapOptions } from "./helper/ShadowMap";
+export { wgslShadowPcf3x3 } from "./shader/shadow";
 export { Compute, type ComputeOptions, type WorkgroupCount } from "./helper/Compute";
 export { AxisHelper, type AxisHelperOptions } from "./helper/AxisHelper";
 export { BallHelper, type BallHelperOptions, type BallDrawParams } from "./helper/BallHelper";

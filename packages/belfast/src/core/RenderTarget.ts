@@ -8,6 +8,7 @@ export interface RenderTargetOptions {
   format?: GPUTextureFormat;
   withDepth?: boolean;
   depthFormat?: GPUTextureFormat;
+  depthTextureUsage?: GPUTextureUsageFlags;
 }
 
 export class RenderTarget {
@@ -18,8 +19,9 @@ export class RenderTarget {
   private readonly device: Device;
   private readonly label: string;
   private readonly withDepth: boolean;
+  private readonly depthTextureUsage: GPUTextureUsageFlags;
   private colorTexture: GPUTexture;
-  private depthTexture: GPUTexture | null = null;
+  private depthTextureInternal: GPUTexture | null = null;
   private colorViewInternal: GPUTextureView;
   private depthViewInternal: GPUTextureView | undefined;
   private widthInternal: number;
@@ -30,6 +32,7 @@ export class RenderTarget {
     this.label = options.label ?? "RenderTarget";
     this.format = options.format ?? (device.hdr ? "rgba16float" : device.format);
     this.withDepth = options.withDepth ?? false;
+    this.depthTextureUsage = options.depthTextureUsage ?? GPUTextureUsage.RENDER_ATTACHMENT;
     this.depthFormat = this.withDepth ? (options.depthFormat ?? "depth24plus") : undefined;
     this.widthInternal = Math.max(1, Math.floor(options.width));
     this.heightInternal = Math.max(1, Math.floor(options.height));
@@ -45,7 +48,7 @@ export class RenderTarget {
     const { colorTexture, colorView, depthTexture, depthView } = this.createTextures();
     this.colorTexture = colorTexture;
     this.colorViewInternal = colorView;
-    this.depthTexture = depthTexture;
+    this.depthTextureInternal = depthTexture;
     this.depthViewInternal = depthView;
   }
 
@@ -69,6 +72,10 @@ export class RenderTarget {
     return this.depthViewInternal;
   }
 
+  get depthTexture(): GPUTexture | undefined {
+    return this.depthTextureInternal ?? undefined;
+  }
+
   resize(width: number, height: number): void {
     const w = Math.max(1, Math.floor(width));
     const h = Math.max(1, Math.floor(height));
@@ -79,12 +86,12 @@ export class RenderTarget {
     this.heightInternal = h;
 
     this.colorTexture.destroy();
-    this.depthTexture?.destroy();
+    this.depthTextureInternal?.destroy();
 
     const { colorTexture, colorView, depthTexture, depthView } = this.createTextures();
     this.colorTexture = colorTexture;
     this.colorViewInternal = colorView;
-    this.depthTexture = depthTexture;
+    this.depthTextureInternal = depthTexture;
     this.depthViewInternal = depthView;
   }
 
@@ -97,7 +104,7 @@ export class RenderTarget {
 
   destroy(): void {
     this.colorTexture.destroy();
-    this.depthTexture?.destroy();
+    this.depthTextureInternal?.destroy();
   }
 
   private createTextures(): {
@@ -122,7 +129,7 @@ export class RenderTarget {
       label: `${this.label}DepthTexture`,
       size: [this.widthInternal, this.heightInternal],
       format: this.depthFormat,
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      usage: this.depthTextureUsage,
     });
     const depthView = depthTexture.createView({ label: `${this.label}DepthView` });
     return { colorTexture, colorView, depthTexture, depthView };

@@ -25,6 +25,11 @@ import {
   EaseNumber,
   Ray,
   HitTestor,
+  ShadowMap,
+  DepthDraw,
+  fitOrthographicCameraToSphere,
+  fitOrthographicCameraToBounds,
+  wgslShadowPcf3x3,
   beginRenderPass,
   assertWebGPUSupport,
   showWebGPUUnavailableMessage,
@@ -98,6 +103,13 @@ import {
 | `HitDetail`                           | type     | [HitTestor.md](HitTestor.md)                   |
 | `beginRenderPass`                     | function | [RenderPass.md](RenderPass.md)                 |
 | `RenderPassOptions`                   | type     | [RenderPass.md](RenderPass.md)                 |
+| `ShadowMap`                           | class    | [ShadowMap.md](ShadowMap.md)                   |
+| `ShadowMapOptions`                    | type     | [ShadowMap.md](ShadowMap.md)                   |
+| `DepthDraw`                           | class    | [DepthDraw.md](DepthDraw.md)                   |
+| `DepthDrawOptions`                    | type     | [DepthDraw.md](DepthDraw.md)                   |
+| `fitOrthographicCameraToSphere`       | function | [cameraFit.md](cameraFit.md)                   |
+| `fitOrthographicCameraToBounds`       | function | [cameraFit.md](cameraFit.md)                   |
+| `wgslShadowPcf3x3`                    | const    | [shadow.md](shadow.md)                         |
 | `assertWebGPUSupport`                 | function | [utilities.md](utilities.md)                   |
 | `showWebGPUUnavailableMessage`        | function | [utilities.md](utilities.md)                   |
 

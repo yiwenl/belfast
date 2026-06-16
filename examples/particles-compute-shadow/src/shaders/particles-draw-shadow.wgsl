@@ -38,26 +38,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
   return output;
 }
 
-fn PCFShadow(shadowCoord: vec4<f32>) -> f32 {
-  let shadowPos = shadowCoord.xyz / shadowCoord.w;
-  let shadowUv = shadowPos.xy * 0.5 + 0.5;
-  var shadow = 0.0;
-  let size = vec2<f32>(textureDimensions(shadowMap, 0));
-  let texelSize = 2.0 / size;
-
-  for (var x = -1; x <= 1; x++) {
-    for (var y = -1; y <= 1; y++) {
-      let pcfDepth = textureSampleCompare(
-        shadowMap,
-        shadowSampler,
-        shadowUv + vec2<f32>(f32(x), f32(y)) * texelSize,
-        shadowPos.z - 0.001,
-      );
-      shadow += pcfDepth;
-    }
-  }
-  return shadow / 9.0;
-}
+// PCFShadow removed, sampleShadowPcf3x3 will be injected from TS
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
@@ -77,7 +58,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
   let L = normalize(scene.lightDir.xyz);
   let diffuse = max(dot(normal, L), 0.0) * 2.0;
-  let shadow = PCFShadow(input.shadowCoord);
+  let shadow = sampleShadowPcf3x3(shadowMap, shadowSampler, input.shadowCoord, 2048.0, 0.001);
 
   let ambient = 0.25;
   let lit = ambient + (1.0 - ambient) * diffuse * shadow;
