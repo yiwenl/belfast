@@ -6,6 +6,7 @@ export interface RenderTargetOptions {
   height: number;
   label?: string;
   format?: GPUTextureFormat;
+  sampleCount?: number;
   withDepth?: boolean;
   depthFormat?: GPUTextureFormat;
   depthTextureUsage?: GPUTextureUsageFlags;
@@ -20,9 +21,12 @@ export class RenderTarget {
   private readonly label: string;
   private readonly withDepth: boolean;
   private readonly depthTextureUsage: GPUTextureUsageFlags;
+  private readonly sampleCount: number;
   private colorTexture: GPUTexture;
+  private multisampledColorTexture: GPUTexture | null = null;
   private depthTextureInternal: GPUTexture | null = null;
   private colorViewInternal: GPUTextureView;
+  private multisampledColorViewInternal: GPUTextureView | null = null;
   private depthViewInternal: GPUTextureView | undefined;
   private widthInternal: number;
   private heightInternal: number;
@@ -31,6 +35,7 @@ export class RenderTarget {
     this.device = device;
     this.label = options.label ?? "RenderTarget";
     this.format = options.format ?? (device.hdr ? "rgba16float" : device.format);
+    this.sampleCount = options.sampleCount ?? 1;
     this.withDepth = options.withDepth ?? false;
     this.depthTextureUsage = options.depthTextureUsage ?? GPUTextureUsage.RENDER_ATTACHMENT;
     this.depthFormat = this.withDepth ? (options.depthFormat ?? "depth24plus") : undefined;
@@ -45,9 +50,18 @@ export class RenderTarget {
       minFilter: "linear",
     });
 
-    const { colorTexture, colorView, depthTexture, depthView } = this.createTextures();
+    const {
+      colorTexture,
+      colorView,
+      multisampledColorTexture,
+      multisampledColorView,
+      depthTexture,
+      depthView,
+    } = this.createTextures();
     this.colorTexture = colorTexture;
     this.colorViewInternal = colorView;
+    this.multisampledColorTexture = multisampledColorTexture;
+    this.multisampledColorViewInternal = multisampledColorView;
     this.depthTextureInternal = depthTexture;
     this.depthViewInternal = depthView;
   }
@@ -86,11 +100,21 @@ export class RenderTarget {
     this.heightInternal = h;
 
     this.colorTexture.destroy();
+    this.multisampledColorTexture?.destroy();
     this.depthTextureInternal?.destroy();
 
-    const { colorTexture, colorView, depthTexture, depthView } = this.createTextures();
+    const {
+      colorTexture,
+      colorView,
+      multisampledColorTexture,
+      multisampledColorView,
+      depthTexture,
+      depthView,
+    } = this.createTextures();
     this.colorTexture = colorTexture;
     this.colorViewInternal = colorView;
+    this.multisampledColorTexture = multisampledColorTexture;
+    this.multisampledColorViewInternal = multisampledColorView;
     this.depthTextureInternal = depthTexture;
     this.depthViewInternal = depthView;
   }
@@ -99,17 +123,28 @@ export class RenderTarget {
     commandEncoder: GPUCommandEncoder,
     options: RenderPassOptions = {},
   ): GPURenderPassEncoder {
-    return beginRenderPass(commandEncoder, this, options);
+    const finalOptions = { ...options };
+    if (this.sampleCount > 1 && this.multisampledColorViewInternal) {
+      return beginRenderPass(commandEncoder, this.multisampledColorViewInternal, {
+        ...finalOptions,
+        resolveTarget: this.colorViewInternal,
+        storeOp: "discard", // We only want to store the resolved result
+      });
+    }
+    return beginRenderPass(commandEncoder, this, finalOptions);
   }
 
   destroy(): void {
     this.colorTexture.destroy();
+    this.multisampledColorTexture?.destroy();
     this.depthTextureInternal?.destroy();
   }
 
   private createTextures(): {
     colorTexture: GPUTexture;
     colorView: GPUTextureView;
+    multisampledColorTexture: GPUTexture | null;
+    multisampledColorView: GPUTextureView | null;
     depthTexture: GPUTexture | null;
     depthView: GPUTextureView | undefined;
   } {
@@ -121,17 +156,48 @@ export class RenderTarget {
     });
     const colorView = colorTexture.createView({ label: `${this.label}ColorView` });
 
+    let multisampledColorTexture: GPUTexture | null = null;
+    let multisampledColorView: GPUTextureView | null = null;
+
+    if (this.sampleCount > 1) {
+      multisampledColorTexture = this.device.gpu.createTexture({
+        label: `${this.label}MultisampledColorTexture`,
+        size: [this.widthInternal, this.heightInternal],
+        format: this.format,
+        sampleCount: this.sampleCount,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      });
+      multisampledColorView = multisampledColorTexture.createView({
+        label: `${this.label}MultisampledColorView`,
+      });
+    }
+
     if (!this.withDepth || !this.depthFormat) {
-      return { colorTexture, colorView, depthTexture: null, depthView: undefined };
+      return {
+        colorTexture,
+        colorView,
+        multisampledColorTexture,
+        multisampledColorView,
+        depthTexture: null,
+        depthView: undefined,
+      };
     }
 
     const depthTexture = this.device.gpu.createTexture({
       label: `${this.label}DepthTexture`,
       size: [this.widthInternal, this.heightInternal],
       format: this.depthFormat,
+      sampleCount: this.sampleCount,
       usage: this.depthTextureUsage,
     });
     const depthView = depthTexture.createView({ label: `${this.label}DepthView` });
-    return { colorTexture, colorView, depthTexture, depthView };
+    return {
+      colorTexture,
+      colorView,
+      multisampledColorTexture,
+      multisampledColorView,
+      depthTexture,
+      depthView,
+    };
   }
 }

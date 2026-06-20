@@ -1,7 +1,7 @@
 import type { Buffer } from "./Buffer";
 import type { Device } from "./Device";
 
-export type UniformFieldType = "f32" | "vec2f" | "vec3f" | "vec4f" | "mat4x4f";
+export type UniformFieldType = "f32" | "u32" | "vec2f" | "vec3f" | "vec4f" | "mat4x4f";
 export type UniformBlockSchema = Record<string, UniformFieldType>;
 
 interface UniformFieldMeta {
@@ -18,11 +18,14 @@ interface UniformTypeSpec {
 
 const TYPE_SPECS: Record<UniformFieldType, UniformTypeSpec> = {
   f32: { alignment: 4, storageByteSize: 4, valueFloatCount: 1 },
+  u32: { alignment: 4, storageByteSize: 4, valueFloatCount: 1 },
   vec2f: { alignment: 8, storageByteSize: 8, valueFloatCount: 2 },
   vec3f: { alignment: 16, storageByteSize: 16, valueFloatCount: 3 },
   vec4f: { alignment: 16, storageByteSize: 16, valueFloatCount: 4 },
   mat4x4f: { alignment: 16, storageByteSize: 64, valueFloatCount: 16 },
 };
+
+const MAX_U32 = 0xffffffff;
 
 function alignTo(value: number, alignment: number): number {
   const remainder = value % alignment;
@@ -38,7 +41,9 @@ export class UniformBlock {
   readonly byteSize: number;
   readonly label?: string;
 
+  private readonly buffer: ArrayBuffer;
   private readonly dataInternal: Float32Array;
+  private readonly uintDataInternal: Uint32Array;
   private readonly fields = new Map<string, UniformFieldMeta>();
 
   private constructor(schema: UniformBlockSchema, label?: string) {
@@ -61,7 +66,9 @@ export class UniformBlock {
 
     this.byteSize = byteOffset;
     this.floatCount = this.byteSize / 4;
-    this.dataInternal = new Float32Array(this.floatCount);
+    this.buffer = new ArrayBuffer(this.byteSize);
+    this.dataInternal = new Float32Array(this.buffer);
+    this.uintDataInternal = new Uint32Array(this.buffer);
   }
 
   static create(schema: UniformBlockSchema, label?: string): UniformBlock {
@@ -91,6 +98,17 @@ export class UniformBlock {
         throw new Error(`Field "${name}" expects a number (f32).`);
       }
       this.dataInternal[field.floatOffset] = value;
+      return this;
+    }
+
+    if (field.type === "u32") {
+      if (typeof value !== "number") {
+        throw new Error(`Field "${name}" expects a number (u32).`);
+      }
+      if (!Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > MAX_U32) {
+        throw new Error(`Field "${name}" expects a u32 integer between 0 and ${MAX_U32}.`);
+      }
+      this.uintDataInternal[field.floatOffset] = value;
       return this;
     }
 

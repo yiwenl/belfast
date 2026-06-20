@@ -27,6 +27,8 @@ import {
   HitTestor,
   ShadowMap,
   DepthDraw,
+  opaqueTriangles,
+  depthOnlyTriangles,
   fitOrthographicCameraToSphere,
   fitOrthographicCameraToBounds,
   wgslShadowPcf3x3,
@@ -107,6 +109,12 @@ import {
 | `ShadowMapOptions`                    | type     | [ShadowMap.md](ShadowMap.md)                   |
 | `DepthDraw`                           | class    | [DepthDraw.md](DepthDraw.md)                   |
 | `DepthDrawOptions`                    | type     | [DepthDraw.md](DepthDraw.md)                   |
+| `opaqueTriangles`                     | function | [Draw.md](Draw.md)                             |
+| `OpaqueTrianglesOptions`              | type     | [Draw.md](Draw.md)                             |
+| `OpaqueTrianglesState`                | type     | [Draw.md](Draw.md)                             |
+| `depthOnlyTriangles`                  | function | [DepthDraw.md](DepthDraw.md)                   |
+| `DepthOnlyTrianglesOptions`           | type     | [DepthDraw.md](DepthDraw.md)                   |
+| `DepthOnlyTrianglesState`             | type     | [DepthDraw.md](DepthDraw.md)                   |
 | `fitOrthographicCameraToSphere`       | function | [cameraFit.md](cameraFit.md)                   |
 | `fitOrthographicCameraToBounds`       | function | [cameraFit.md](cameraFit.md)                   |
 | `wgslShadowPcf3x3`                    | const    | [shadow.md](shadow.md)                         |

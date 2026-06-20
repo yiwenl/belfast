@@ -6,7 +6,7 @@ Automatically configures the color targets to `[]` and sets up a default depth s
 ## Import
 
 ```ts
-import { DepthDraw, type DepthDrawOptions } from "belfast";
+import { DepthDraw, depthOnlyTriangles, type DepthDrawOptions } from "belfast";
 ```
 
 ## Constructor
@@ -34,3 +34,28 @@ Returns pipeline layout.
 ### `draw(...)`
 
 Same arguments as `Draw.draw(...)`.
+
+## Render-state presets
+
+Use `depthOnlyTriangles(...)` to share common depth-only triangle-list state:
+
+```ts
+const shadowDraw = new DepthDraw(device, shadowShaderCode, {
+  label: "ShadowMesh",
+  layout: shadowPipelineLayout,
+  vertexBuffers: mesh.getVertexLayouts(),
+  ...depthOnlyTriangles({
+    depthFormat: "depth32float",
+    cullMode: "back",
+  }),
+});
+```
+
+The helper returns:
+
+- `primitive: { topology: "triangle-list", cullMode }`
+- `depthFormat`
+- `depthWriteEnabled`
+- `depthCompare`
+
+Defaults are `cullMode: "back"`, `depthFormat: "depth32float"`, `depthCompare: "less"`, and `depthWriteEnabled: true`.

@@ -5,7 +5,7 @@ Builds a render pipeline from WGSL source and issues draw calls on a render pass
 ## Import
 
 ```ts
-import { Draw, type DrawOptions } from "belfast";
+import { Draw, opaqueTriangles, type DrawOptions } from "belfast";
 import type { Mesh } from "belfast";
 ```
 
@@ -98,6 +98,31 @@ const bindGroup = BindGroup.create(device, draw.getBindGroupLayout(0), uniformBu
 uniformBuffer.write(device, new Float32Array([time, 0, 0, 0]));
 draw.draw(pass, mesh, bindGroup);
 ```
+
+## Render-state presets
+
+Use `opaqueTriangles(...)` to share the common opaque triangle-list state across draw calls while keeping access to the low-level constructor options:
+
+```ts
+const draw = new Draw(device, shaderCode, {
+  label: "LitCube",
+  layout: pipelineLayout,
+  vertexBuffers: mesh.getVertexLayouts(),
+  ...opaqueTriangles({
+    colorFormat: device.format,
+    depthFormat: "depth24plus",
+    cullMode: "back",
+  }),
+});
+```
+
+The helper returns the same shape you would otherwise write manually:
+
+- `primitive: { topology: "triangle-list", cullMode }`
+- `depthStencil: { format, depthWriteEnabled, depthCompare }`
+- `targets: [{ format: colorFormat }]`
+
+Defaults are `cullMode: "back"`, `depthFormat: "depth24plus"`, `depthCompare: "less"`, and `depthWriteEnabled: true`.
 
 ## See also
 

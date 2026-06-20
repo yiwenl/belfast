@@ -20,17 +20,27 @@ export { BindGroup, type BindGroupResource } from "./core/BindGroup";
 export { Buffer, BufferUsage } from "./core/Buffer";
 export { UniformBlock, type UniformFieldType, type UniformBlockSchema } from "./core/UniformBlock";
 export { Texture, type TextureOptions } from "./core/Texture";
+export { Texture2D, type Texture2DOptions } from "./core/Texture2D";
 export { Texture3D, type Texture3DOptions } from "./core/Texture3D";
 export { RenderTarget, type RenderTargetOptions } from "./core/RenderTarget";
 export { beginRenderPass, type RenderPassOptions } from "./core/RenderPass";
 export { Draw, type DrawOptions } from "./helper/Draw";
 export { DepthDraw, type DepthDrawOptions } from "./helper/DepthDraw";
+export {
+  opaqueTriangles,
+  depthOnlyTriangles,
+  type OpaqueTrianglesOptions,
+  type DepthOnlyTrianglesOptions,
+  type OpaqueTrianglesState,
+  type DepthOnlyTrianglesState,
+} from "./helper/renderState";
 export { ShadowMap, type ShadowMapOptions } from "./helper/ShadowMap";
 export { wgslShadowPcf3x3 } from "./shader/shadow";
 export { Compute, type ComputeOptions, type WorkgroupCount } from "./helper/Compute";
 export { AxisHelper, type AxisHelperOptions } from "./helper/AxisHelper";
 export { BallHelper, type BallHelperOptions, type BallDrawParams } from "./helper/BallHelper";
 export { CopyHelper, type CopyHelperOptions } from "./helper/CopyHelper";
+export { Texture2DPingPong, type Texture2DPingPongOptions } from "./helper/Texture2DPingPong";
 export { Texture3DPingPong, type Texture3DPingPongOptions } from "./helper/Texture3DPingPong";
 export {
   Geom,
@@ -62,6 +72,15 @@ export {
   type PlaneTriangleList,
   type BillboardDiscTriangle,
 } from "./geom/plane";
+
+export { EffectComposer, type EffectComposerOptions } from "./postprocessing/EffectComposer";
+export { ShaderPass, type ShaderPassOptions } from "./postprocessing/ShaderPass";
+export { createVignettePass } from "./postprocessing/passes/VignettePass";
+export { createCurvePass } from "./postprocessing/passes/CurvePass";
+export { createFXAAPass } from "./postprocessing/passes/FXAAPass";
+export { createContrastBrightnessPass } from "./postprocessing/passes/ContrastBrightnessPass";
+export { createHueSaturationPass } from "./postprocessing/passes/HueSaturationPass";
+export { createGradientMapPass } from "./postprocessing/passes/GradientMapPass";
 
 import { Device } from "./core/Device";
 

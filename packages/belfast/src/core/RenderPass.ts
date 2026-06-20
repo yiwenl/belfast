@@ -2,6 +2,7 @@ export interface RenderPassOptions {
   clearColor?: GPUColor;
   loadOp?: GPULoadOp;
   storeOp?: GPUStoreOp;
+  resolveTarget?: GPUTextureView;
   depthStencilAttachment?: GPURenderPassDepthStencilAttachment;
 }
 
@@ -19,6 +20,7 @@ export function beginRenderPass(
     clearColor = { r: 0.05, g: 0.05, b: 0.08, a: 1 },
     loadOp = "clear",
     storeOp = "store",
+    resolveTarget,
     depthStencilAttachment,
   } = options;
 
@@ -38,6 +40,7 @@ export function beginRenderPass(
     colorAttachments: [
       {
         view: resolvedView,
+        resolveTarget,
         clearValue: clearColor,
         loadOp,
         storeOp,

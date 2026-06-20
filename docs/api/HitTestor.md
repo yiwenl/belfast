@@ -35,8 +35,14 @@ The constructor calls `connect()` automatically.
 interface HitTestorOptions {
   skipMoveCheck?: boolean; // skip hit-testing on mousemove (default false)
   listenerTarget?: EventTarget; // element to listen on (default window)
+  viewportTarget?: Element; // element whose CSS bounds define the viewport
 }
 ```
+
+When the canvas drawing buffer is scaled for `devicePixelRatio`, pass the canvas as
+`listenerTarget` or `viewportTarget`. Pointer events arrive in CSS pixels, and
+`HitTestor` maps them through the element's CSS bounds into the provided
+`resolution`.
 
 ## Events
 
@@ -92,7 +98,9 @@ const geom = Geom.plane({ width: 4, height: 4 });
 const camera = new PerspectiveCamera(Math.PI / 4, canvas.width / canvas.height, 0.1, 100);
 camera.lookAt([0, 5, 10], [0, 0, 0]);
 
-const hitTestor = new HitTestor(geom, camera, [canvas.width, canvas.height]);
+const hitTestor = new HitTestor(geom, camera, [canvas.width, canvas.height], {
+  listenerTarget: canvas,
+});
 
 // Apply a model transform (optional)
 mat4.translate(hitTestor.modelMatrix, hitTestor.modelMatrix, [0, 1, 0]);
@@ -120,6 +128,7 @@ hitTestor.disconnect();
 - Accepts `GeometryData` (from `Geom.plane()`, `Geom.sphere()`, `Geom.cube()`) rather than a GPU `Mesh`, since hit testing is CPU-only and avoids GPU readback.
 - Face triples are pre-built from positions + indices at construction time.
 - Uses `Camera.generateRay()` to unproject the mouse position into a world-space ray.
+- Pointer coordinates are converted from CSS pixels into `resolution` pixels when a viewport element is available, so high-DPI canvas backing stores work correctly.
 - Touch events are supported alongside mouse events.
 
 ## See also

@@ -10,6 +10,7 @@ export interface DrawOptions {
   primitive?: GPUPrimitiveState;
   depthStencil?: GPUDepthStencilState;
   targets?: GPUColorTargetState[];
+  multisample?: GPUMultisampleState;
   vertexBuffers?: (GPUVertexBufferLayout | null)[];
 }
 
@@ -24,6 +25,7 @@ export class Draw {
       primitive = { topology: "triangle-list" },
       depthStencil,
       targets = [{ format: device.format }],
+      multisample,
       vertexBuffers = [],
     } = options;
 
@@ -44,6 +46,7 @@ export class Draw {
       },
       primitive,
       depthStencil,
+      multisample,
     });
   }
 

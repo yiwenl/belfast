@@ -8,6 +8,12 @@ export interface HitTestorOptions {
   skipMoveCheck?: boolean;
   /** Element to attach mouse/touch listeners to. Default `window`. */
   listenerTarget?: EventTarget;
+  /**
+   * Element whose CSS bounds define the hit-test viewport. Defaults to
+   * `listenerTarget` when it is an element. Use this when the canvas drawing
+   * buffer is scaled by devicePixelRatio.
+   */
+  viewportTarget?: Element;
 }
 
 export interface HitDetail {
@@ -23,10 +29,34 @@ interface MouseXY {
 
 function getMouseXY(e: MouseEvent | TouchEvent): MouseXY {
   if ("touches" in e && e.touches.length > 0) {
-    return { x: e.touches[0].pageX, y: e.touches[0].pageY };
+    return { x: e.touches[0].clientX, y: e.touches[0].clientY };
   }
   const me = e as MouseEvent;
   return { x: me.clientX, y: me.clientY };
+}
+
+function hasViewportBounds(target: EventTarget | undefined): target is Element {
+  return !!target && "getBoundingClientRect" in target;
+}
+
+function toResolutionXY(
+  pointer: MouseXY,
+  resolution: [number, number],
+  viewportTarget?: Element,
+): MouseXY {
+  if (!viewportTarget) {
+    return pointer;
+  }
+
+  const rect = viewportTarget.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return pointer;
+  }
+
+  return {
+    x: ((pointer.x - rect.left) / rect.width) * resolution[0],
+    y: ((pointer.y - rect.top) / rect.height) * resolution[1],
+  };
 }
 
 function dist2D(a: MouseXY, b: MouseXY): number {
@@ -59,6 +89,7 @@ export class HitTestor extends EventTarget {
   private readonly _ray: Ray;
   private readonly _skipMove: boolean;
   private readonly _listenerTarget: EventTarget;
+  private readonly _viewportTarget?: Element;
 
   private _lastPos: MouseXY = { x: 0, y: 0 };
   private _firstPos: MouseXY = { x: 0, y: 0 };
@@ -82,6 +113,9 @@ export class HitTestor extends EventTarget {
     this._ray = new Ray([0, 0, 0], [0, 0, -1]);
     this._skipMove = options.skipMoveCheck ?? false;
     this._listenerTarget = options.listenerTarget ?? window;
+    this._viewportTarget =
+      options.viewportTarget ??
+      (hasViewportBounds(this._listenerTarget) ? this._listenerTarget : undefined);
 
     // Pre-build face list from GeometryData
     this._faces = buildFaces(geometry);
@@ -124,9 +158,10 @@ export class HitTestor extends EventTarget {
       return;
     }
 
-    // Convert pixel coords to NDC [-1, 1]
-    const mx = (this._lastPos.x / this.resolution[0]) * 2.0 - 1.0;
-    const my = -(this._lastPos.y / this.resolution[1]) * 2.0 + 1.0;
+    // Convert CSS pointer coords to local viewport pixels, then NDC [-1, 1].
+    const pointer = toResolutionXY(this._lastPos, this.resolution, this._viewportTarget);
+    const mx = (pointer.x / this.resolution[0]) * 2.0 - 1.0;
+    const my = -(pointer.y / this.resolution[1]) * 2.0 + 1.0;
 
     camera.generateRay([mx, my, 0], this._ray);
 
