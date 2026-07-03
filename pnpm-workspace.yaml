@@ -1,3 +1,6 @@
 packages:
   - "packages/belfast"
+  - "packages/belfast-wasm"
   - "examples/*"
+allowBuilds:
+  esbuild: true

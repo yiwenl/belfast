@@ -1,0 +1,78 @@
+use std::sync::Arc;
+
+use crate::{BelfastError, BelfastResult};
+
+#[derive(Clone, Debug)]
+pub struct DeviceOptions {
+    pub power_preference: wgpu::PowerPreference,
+    pub format: wgpu::TextureFormat,
+}
+
+impl Default for DeviceOptions {
+    fn default() -> Self {
+        Self {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Device {
+    inner: Arc<DeviceInner>,
+}
+
+struct DeviceInner {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    format: wgpu::TextureFormat,
+}
+
+impl Device {
+    pub async fn create_headless() -> BelfastResult<Self> {
+        Self::create_headless_with_options(DeviceOptions::default()).await
+    }
+
+    pub async fn create_headless_with_options(options: DeviceOptions) -> BelfastResult<Self> {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: options.power_preference,
+                compatible_surface: None,
+                force_fallback_adapter: false,
+            })
+            .await
+            .ok_or(BelfastError::AdapterUnavailable)?;
+
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: Some("BelfastDevice"),
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::default(),
+                },
+                None,
+            )
+            .await?;
+
+        Ok(Self {
+            inner: Arc::new(DeviceInner {
+                device,
+                queue,
+                format: options.format,
+            }),
+        })
+    }
+
+    pub fn gpu(&self) -> &wgpu::Device {
+        &self.inner.device
+    }
+
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.inner.queue
+    }
+
+    pub fn format(&self) -> wgpu::TextureFormat {
+        self.inner.format
+    }
+}

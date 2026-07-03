@@ -3,8 +3,10 @@
 .project
 _notes
 node_modules
+.pnpm-store/
 dist
 lib
+target
 *.tsbuildinfo
 cinder/xcode/build
 *.scssc
