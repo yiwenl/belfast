@@ -36,11 +36,11 @@ export class ShaderPass {
   readonly uniforms?: UniformBlock;
   readonly uniformBuffer?: Buffer;
 
-  private draw: Draw;
-  private bindGroupLayout: GPUBindGroupLayout;
-  private currentInputView?: GPUTextureView;
-  private currentBindGroup?: BindGroup;
-  private sampler: GPUSampler;
+  protected draw: Draw;
+  protected bindGroupLayout: GPUBindGroupLayout;
+  protected currentInputView?: GPUTextureView;
+  protected currentBindGroup?: BindGroup;
+  protected sampler: GPUSampler;
 
   constructor(device: Device, fragmentShaderCode: string, options: ShaderPassOptions = {}) {
     this.device = device;
