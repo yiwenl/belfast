@@ -81,6 +81,7 @@ export { createFXAAPass } from "./postprocessing/passes/FXAAPass";
 export { createContrastBrightnessPass } from "./postprocessing/passes/ContrastBrightnessPass";
 export { createHueSaturationPass } from "./postprocessing/passes/HueSaturationPass";
 export { createGradientMapPass } from "./postprocessing/passes/GradientMapPass";
+export { createColorLookupPass, ColorLookupPass } from "./postprocessing/passes/ColorLookupPass";
 
 import { Device } from "./core/Device";
 
