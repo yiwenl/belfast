@@ -94,8 +94,8 @@ Expected: PASS if wasm dependencies and target are installed.
 
 **Files:**
 
-- Create: `docs/features/rust-wgpu-api-parity.md`
-- Modify: `docs/features/rust-wgpu-rendering-engine-prd.md`
+- Create: `docs/rust/rust-wgpu-api-parity.md`
+- Modify: `docs/rust/rust-wgpu-rendering-engine-prd.md`
 
 - [x] **Step 1: Add parity matrix**
 

@@ -31,6 +31,11 @@ impl CameraBase {
     fn target(&self) -> [f32; 3] {
         self.target.to_array()
     }
+
+    fn view_matrix(&self) -> [f32; 16] {
+        self.view.to_cols_array()
+    }
+
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +74,10 @@ impl PerspectiveCamera {
         self.aspect = aspect;
         self.update_projection();
         Ok(self)
+    }
+
+    pub fn view_matrix(&self) -> [f32; 16] {
+        self.base.view_matrix()
     }
 
     pub fn projection_matrix(&self) -> [f32; 16] {
@@ -119,6 +128,10 @@ impl OrthographicCamera {
     pub fn look_at(&mut self, eye: [f32; 3], target: [f32; 3]) -> &mut Self {
         self.base.look_at(eye, target);
         self
+    }
+
+    pub fn view_matrix(&self) -> [f32; 16] {
+        self.base.view_matrix()
     }
 
     pub fn projection_matrix(&self) -> [f32; 16] {

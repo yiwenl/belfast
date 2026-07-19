@@ -13,6 +13,7 @@ Library API reference and guides for the WebGPU `belfast` package.
 | [MCP review bridge v2 plan](workflows/mcp-review-bridge-v2-plan.md)     | MCP server design and setup (implemented in `mcp/`)              |
 | [Feature reviews](reviews/)                                             | Per-feature Antigravity feedback (`<slug>-antigravity.md`)       |
 | [Feature specs](features/)                                              | Per-feature design and focused feedback (`vertex-buffers.md`, …) |
+| [Rust wgpu engine](rust/)                                               | Rust & WebAssembly rendering engine PRD and API parity           |
 
 ### API reference
 

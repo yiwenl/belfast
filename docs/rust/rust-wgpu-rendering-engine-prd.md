@@ -78,7 +78,7 @@ The Rust implementation should start as a parallel package rather than a drop-in
 - `Mesh` should continue to represent vertex and index buffer bindings, while `Draw` should own pipeline creation and drawing behavior.
 - `Draw` should preserve Belfast's WGSL conventions where possible, including expected vertex and fragment entry points.
 - The initial milestone should include enough rendering capability to draw a triangle or simple geometry in both native Rust and WebAssembly.
-- A public API parity matrix should be maintained as part of the feature documentation: a hand-maintained markdown table in `docs/features/` with one row per public export of `packages/belfast/src/index.ts` and columns for TypeScript, Rust native, WebAssembly, and notes.
+- A public API parity matrix should be maintained as part of the feature documentation: a hand-maintained markdown table in `docs/rust/` with one row per public export of `packages/belfast/src/index.ts` and columns for TypeScript, Rust native, WebAssembly, and notes.
 - Examples should act as executable specifications for each runtime.
 - The eventual replacement strategy for the JavaScript package remains a later decision. The initial design only creates the path for that decision.
 
