@@ -1,6 +1,6 @@
 # Rust wgpu Belfast Rendering Engine Documentation
 
-This folder contains documentation, PRDs, and API parity tracking for the Rust (`wgpu` and WebAssembly) implementation of Belfast.
+This folder contains documentation, PRDs, and API parity tracking for the self-contained Rust workspace in `rust/`.
 
 ## Contents
 

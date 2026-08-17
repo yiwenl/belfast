@@ -35,7 +35,6 @@ impl CameraBase {
     fn view_matrix(&self) -> [f32; 16] {
         self.view.to_cols_array()
     }
-
 }
 
 #[derive(Clone, Debug)]

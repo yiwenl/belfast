@@ -55,13 +55,21 @@ impl Device {
             )
             .await?;
 
-        Ok(Self {
+        Ok(Self::from_wgpu(device, queue, options.format))
+    }
+
+    pub fn from_wgpu(
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        format: wgpu::TextureFormat,
+    ) -> Self {
+        Self {
             inner: Arc::new(DeviceInner {
                 device,
                 queue,
-                format: options.format,
+                format,
             }),
-        })
+        }
     }
 
     pub fn gpu(&self) -> &wgpu::Device {

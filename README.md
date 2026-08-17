@@ -20,6 +20,7 @@ packages/
   alfrid/      WebGL reference source (not built or published)
 examples/
   triangle/    Hello triangle — first WebGPU example
+rust/          Rust workspace (`belfast` + `belfast-wasm` crates)
 docs/          Library API reference and guides
 notes/         Planning docs
 ```

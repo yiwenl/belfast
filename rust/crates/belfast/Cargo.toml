@@ -10,3 +10,7 @@ bytemuck.workspace = true
 glam.workspace = true
 thiserror.workspace = true
 wgpu.workspace = true
+
+[dev-dependencies]
+pollster.workspace = true
+winit.workspace = true

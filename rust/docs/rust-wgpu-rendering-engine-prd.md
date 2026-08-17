@@ -39,7 +39,7 @@ The Rust implementation should start as a parallel package rather than a drop-in
 17. As a user working with compute shaders, I want storage buffers and compute dispatch to be available in Rust, so that particle and simulation experiments can migrate later.
 18. As a user working with shadows, I want depth rendering and shadow map helpers to eventually exist in Rust, so that existing advanced examples have a migration path.
 19. As a maintainer, I want a parity matrix for the public API, so that implementation status is visible and feature work can be prioritized.
-20. As a maintainer, I want paired examples for TypeScript, Rust native, and Rust WebAssembly, so that runtime differences are documented by executable examples.
+20. As a maintainer, I want idiomatic Cargo examples for the Rust renderer and one WebAssembly integration smoke app, so that native usage stays easy to learn without duplicating every example across runtimes.
 21. As a maintainer, I want the first milestone to focus on a small rendering path, so that the Rust architecture can be validated before porting every helper.
 22. As a maintainer, I want existing documentation to remain accurate for the TypeScript package, so that users are not confused about which runtime a feature belongs to.
 23. As a future migrator, I want the JavaScript package to have a possible migration path toward a WebAssembly-backed runtime, so that Belfast can evolve without a breaking rewrite.
@@ -73,11 +73,12 @@ The Rust implementation should start as a parallel package rather than a drop-in
 - `OrbitalControl` should not be part of the earliest Rust core milestone because it is coupled to browser and window event systems. It can be added later through input adapters.
 - `UniformBlock` should be an early migration target because layout consistency is central to shader compatibility.
 - `UniformBlock` in Rust uses the same runtime-schema design as TypeScript: string-keyed fields with layout computed at runtime, so schemas, offsets, and set-by-name behavior match across runtimes. A derive-macro alternative is a possible later addition, not part of this design.
-- Paired examples share one set of `.wgsl` shader files across all three runtimes: the TypeScript app imports them through Vite and the Rust example embeds them with `include_str!`. Shared shaders are the strongest executable proof of parity.
-- Paired examples extend the existing example directories: `examples/<name>/` gains a `rust/` subdirectory (native cargo example) and a `wasm/` subdirectory (Vite app importing `belfast-wasm`), while shaders remain in `examples/<name>/shaders/`.
+- The complete Cargo workspace lives under `rust/`, while the existing TypeScript package and root Web examples remain unchanged.
+- Native examples use Cargo's conventional `crates/belfast/examples/` targets and embed Rust-owned WGSL with `include_str!`.
+- WebAssembly integration uses one browser smoke app against the generated `belfast-wasm` npm package instead of duplicating every native example as a Web project.
 - `Mesh` should continue to represent vertex and index buffer bindings, while `Draw` should own pipeline creation and drawing behavior.
 - `Draw` should preserve Belfast's WGSL conventions where possible, including expected vertex and fragment entry points.
-- The initial milestone should include enough rendering capability to draw a triangle or simple geometry in both native Rust and WebAssembly.
+- The initial milestone should include enough rendering capability to draw simple geometry in native Rust and compile the facade for WebAssembly.
 - A public API parity matrix should be maintained as part of the feature documentation: a hand-maintained markdown table in `docs/rust/` with one row per public export of `packages/belfast/src/index.ts` and columns for TypeScript, Rust native, WebAssembly, and notes.
 - Examples should act as executable specifications for each runtime.
 - The eventual replacement strategy for the JavaScript package remains a later decision. The initial design only creates the path for that decision.
@@ -110,7 +111,7 @@ The Rust implementation should start as a parallel package rather than a drop-in
 
 ## Further Notes
 
-The first practical milestone should be intentionally small: create the Rust workspace, add the core `wgpu` runtime, expose a minimal WebAssembly facade, and prove rendering in both native Rust and a Web project. Milestone 1 is done when the `triangle` and `camera-triangle` paired examples render in both native Rust and WebAssembly, which together exercise `Device`, `Buffer`, `Mesh`, `Draw`, `UniformBlock`, and the cameras.
+The first practical milestone should be intentionally small: create the isolated Rust workspace, add the core `wgpu` runtime, expose a minimal WebAssembly facade, and prove the native rendering path with standard Cargo examples. The first examples exercise `Device`, `Buffer`, `Mesh`, `Draw`, `UniformBlock`, cameras, textures, bind groups, and render targets. A single browser smoke app validates WebAssembly package integration separately.
 
 The recommended early API surface is `Device`, `Buffer`, `Mesh`, `Draw`, `UniformBlock`, `PerspectiveCamera`, `OrthographicCamera`, and simple geometry helpers. Once that path works, Belfast can expand toward textures, render targets, compute, depth rendering, shadow maps, and postprocessing.
 
