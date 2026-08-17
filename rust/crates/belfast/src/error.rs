@@ -32,6 +32,8 @@ pub enum BelfastError {
     },
     #[error("camera aspect must be greater than 0")]
     InvalidCameraAspect,
+    #[error("orbital control option `{0}` is invalid")]
+    InvalidOrbitalControlOption(&'static str),
     #[error("texture dimensions must be greater than 0, got {width}x{height}")]
     InvalidTextureDimensions { width: u32, height: u32 },
     #[error("RGBA texture data requires {expected} bytes, got {actual}")]

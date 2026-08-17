@@ -3,6 +3,7 @@
 mod bind_group;
 mod buffer;
 mod camera;
+mod controls;
 mod device;
 mod draw;
 mod error;
@@ -15,6 +16,7 @@ mod uniform_block;
 pub use bind_group::BindGroup;
 pub use buffer::{Buffer, BufferUsage};
 pub use camera::{OrthographicCamera, PerspectiveCamera};
+pub use controls::{OrbitalControl, OrbitalControlOptions, OrbitalPointerButton};
 pub use device::{Device, DeviceOptions};
 pub use draw::{Draw, DrawOptions};
 pub use error::{BelfastError, BelfastResult};
