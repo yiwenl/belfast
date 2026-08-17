@@ -1,4 +1,8 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
+
+mod input;
+
+pub use input::InputEvent;
 
 use belfast::Device;
 use winit::{
@@ -20,6 +24,10 @@ pub trait Example: 'static {
     fn new(context: &ExampleContext) -> Self;
 
     fn resize(&mut self, _context: &ExampleContext) {}
+
+    fn input(&mut self, _context: &ExampleContext, _event: InputEvent) {}
+
+    fn update(&mut self, _context: &ExampleContext, _delta_seconds: f32) {}
 
     fn render(&mut self, context: &ExampleContext, surface_view: &wgpu::TextureView);
 }
@@ -83,6 +91,10 @@ impl<E: Example> ApplicationHandler for ExampleApplication<E> {
             return;
         }
 
+        if let Some(input_event) = state.input.process(&event) {
+            state.example.input(&state.context, input_event);
+        }
+
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => state.resize(size),
@@ -98,6 +110,8 @@ struct ExampleState<E: Example> {
     config: wgpu::SurfaceConfiguration,
     context: ExampleContext,
     example: E,
+    input: input::InputState,
+    last_frame_at: Instant,
 }
 
 impl<E: Example> ExampleState<E> {
@@ -161,6 +175,8 @@ impl<E: Example> ExampleState<E> {
             config,
             context,
             example,
+            input: Default::default(),
+            last_frame_at: Instant::now(),
         }
     }
 
@@ -178,11 +194,16 @@ impl<E: Example> ExampleState<E> {
     }
 
     fn render(&mut self, event_loop: &ActiveEventLoop) {
+        let now = Instant::now();
+        let delta_seconds = (now - self.last_frame_at).as_secs_f32().min(0.1);
+        self.last_frame_at = now;
+
         match self.surface.get_current_texture() {
             Ok(frame) => {
                 let view = frame
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
+                self.example.update(&self.context, delta_seconds);
                 self.example.render(&self.context, &view);
                 frame.present();
                 self.window.request_redraw();
@@ -190,6 +211,7 @@ impl<E: Example> ExampleState<E> {
             Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                 self.surface
                     .configure(self.context.device.gpu(), &self.config);
+                self.last_frame_at = Instant::now();
             }
             Err(wgpu::SurfaceError::Timeout) => self.window.request_redraw(),
             Err(wgpu::SurfaceError::OutOfMemory) => event_loop.exit(),
