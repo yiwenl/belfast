@@ -397,3 +397,30 @@ fn damping_depends_on_elapsed_time_not_frame_count() {
         assert_approx_eq(sixty_hz[index], thirty_hz[index]);
     }
 }
+
+#[test]
+fn damping_uses_shortest_path_across_yaw_wrap() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions::default()).unwrap();
+    let mut camera = camera();
+
+    control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, false);
+    control.pointer_move([-313.0, 0.0], [800.0, 600.0]);
+    for _ in 0..120 {
+        control.update(1.0 / 60.0, &mut camera);
+    }
+    control.pointer_up(OrbitalPointerButton::Primary);
+
+    control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, false);
+    control.pointer_move([-2.0, 0.0], [800.0, 600.0]);
+    control.update(1.0 / 60.0, &mut camera);
+
+    let eye = control.eye();
+    assert!(
+        eye[2] < 0.0,
+        "camera must remain behind the target: {eye:?}"
+    );
+    assert!(
+        eye[0].abs() < 2.0,
+        "small seam-crossing drag must not take the long path: {eye:?}"
+    );
+}

@@ -280,7 +280,7 @@ self.target_pitch = (start_pitch as f64 + vertical_displacement * sensitivity)
     .clamp(-pitch_limit, pitch_limit) as f32;
 ```
 
-This reversed horizontal direction means a primary drag from `[0.0, 0.0]` to `[100.0, 0.0]` places the eye at negative X after an immediate update. Normalize yaw to an equivalent value in `[-PI, PI]` before converting to `f32`, and clamp pitch with `f64` intermediates.
+This reversed horizontal direction means a primary drag from `[0.0, 0.0]` to `[100.0, 0.0]` places the eye at negative X after an immediate update. Normalize yaw to an equivalent value in `[-PI, PI]` before converting to `f32`, interpolate damped yaw using the shortest normalized angular delta across that boundary, and clamp pitch with `f64` intermediates. Add a nonzero-damping regression that crosses the `-PI`/`PI` wrap with a small drag and proves the camera stays near the boundary instead of orbiting through zero.
 
 For panning, derive camera-right and camera-up from the drag's starting yaw and pitch, then build the target with `f64` arithmetic:
 

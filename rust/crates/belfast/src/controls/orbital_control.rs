@@ -225,10 +225,7 @@ impl OrbitalControl {
             interpolate(self.radius, self.target_radius, interpolation),
             self.target_radius,
         );
-        self.yaw = snap(
-            interpolate(self.yaw, self.target_yaw, interpolation),
-            self.target_yaw,
-        );
+        self.yaw = interpolate_yaw(self.yaw, self.target_yaw, interpolation);
         self.pitch = snap(
             interpolate(self.pitch, self.target_pitch, interpolation),
             self.target_pitch,
@@ -336,6 +333,15 @@ fn f32_from_f64(value: f64) -> Option<f32> {
 fn interpolate(value: f32, target: f32, interpolation: f32) -> f32 {
     let candidate = value as f64 + (target as f64 - value as f64) * interpolation as f64;
     f32_from_f64(candidate).unwrap_or(value)
+}
+
+fn interpolate_yaw(value: f32, target: f32, interpolation: f32) -> f32 {
+    let delta = normalize_yaw(target as f64 - value as f64);
+    if delta.abs() <= SNAP_EPSILON as f64 {
+        target
+    } else {
+        normalize_yaw(value as f64 + delta * interpolation as f64) as f32
+    }
 }
 
 fn snap(value: f32, target: f32) -> f32 {

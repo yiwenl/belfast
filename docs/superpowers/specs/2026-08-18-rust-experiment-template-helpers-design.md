@@ -133,7 +133,7 @@ OrbitalControlOptions {
 
 The controller stores current and target values for center, yaw, pitch, and radius. `update` uses the response factor `1.0 - exp(-damping * delta_seconds)`, making damping stable across different frame rates. `damping == 0.0` means immediate response. A non-positive delta does not advance damping but still applies the current pose. Values within a small fixed epsilon of their targets snap to the targets so the controller reaches a stable state. `update` returns whether the applied pose changed, allowing consumers to render on demand later even though the native examples currently redraw continuously.
 
-Drag displacement, pan candidate, and interpolation arithmetic use `f64` intermediates. Candidate yaw is normalized to an equivalent angle in `[-PI, PI]`, candidate pitch is clamped in `f64`, and pan targets are committed only when every component is finite and representable as `f32`. Interpolation also avoids subtracting finite `f32` endpoints in `f32`; any derived value that cannot be represented safely is ignored instead of entering persistent controller or camera state.
+Drag displacement, pan candidate, and interpolation arithmetic use `f64` intermediates. Candidate yaw is normalized to an equivalent angle in `[-PI, PI]`, and damped yaw follows the shortest normalized angular delta when crossing that boundary. Candidate pitch is clamped in `f64`, and pan targets are committed only when every component is finite and representable as `f32`. Interpolation also avoids subtracting finite `f32` endpoints in `f32`; any derived value that cannot be represented safely is ignored instead of entering persistent controller or camera state.
 
 The eye position is derived with Belfast's existing right-handed, Y-up convention:
 
@@ -289,6 +289,7 @@ CPU unit tests cover:
 - Pan behavior plus active-drag zero-width and zero-height viewport handling.
 - Exponential zoom formula and radius clamping as separate cases.
 - Damping consistency for equivalent elapsed time split across different frame steps.
+- Shortest-path yaw damping across the `-PI`/`PI` wrap boundary.
 - Ignoring non-finite input during an active drag without changing the pose.
 - Table-driven invalid controller options, including negative/non-finite sensitivities and damping plus non-finite center/radius values.
 - Axis vertex positions, colors, and table-driven zero, negative, and non-finite length validation through pure helpers.
