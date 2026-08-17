@@ -27,6 +27,10 @@ fn native_example_shaders_pass_wgpu_validation() {
             "render_target_present",
             include_str!("../examples/shaders/render_target_present.wgsl"),
         ),
+        (
+            "axis_helper",
+            include_str!("../src/helpers/axis_helper.wgsl"),
+        ),
     ];
 
     for (label, source) in shaders {

@@ -8,6 +8,7 @@ mod device;
 mod draw;
 mod error;
 mod geom;
+mod helpers;
 mod mesh;
 mod render_target;
 mod texture;
@@ -21,6 +22,7 @@ pub use device::{Device, DeviceOptions};
 pub use draw::{Draw, DrawOptions};
 pub use error::{BelfastError, BelfastResult};
 pub use geom::{Geom, GeometryData};
+pub use helpers::{AxisHelper, AxisHelperOptions};
 pub use mesh::{
     Mesh, MeshIndexFormat, VertexAttributeDescriptor, VertexBufferBinding,
     VertexBufferLayoutDescriptor,
