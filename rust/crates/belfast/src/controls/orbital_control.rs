@@ -16,7 +16,6 @@ enum DragMode {
         button: OrbitalPointerButton,
         start: [f32; 2],
         start_center: Vec3,
-        start_radius: f32,
         start_yaw: f32,
         start_pitch: f32,
     },
@@ -102,29 +101,30 @@ impl OrbitalControl {
         &mut self,
         position: [f32; 2],
         button: OrbitalPointerButton,
-        shift_key: bool,
+        pan_modifier: bool,
     ) {
         if !position.iter().all(|value| value.is_finite()) {
             return;
         }
 
-        self.drag_mode = Some(if button == OrbitalPointerButton::Primary && !shift_key {
-            DragMode::Rotate {
-                button,
-                start: position,
-                start_yaw: self.target_yaw,
-                start_pitch: self.target_pitch,
-            }
-        } else {
-            DragMode::Pan {
-                button,
-                start: position,
-                start_center: self.target_center,
-                start_radius: self.target_radius,
-                start_yaw: self.target_yaw,
-                start_pitch: self.target_pitch,
-            }
-        });
+        self.drag_mode = Some(
+            if button == OrbitalPointerButton::Primary && !pan_modifier {
+                DragMode::Rotate {
+                    button,
+                    start: position,
+                    start_yaw: self.target_yaw,
+                    start_pitch: self.target_pitch,
+                }
+            } else {
+                DragMode::Pan {
+                    button,
+                    start: position,
+                    start_center: self.target_center,
+                    start_yaw: self.target_yaw,
+                    start_pitch: self.target_pitch,
+                }
+            },
+        );
     }
 
     pub fn pointer_move(&mut self, position: [f32; 2], viewport: [f32; 2]) {
@@ -143,28 +143,44 @@ impl OrbitalControl {
                 start_pitch,
                 ..
             }) => {
-                self.target_yaw = start_yaw + (position[0] - start[0]) * self.rotate_sensitivity;
-                self.target_pitch =
-                    (start_pitch + (position[1] - start[1]) * self.rotate_sensitivity).clamp(
-                        -std::f32::consts::FRAC_PI_2 + 0.0001,
-                        std::f32::consts::FRAC_PI_2 - 0.0001,
-                    );
+                let horizontal_displacement = position[0] as f64 - start[0] as f64;
+                let vertical_displacement = position[1] as f64 - start[1] as f64;
+                let sensitivity = self.rotate_sensitivity as f64;
+                self.target_yaw =
+                    normalize_yaw(start_yaw as f64 - horizontal_displacement * sensitivity) as f32;
+
+                let pitch_limit = std::f64::consts::FRAC_PI_2 - 0.0001;
+                self.target_pitch = (start_pitch as f64 + vertical_displacement * sensitivity)
+                    .clamp(-pitch_limit, pitch_limit) as f32;
             }
             Some(DragMode::Pan {
                 start,
                 start_center,
-                start_radius,
                 start_yaw,
                 start_pitch,
                 ..
             }) => {
-                let eye = eye_from_pose(start_center, start_radius, start_yaw, start_pitch);
-                let forward = (start_center - eye).normalize();
-                let right = forward.cross(Vec3::Y).normalize();
-                let camera_up = right.cross(forward).normalize();
-                let scale = self.target_radius * self.pan_sensitivity / viewport[1];
-                self.target_center = start_center - right * (position[0] - start[0]) * scale
-                    + camera_up * (position[1] - start[1]) * scale;
+                let yaw = start_yaw as f64;
+                let pitch = start_pitch as f64;
+                let right = [yaw.cos(), 0.0, -yaw.sin()];
+                let camera_up = [
+                    -yaw.sin() * pitch.sin(),
+                    pitch.cos(),
+                    -yaw.cos() * pitch.sin(),
+                ];
+                let horizontal_displacement = position[0] as f64 - start[0] as f64;
+                let vertical_displacement = position[1] as f64 - start[1] as f64;
+                let scale =
+                    self.target_radius as f64 * self.pan_sensitivity as f64 / viewport[1] as f64;
+                let start_center = start_center.to_array().map(f64::from);
+                let candidate = std::array::from_fn(|index| {
+                    start_center[index] - right[index] * horizontal_displacement * scale
+                        + camera_up[index] * vertical_displacement * scale
+                });
+
+                if let Some(candidate) = vec3_from_f64(candidate) {
+                    self.target_center = candidate;
+                }
             }
             None => {}
         }
@@ -197,20 +213,24 @@ impl OrbitalControl {
         let previous_yaw = self.yaw;
         let previous_pitch = self.pitch;
 
-        self.center = self.center.lerp(self.target_center, interpolation);
+        let center = self.center.to_array();
+        let target_center = self.target_center.to_array();
+        self.center = Vec3::from_array(std::array::from_fn(|index| {
+            interpolate(center[index], target_center[index], interpolation)
+        }));
         self.center.x = snap(self.center.x, self.target_center.x);
         self.center.y = snap(self.center.y, self.target_center.y);
         self.center.z = snap(self.center.z, self.target_center.z);
         self.radius = snap(
-            self.radius + (self.target_radius - self.radius) * interpolation,
+            interpolate(self.radius, self.target_radius, interpolation),
             self.target_radius,
         );
         self.yaw = snap(
-            self.yaw + (self.target_yaw - self.yaw) * interpolation,
+            interpolate(self.yaw, self.target_yaw, interpolation),
             self.target_yaw,
         );
         self.pitch = snap(
-            self.pitch + (self.target_pitch - self.pitch) * interpolation,
+            interpolate(self.pitch, self.target_pitch, interpolation),
             self.target_pitch,
         );
 
@@ -259,24 +279,18 @@ fn validate_options(options: OrbitalControlOptions) -> BelfastResult<()> {
     {
         return Err(BelfastError::InvalidOrbitalControlOption("radius"));
     }
-    if !options.rotate_sensitivity.is_finite() {
+    if !options.rotate_sensitivity.is_finite() || options.rotate_sensitivity < 0.0 {
         return Err(BelfastError::InvalidOrbitalControlOption(
             "rotate_sensitivity",
         ));
     }
-    if !options.zoom_sensitivity.is_finite() {
+    if !options.zoom_sensitivity.is_finite() || options.zoom_sensitivity < 0.0 {
         return Err(BelfastError::InvalidOrbitalControlOption(
             "zoom_sensitivity",
         ));
     }
-    if !options.pan_sensitivity.is_finite() {
+    if !options.pan_sensitivity.is_finite() || options.pan_sensitivity < 0.0 {
         return Err(BelfastError::InvalidOrbitalControlOption("pan_sensitivity"));
-    }
-    if options.rotate_sensitivity < 0.0
-        || options.zoom_sensitivity < 0.0
-        || options.pan_sensitivity < 0.0
-    {
-        return Err(BelfastError::InvalidOrbitalControlOption("sensitivity"));
     }
     if !options.damping.is_finite() || options.damping < 0.0 {
         return Err(BelfastError::InvalidOrbitalControlOption("damping"));
@@ -303,10 +317,44 @@ fn response(damping: f32, delta_seconds: f32) -> f32 {
     }
 }
 
+fn normalize_yaw(yaw: f64) -> f64 {
+    (yaw + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI
+}
+
+fn vec3_from_f64(values: [f64; 3]) -> Option<Vec3> {
+    if values.iter().all(|value| f32_from_f64(*value).is_some()) {
+        Some(Vec3::from_array(values.map(|value| value as f32)))
+    } else {
+        None
+    }
+}
+
+fn f32_from_f64(value: f64) -> Option<f32> {
+    (value.is_finite() && value.abs() <= f32::MAX as f64).then_some(value as f32)
+}
+
+fn interpolate(value: f32, target: f32, interpolation: f32) -> f32 {
+    let candidate = value as f64 + (target as f64 - value as f64) * interpolation as f64;
+    f32_from_f64(candidate).unwrap_or(value)
+}
+
 fn snap(value: f32, target: f32) -> f32 {
-    if (value - target).abs() <= SNAP_EPSILON {
+    if (value as f64 - target as f64).abs() <= SNAP_EPSILON as f64 {
         target
     } else {
         value
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::interpolate;
+
+    #[test]
+    fn interpolation_between_opposite_f32_extremes_stays_finite() {
+        let value = interpolate(f32::MAX, -f32::MAX, 0.5);
+
+        assert!(value.is_finite());
+        assert_eq!(value, 0.0);
     }
 }

@@ -3,6 +3,7 @@ use thiserror::Error;
 pub type BelfastResult<T> = Result<T, BelfastError>;
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum BelfastError {
     #[error("failed to request WebGPU adapter")]
     AdapterUnavailable,

@@ -122,6 +122,7 @@ OrbitalControlOptions {
 ### Interaction Model
 
 - Primary-button drag rotates around the center.
+- Horizontal rotation uses `target_yaw = start_yaw - horizontal_displacement * rotate_sensitivity`; dragging from `[0, 0]` to `[100, 0]` therefore moves the eye toward negative X.
 - Middle-button drag pans.
 - Primary-button drag with `pan_modifier == true` pans.
 - Scroll changes the target radius exponentially so zoom remains useful at both small and large scales. A positive normalized delta zooms out and a negative delta zooms in.
@@ -131,6 +132,8 @@ OrbitalControlOptions {
 - A viewport with a zero dimension is ignored to avoid division by zero.
 
 The controller stores current and target values for center, yaw, pitch, and radius. `update` uses the response factor `1.0 - exp(-damping * delta_seconds)`, making damping stable across different frame rates. `damping == 0.0` means immediate response. A non-positive delta does not advance damping but still applies the current pose. Values within a small fixed epsilon of their targets snap to the targets so the controller reaches a stable state. `update` returns whether the applied pose changed, allowing consumers to render on demand later even though the native examples currently redraw continuously.
+
+Drag displacement, pan candidate, and interpolation arithmetic use `f64` intermediates. Candidate yaw is normalized to an equivalent angle in `[-PI, PI]`, candidate pitch is clamped in `f64`, and pan targets are committed only when every component is finite and representable as `f32`. Interpolation also avoids subtracting finite `f32` endpoints in `f32`; any derived value that cannot be represented safely is ignored instead of entering persistent controller or camera state.
 
 The eye position is derived with Belfast's existing right-handed, Y-up convention:
 
@@ -271,6 +274,7 @@ Resize follows a separate path: the harness updates `ExampleContext`, the templa
 
 - Invalid controller options and invalid axis length use new typed `BelfastError` variants.
 - Runtime pointer and scroll input that is unsupported or non-finite is ignored rather than poisoning camera state.
+- Finite but unrepresentable derived drag or interpolation candidates are ignored rather than poisoning camera state.
 - Zero-sized viewports are ignored by control movement and already suppressed by the native surface harness.
 - GPU pipeline creation follows current `wgpu` validation behavior and existing Belfast constructor conventions.
 
@@ -281,11 +285,13 @@ CPU unit tests cover:
 - Orbital option validation.
 - Initial eye and center values.
 - Rotation direction and pitch clamping.
-- Pan behavior and zero-sized viewport handling.
-- Exponential zoom and radius clamping.
+- Extreme finite rotation and pan inputs preserving finite center, eye, and camera matrices.
+- Pan behavior plus active-drag zero-width and zero-height viewport handling.
+- Exponential zoom formula and radius clamping as separate cases.
 - Damping consistency for equivalent elapsed time split across different frame steps.
-- Ignoring non-finite input.
-- Axis vertex positions, colors, and length validation through a pure geometry builder.
+- Ignoring non-finite input during an active drag without changing the pose.
+- Table-driven invalid controller options, including negative/non-finite sensitivities and damping plus non-finite center/radius values.
+- Axis vertex positions, colors, and table-driven zero, negative, and non-finite length validation through pure helpers.
 
 Build and lint verification covers:
 
@@ -308,7 +314,8 @@ Existing examples must continue to compile and run without implementing the new 
 ## Compatibility
 
 - Existing TypeScript source and examples are unchanged.
-- Existing Rust public APIs remain source-compatible; the helper APIs are additive.
+- This pre-1.0 release accepts one source-breaking exception: public `BelfastError` is now `#[non_exhaustive]`, so downstream exhaustive matches must add a fallback arm. The attribute allows Belfast to retain the typed orbital-control and axis-length variants while adding future error variants without repeating this break.
+- Other existing Rust public APIs remain source-compatible; the helper APIs are additive.
 - `winit` remains a dev-dependency of `belfast`, not a library dependency.
 - `belfast-wasm` continues to compile without immediately exposing the new helpers.
 - The single-file template follows Cargo's existing example discovery and needs no manifest entry or generator command.

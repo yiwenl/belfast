@@ -30,9 +30,7 @@ pub struct AxisHelper {
 
 impl AxisHelper {
     pub fn new(device: &Device, options: AxisHelperOptions<'_>) -> BelfastResult<Self> {
-        if !options.length.is_finite() || options.length <= 0.0 {
-            return Err(BelfastError::InvalidAxisLength);
-        }
+        validate_length(options.length)?;
 
         let (positions, colors) = axis_geometry(options.length);
         let position_buffer = Buffer::from_data(
@@ -87,6 +85,14 @@ impl AxisHelper {
     }
 }
 
+fn validate_length(length: f32) -> BelfastResult<()> {
+    if !length.is_finite() || length <= 0.0 {
+        Err(BelfastError::InvalidAxisLength)
+    } else {
+        Ok(())
+    }
+}
+
 fn axis_geometry(length: f32) -> ([f32; 18], [f32; 18]) {
     (
         [
@@ -102,7 +108,7 @@ fn axis_geometry(length: f32) -> ([f32; 18], [f32; 18]) {
 
 #[cfg(test)]
 mod tests {
-    use super::axis_geometry;
+    use super::{axis_geometry, validate_length};
 
     #[test]
     fn geometry_contains_three_colored_positive_axes() {
@@ -112,5 +118,12 @@ mod tests {
         assert_eq!(&positions[15..18], &[0.0, 0.0, 2.0]);
         assert_eq!(&colors[0..6], &[1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
         assert_eq!(&colors[12..18], &[0.0, 0.0, 1.0, 0.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn rejects_zero_negative_and_non_finite_lengths() {
+        for length in [0.0, -1.0, f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            assert!(validate_length(length).is_err(), "accepted {length:?}");
+        }
     }
 }

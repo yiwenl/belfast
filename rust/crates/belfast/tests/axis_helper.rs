@@ -1,7 +1,7 @@
 use belfast::{AxisHelper, AxisHelperOptions, BelfastError, Device};
 
 #[test]
-fn axis_helper_rejects_non_positive_length() {
+fn axis_helper_rejects_invalid_lengths() {
     let Some(device) = create_optional_device() else {
         return;
     };
@@ -13,15 +13,20 @@ fn axis_helper_rejects_non_positive_length() {
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
-    let result = AxisHelper::new(
-        &device,
-        AxisHelperOptions {
-            length: 0.0,
-            ..AxisHelperOptions::new(device.format(), &pipeline_layout)
-        },
-    );
+    for length in [0.0, -1.0, f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        let result = AxisHelper::new(
+            &device,
+            AxisHelperOptions {
+                length,
+                ..AxisHelperOptions::new(device.format(), &pipeline_layout)
+            },
+        );
 
-    assert!(matches!(result, Err(BelfastError::InvalidAxisLength)));
+        assert!(
+            matches!(result, Err(BelfastError::InvalidAxisLength)),
+            "expected {length:?} to be rejected"
+        );
+    }
 }
 
 #[test]

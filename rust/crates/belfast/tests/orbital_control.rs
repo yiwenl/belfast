@@ -39,7 +39,164 @@ fn orbital_control_rejects_invalid_radius_range() {
 }
 
 #[test]
-fn primary_drag_rotates_and_clamps_pitch() {
+fn orbital_control_rejects_each_invalid_numeric_option() {
+    let invalid_options = [
+        (
+            "center",
+            OrbitalControlOptions {
+                center: [f32::NAN, 0.0, 0.0],
+                ..Default::default()
+            },
+        ),
+        (
+            "radius",
+            OrbitalControlOptions {
+                radius: f32::NAN,
+                ..Default::default()
+            },
+        ),
+        (
+            "min_radius",
+            OrbitalControlOptions {
+                min_radius: f32::NEG_INFINITY,
+                ..Default::default()
+            },
+        ),
+        (
+            "max_radius",
+            OrbitalControlOptions {
+                max_radius: f32::INFINITY,
+                ..Default::default()
+            },
+        ),
+        (
+            "rotate_sensitivity",
+            OrbitalControlOptions {
+                rotate_sensitivity: -1.0,
+                ..Default::default()
+            },
+        ),
+        (
+            "rotate_sensitivity",
+            OrbitalControlOptions {
+                rotate_sensitivity: f32::NAN,
+                ..Default::default()
+            },
+        ),
+        (
+            "rotate_sensitivity",
+            OrbitalControlOptions {
+                rotate_sensitivity: f32::INFINITY,
+                ..Default::default()
+            },
+        ),
+        (
+            "rotate_sensitivity",
+            OrbitalControlOptions {
+                rotate_sensitivity: f32::NEG_INFINITY,
+                ..Default::default()
+            },
+        ),
+        (
+            "zoom_sensitivity",
+            OrbitalControlOptions {
+                zoom_sensitivity: -1.0,
+                ..Default::default()
+            },
+        ),
+        (
+            "zoom_sensitivity",
+            OrbitalControlOptions {
+                zoom_sensitivity: f32::NAN,
+                ..Default::default()
+            },
+        ),
+        (
+            "zoom_sensitivity",
+            OrbitalControlOptions {
+                zoom_sensitivity: f32::INFINITY,
+                ..Default::default()
+            },
+        ),
+        (
+            "zoom_sensitivity",
+            OrbitalControlOptions {
+                zoom_sensitivity: f32::NEG_INFINITY,
+                ..Default::default()
+            },
+        ),
+        (
+            "pan_sensitivity",
+            OrbitalControlOptions {
+                pan_sensitivity: -1.0,
+                ..Default::default()
+            },
+        ),
+        (
+            "pan_sensitivity",
+            OrbitalControlOptions {
+                pan_sensitivity: f32::NAN,
+                ..Default::default()
+            },
+        ),
+        (
+            "pan_sensitivity",
+            OrbitalControlOptions {
+                pan_sensitivity: f32::INFINITY,
+                ..Default::default()
+            },
+        ),
+        (
+            "pan_sensitivity",
+            OrbitalControlOptions {
+                pan_sensitivity: f32::NEG_INFINITY,
+                ..Default::default()
+            },
+        ),
+        (
+            "damping",
+            OrbitalControlOptions {
+                damping: -1.0,
+                ..Default::default()
+            },
+        ),
+        (
+            "damping",
+            OrbitalControlOptions {
+                damping: f32::NAN,
+                ..Default::default()
+            },
+        ),
+        (
+            "damping",
+            OrbitalControlOptions {
+                damping: f32::INFINITY,
+                ..Default::default()
+            },
+        ),
+        (
+            "damping",
+            OrbitalControlOptions {
+                damping: f32::NEG_INFINITY,
+                ..Default::default()
+            },
+        ),
+    ];
+
+    for (expected, options) in invalid_options {
+        let result = OrbitalControl::new(options);
+        assert!(
+            matches!(
+                result,
+                Err(BelfastError::InvalidOrbitalControlOption(actual)) if actual == expected
+            ),
+            "expected invalid option {expected}, got {result:?}"
+        );
+    }
+}
+
+#[test]
+fn primary_horizontal_drag_rotates_toward_negative_x() {
     let mut control = OrbitalControl::new(OrbitalControlOptions {
         damping: 0.0,
         ..Default::default()
@@ -47,12 +204,47 @@ fn primary_drag_rotates_and_clamps_pitch() {
     .unwrap();
     let mut camera = camera();
     control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, false);
-    control.pointer_move([100.0, 100_000.0], [800.0, 600.0]);
+    control.pointer_move([100.0, 0.0], [800.0, 600.0]);
     control.update(1.0 / 60.0, &mut camera);
 
-    assert!(control.eye()[0] > 0.0);
+    assert!(control.eye()[0] < 0.0);
+}
+
+#[test]
+fn primary_vertical_drag_clamps_pitch() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions {
+        damping: 0.0,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut camera = camera();
+    control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, false);
+    control.pointer_move([0.0, 100_000.0], [800.0, 600.0]);
+    control.update(1.0 / 60.0, &mut camera);
+
     assert!(control.eye()[1] > 0.99 * control.radius());
     assert!(control.eye()[1] < control.radius());
+}
+
+#[test]
+fn extreme_rotation_keeps_pose_and_camera_finite() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions {
+        rotate_sensitivity: f32::MAX,
+        damping: 0.0,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut camera = camera();
+    control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, false);
+    control.pointer_move([2.0, 0.0], [800.0, 600.0]);
+    control.update(1.0 / 60.0, &mut camera);
+
+    assert!(control.center().iter().all(|value| value.is_finite()));
+    assert!(control.eye().iter().all(|value| value.is_finite()));
+    assert!(camera
+        .view_projection_matrix()
+        .iter()
+        .all(|value| value.is_finite()));
 }
 
 #[test]
@@ -73,7 +265,100 @@ fn shift_primary_drag_pans_the_target() {
 }
 
 #[test]
-fn scroll_clamps_radius_and_ignores_non_finite_input() {
+fn extreme_pan_keeps_pose_and_camera_finite() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions {
+        pan_sensitivity: f32::MAX,
+        damping: 0.0,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut camera = camera();
+    control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, true);
+    control.pointer_move([2.0, 0.0], [800.0, 600.0]);
+    control.update(1.0 / 60.0, &mut camera);
+
+    assert!(control.center().iter().all(|value| value.is_finite()));
+    assert!(control.eye().iter().all(|value| value.is_finite()));
+    assert!(camera
+        .view_projection_matrix()
+        .iter()
+        .all(|value| value.is_finite()));
+}
+
+#[test]
+fn active_drag_ignores_non_finite_pointer_movement() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions {
+        damping: 0.0,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut camera = camera();
+    control.update(0.0, &mut camera);
+    let initial_center = control.center();
+    let initial_eye = control.eye();
+    let initial_view_projection = camera.view_projection_matrix();
+
+    control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, false);
+    control.pointer_move([f32::INFINITY, 20.0], [800.0, 600.0]);
+    control.update(1.0 / 60.0, &mut camera);
+
+    assert_eq!(control.center(), initial_center);
+    assert_eq!(control.eye(), initial_eye);
+    assert_eq!(camera.view_projection_matrix(), initial_view_projection);
+}
+
+#[test]
+fn active_drag_ignores_zero_width_viewport() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions {
+        damping: 0.0,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut camera = camera();
+    let initial_eye = control.eye();
+    control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, false);
+    control.pointer_move([100.0, 0.0], [0.0, 600.0]);
+    control.update(1.0 / 60.0, &mut camera);
+
+    assert_eq!(control.eye(), initial_eye);
+}
+
+#[test]
+fn active_drag_ignores_zero_height_viewport() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions {
+        damping: 0.0,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut camera = camera();
+    let initial_eye = control.eye();
+    control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, false);
+    control.pointer_move([100.0, 0.0], [800.0, 0.0]);
+    control.update(1.0 / 60.0, &mut camera);
+
+    assert_eq!(control.eye(), initial_eye);
+}
+
+#[test]
+fn moderate_scroll_uses_exponential_zoom() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions {
+        radius: 2.0,
+        min_radius: 1.0,
+        max_radius: 10.0,
+        zoom_sensitivity: 0.25,
+        damping: 0.0,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut camera = camera();
+    control.scroll(2.0);
+    control.update(1.0 / 60.0, &mut camera);
+
+    assert_approx_eq(control.radius(), 2.0 * (2.0_f32 * 0.25).exp());
+}
+
+#[test]
+fn scroll_clamps_radius_and_ignores_non_finite_delta() {
     let mut control = OrbitalControl::new(OrbitalControlOptions {
         radius: 2.0,
         min_radius: 1.0,
@@ -89,7 +374,6 @@ fn scroll_clamps_radius_and_ignores_non_finite_input() {
 
     control.scroll(100_000.0);
     control.scroll(f32::NAN);
-    control.pointer_move([f32::INFINITY, 0.0], [800.0, 600.0]);
     control.update(1.0 / 60.0, &mut camera);
     assert_approx_eq(control.radius(), 3.0);
 }

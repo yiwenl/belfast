@@ -15,7 +15,7 @@
 - Do not add `winit`, `wasm-bindgen`, `web-sys`, or DOM dependencies to the reusable `belfast` crate dependencies.
 - Keep `winit` as a `dev-dependency` used only by native examples.
 - Keep the template as one copyable file at `rust/crates/belfast/examples/template.rs`.
-- Preserve existing Rust APIs and examples through additive APIs and default trait methods.
+- Preserve existing Rust APIs and examples through additive APIs and default trait methods, except for the explicitly accepted one-time pre-1.0 `#[non_exhaustive]` change to `BelfastError`.
 - Use Belfast's right-handed, Y-up camera convention.
 - Do not expose the helpers from `belfast-wasm` in this milestone, but keep the WASM crate compiling.
 
@@ -24,6 +24,7 @@
 ### Task 1: Platform-Independent Orbital Control
 
 **Files:**
+
 - Create: `rust/crates/belfast/src/controls/mod.rs`
 - Create: `rust/crates/belfast/src/controls/orbital_control.rs`
 - Create: `rust/crates/belfast/tests/orbital_control.rs`
@@ -31,6 +32,7 @@
 - Modify: `rust/crates/belfast/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `PerspectiveCamera::look_at(&mut self, [f32; 3], [f32; 3]) -> &mut Self` and `glam::Vec3`.
 - Produces: crate-root exports `OrbitalControl`, `OrbitalControlOptions`, and `OrbitalPointerButton`.
 - Produces: `BelfastError::InvalidOrbitalControlOption(&'static str)`.
@@ -90,9 +92,14 @@ Expected: compilation fails because the three orbital types and error variant ar
 Add to `BelfastError`:
 
 ```rust
-#[error("orbital control option `{0}` is invalid")]
-InvalidOrbitalControlOption(&'static str),
+#[non_exhaustive]
+pub enum BelfastError {
+    #[error("orbital control option `{0}` is invalid")]
+    InvalidOrbitalControlOption(&'static str),
+}
 ```
+
+The public enum becomes non-exhaustive so Belfast can keep typed helper errors and add future variants without another downstream exhaustive-match break.
 
 Create `controls/mod.rs`:
 
@@ -141,7 +148,7 @@ impl Default for OrbitalControlOptions {
 
 Use private `DragMode::{Rotate, Pan}` variants that retain the initiating button, pointer origin, and starting target values. Store current and target center, radius, yaw, and pitch in `OrbitalControl`; initialize each current value equal to its target.
 
-Validate every option with `is_finite`, require `min_radius > 0.0`, require `max_radius >= min_radius`, require `radius` inside the inclusive minimum/maximum range, and reject negative sensitivities or damping. Return the exact offending field name through `InvalidOrbitalControlOption`; use `"sensitivity"` only for a negative sensitivity.
+Validate every option with `is_finite`, require `min_radius > 0.0`, require `max_radius >= min_radius`, require `radius` inside the inclusive minimum/maximum range, and reject negative sensitivities or damping. Return the exact offending field name through `InvalidOrbitalControlOption`, including for each negative sensitivity.
 
 Use these functions for pose and frame-rate-independent interpolation:
 
@@ -161,12 +168,22 @@ fn response(damping: f32, delta_seconds: f32) -> f32 {
     if damping == 0.0 { 1.0 } else { 1.0 - (-damping * delta_seconds.max(0.0)).exp() }
 }
 
+fn interpolate(value: f32, target: f32, interpolation: f32) -> f32 {
+    let candidate = value as f64
+        + (target as f64 - value as f64) * interpolation as f64;
+    f32_from_f64(candidate).unwrap_or(value)
+}
+
 fn snap(value: f32, target: f32) -> f32 {
-    if (value - target).abs() <= SNAP_EPSILON { target } else { value }
+    if (value as f64 - target as f64).abs() <= SNAP_EPSILON as f64 {
+        target
+    } else {
+        value
+    }
 }
 ```
 
-`update` interpolates all current values using `response`, snaps near-target values, derives the eye, calls `camera.look_at`, and returns whether current pose values changed. Add exact getters `center() -> [f32; 3]`, `eye() -> [f32; 3]`, and `radius() -> f32`. Declare `mod controls;` and re-export all three types from `lib.rs`.
+`f32_from_f64` returns `Some(value as f32)` only for finite values within `f32::MAX`; otherwise it returns `None`. `update` interpolates every current component with `interpolate`, snaps near-target values, derives the eye, calls `camera.look_at`, and returns whether current pose values changed. Add exact getters `center() -> [f32; 3]`, `eye() -> [f32; 3]`, and `radius() -> f32`. Declare `mod controls;` and re-export all three types from `lib.rs`.
 
 - [ ] **Step 4: Run the initial tests and verify they pass**
 
@@ -180,7 +197,7 @@ Append these cases to `tests/orbital_control.rs`:
 
 ```rust
 #[test]
-fn primary_drag_rotates_and_clamps_pitch() {
+fn primary_drag_rotates_toward_negative_x_and_clamps_pitch() {
     let mut control = OrbitalControl::new(OrbitalControlOptions {
         damping: 0.0,
         ..Default::default()
@@ -190,7 +207,7 @@ fn primary_drag_rotates_and_clamps_pitch() {
     control.pointer_move([100.0, 100_000.0], [800.0, 600.0]);
     control.update(1.0 / 60.0, &mut camera);
 
-    assert!(control.eye()[0] > 0.0);
+    assert!(control.eye()[0] < 0.0);
     assert!(control.eye()[1] > 0.99 * control.radius());
     assert!(control.eye()[1] < control.radius());
 }
@@ -227,7 +244,6 @@ fn scroll_clamps_radius_and_ignores_non_finite_input() {
 
     control.scroll(100_000.0);
     control.scroll(f32::NAN);
-    control.pointer_move([f32::INFINITY, 0.0], [800.0, 600.0]);
     control.update(1.0 / 60.0, &mut camera);
     assert_approx_eq(control.radius(), 3.0);
 }
@@ -254,19 +270,41 @@ fn damping_depends_on_elapsed_time_not_frame_count() {
 Use absolute pointer displacement from the drag origin:
 
 ```rust
-self.target_yaw = start_yaw + (position[0] - start[0]) * self.rotate_sensitivity;
-self.target_pitch = (start_pitch
-    + (position[1] - start[1]) * self.rotate_sensitivity)
-    .clamp(-FRAC_PI_2 + 0.0001, FRAC_PI_2 - 0.0001);
+let horizontal_displacement = position[0] as f64 - start[0] as f64;
+let vertical_displacement = position[1] as f64 - start[1] as f64;
+let sensitivity = self.rotate_sensitivity as f64;
+self.target_yaw = normalize_yaw(
+    start_yaw as f64 - horizontal_displacement * sensitivity,
+) as f32;
+self.target_pitch = (start_pitch as f64 + vertical_displacement * sensitivity)
+    .clamp(-pitch_limit, pitch_limit) as f32;
 ```
 
-For panning, calculate `forward = (start_center - eye).normalize()`, `right = forward.cross(Vec3::Y).normalize()`, and `camera_up = right.cross(forward).normalize()`, then apply:
+This reversed horizontal direction means a primary drag from `[0.0, 0.0]` to `[100.0, 0.0]` places the eye at negative X after an immediate update. Normalize yaw to an equivalent value in `[-PI, PI]` before converting to `f32`, and clamp pitch with `f64` intermediates.
+
+For panning, derive camera-right and camera-up from the drag's starting yaw and pitch, then build the target with `f64` arithmetic:
 
 ```rust
-let scale = self.target_radius * self.pan_sensitivity / viewport[1];
-self.target_center = start_center
-    - right * (position[0] - start[0]) * scale
-    + camera_up * (position[1] - start[1]) * scale;
+let yaw = start_yaw as f64;
+let pitch = start_pitch as f64;
+let right = [yaw.cos(), 0.0, -yaw.sin()];
+let camera_up = [
+    -yaw.sin() * pitch.sin(),
+    pitch.cos(),
+    -yaw.cos() * pitch.sin(),
+];
+let horizontal_displacement = position[0] as f64 - start[0] as f64;
+let vertical_displacement = position[1] as f64 - start[1] as f64;
+let scale = self.target_radius as f64 * self.pan_sensitivity as f64
+    / viewport[1] as f64;
+let start_center = start_center.to_array().map(f64::from);
+let candidate = std::array::from_fn(|index| {
+    start_center[index] - right[index] * horizontal_displacement * scale
+        + camera_up[index] * vertical_displacement * scale
+});
+if let Some(candidate) = vec3_from_f64(candidate) {
+    self.target_center = candidate;
+}
 ```
 
 For scroll, use:
@@ -277,7 +315,9 @@ self.target_radius = (self.target_radius * exponent.exp())
     .clamp(self.min_radius, self.max_radius);
 ```
 
-Ignore non-finite pointer, viewport, and scroll values. Ignore zero-sized viewports and movement without an active drag. `pointer_up` clears only a drag initiated by the same button.
+Ignore non-finite pointer, viewport, and scroll values. Ignore zero-sized viewports and movement without an active drag. `pointer_up` clears only a drag initiated by the same button. Perform drag and interpolation subtraction/multiplication in `f64`; keep yaw bounded, and preserve current finite state whenever a derived candidate is non-finite or outside the `f32` range.
+
+Add focused regressions before this hardening implementation for maximum-finite rotation sensitivity with a two-pixel drag, maximum-finite pan sensitivity, interpolation between opposite `f32` extremes, active-drag non-finite movement, active zero-width/zero-height viewports, exact table-driven invalid options, moderate formula-based exponential zoom, and all zero/negative/non-finite axis lengths. The extreme drag tests assert finite center, eye, and camera view-projection output.
 
 - [ ] **Step 7: Run tests and commit the controller**
 
@@ -303,6 +343,7 @@ git commit -m "feat(rust): add orbital camera control"
 ### Task 2: RGB Axis Helper
 
 **Files:**
+
 - Create: `rust/crates/belfast/src/helpers/mod.rs`
 - Create: `rust/crates/belfast/src/helpers/axis_helper.rs`
 - Create: `rust/crates/belfast/src/helpers/axis_helper.wgsl`
@@ -312,6 +353,7 @@ git commit -m "feat(rust): add orbital camera control"
 - Modify: `rust/crates/belfast/tests/example_shaders.rs`
 
 **Interfaces:**
+
 - Consumes: `Device`, `Buffer`, `Mesh`, `Draw`, `BindGroup`, and a caller-owned `wgpu::PipelineLayout` whose group 0 binding 0 is a vertex-stage `mat4x4<f32>` uniform.
 - Produces: crate-root exports `AxisHelper` and `AxisHelperOptions<'a>`.
 - Produces: `BelfastError::InvalidAxisLength`.
@@ -538,10 +580,12 @@ git commit -m "feat(rust): add axis helper"
 ### Task 3: Native Input and Frame Timing Harness
 
 **Files:**
+
 - Create: `rust/crates/belfast/examples/common/input.rs`
 - Modify: `rust/crates/belfast/examples/common/mod.rs`
 
 **Interfaces:**
+
 - Consumes: `winit::event::WindowEvent`, mouse events, and modifiers from the existing dev-dependency.
 - Produces: example-only `InputEvent` and `InputState::process(&WindowEvent) -> Option<InputEvent>`.
 - Produces: default `Example::input` and `Example::update` hooks.
@@ -705,12 +749,14 @@ git commit -m "feat(rust): add example input hooks"
 ### Task 4: Copyable Experiment Template and Final Verification
 
 **Files:**
+
 - Create: `rust/crates/belfast/examples/template.rs`
 - Modify: `rust/README.md`
 - Verify: `docs/superpowers/specs/2026-08-18-rust-experiment-template-helpers-design.md`
 - Verify: `docs/superpowers/plans/2026-08-18-rust-experiment-template-helpers.md`
 
 **Interfaces:**
+
 - Consumes: all public helper APIs from Tasks 1 and 2 and `common::{Example, ExampleContext, InputEvent}` from Task 3.
 - Produces: Cargo example target `template`, runnable with `cargo run -p belfast --example template` and copyable without editing a manifest.
 

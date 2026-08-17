@@ -21,6 +21,8 @@ Status legend:
 | `UniformBlock`       | Done              | Done        | Partial          | Rust matches runtime schema packing, offsets, f32/u32 writes, and WGSL alignment tests. Wasm exposes a scene-uniform constructor and typed-array writes. |
 | `PerspectiveCamera`  | Done              | Done        | Done             | Rust and wasm expose perspective setup, `lookAt`, aspect update, target, and view-projection output.                                                     |
 | `OrthographicCamera` | Done              | Done        | Done             | Rust and wasm expose orthographic setup, `lookAt`, target, and view-projection output.                                                                   |
+| `OrbitalControl`     | Done              | Done        | Pending          | Rust accepts platform-neutral pointer and scroll input; the caller owns and updates the camera.                                                          |
+| `AxisHelper`         | Done              | Done        | Pending          | Rust renders RGB axes with a caller-owned camera layout and bind group.                                                                                  |
 | `Geom.plane`         | Done              | Done        | Pending          | Rust has `Geom::plane` with positions, uvs, and indices. Wasm geometry facade is pending.                                                                |
 
 ## First milestone verification
