@@ -24,7 +24,7 @@ pub use error::{BelfastError, BelfastResult};
 pub use geom::{Geom, GeometryData};
 pub use helpers::{AxisHelper, AxisHelperOptions};
 pub use mesh::{
-    Mesh, MeshIndexFormat, VertexAttributeDescriptor, VertexBufferBinding,
+    Mesh, MeshIndexFormat, MeshLayoutSignature, VertexAttributeDescriptor, VertexBufferBinding,
     VertexBufferLayoutDescriptor,
 };
 pub use render_target::{RenderPassOptions, RenderPassTarget, RenderTarget, RenderTargetOptions};

@@ -38,8 +38,9 @@ export const coloredTriangle: WebExample = async (canvas, reportError) => {
     }
 
     try {
-      device.resize();
-      device.render(draw, mesh);
+      if (device.resize()) {
+        device.render(draw, mesh);
+      }
     } catch (error) {
       stopped = true;
       reportError(error);

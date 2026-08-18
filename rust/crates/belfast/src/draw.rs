@@ -1,4 +1,4 @@
-use crate::{Device, Mesh};
+use crate::{BelfastError, BelfastResult, Device, Mesh, MeshLayoutSignature};
 
 pub struct DrawOptions<'a> {
     pub label: &'a str,
@@ -31,6 +31,8 @@ impl<'a> DrawOptions<'a> {
 
 pub struct Draw {
     pipeline: wgpu::RenderPipeline,
+    device: Device,
+    mesh_layout: MeshLayoutSignature,
 }
 
 impl Draw {
@@ -66,11 +68,48 @@ impl Draw {
                 cache: None,
             });
 
-        Self { pipeline }
+        Self {
+            pipeline,
+            device: device.clone(),
+            mesh_layout: mesh.layout_signature(),
+        }
     }
 
     pub fn get_bind_group_layout(&self, index: u32) -> wgpu::BindGroupLayout {
         self.pipeline.get_bind_group_layout(index)
+    }
+
+    pub fn device(&self) -> &Device {
+        &self.device
+    }
+
+    pub fn mesh_layout_signature(&self) -> &MeshLayoutSignature {
+        &self.mesh_layout
+    }
+
+    pub fn is_compatible_mesh(&self, mesh: &Mesh) -> bool {
+        self.mesh_layout == mesh.layout_signature()
+    }
+
+    pub fn validate_mesh_device(device: &Device, mesh: &Mesh) -> BelfastResult<()> {
+        if mesh
+            .device()
+            .is_some_and(|mesh_device| !device.is_same(mesh_device))
+        {
+            return Err(BelfastError::MeshDeviceMismatch);
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_render(&self, device: &Device, mesh: &Mesh) -> BelfastResult<()> {
+        if !self.device.is_same(device) {
+            return Err(BelfastError::DrawDeviceMismatch);
+        }
+        Self::validate_mesh_device(device, mesh)?;
+        if !self.is_compatible_mesh(mesh) {
+            return Err(BelfastError::DrawMeshLayoutMismatch);
+        }
+        Ok(())
     }
 
     pub fn draw<'a>(

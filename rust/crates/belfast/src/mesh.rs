@@ -1,4 +1,4 @@
-use crate::{BelfastError, BelfastResult, Buffer};
+use crate::{BelfastError, BelfastResult, Buffer, Device};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MeshIndexFormat {
@@ -11,6 +11,15 @@ impl From<MeshIndexFormat> for wgpu::IndexFormat {
         match value {
             MeshIndexFormat::Uint16 => wgpu::IndexFormat::Uint16,
             MeshIndexFormat::Uint32 => wgpu::IndexFormat::Uint32,
+        }
+    }
+}
+
+impl MeshIndexFormat {
+    fn byte_size(self) -> u64 {
+        match self {
+            Self::Uint16 => 2,
+            Self::Uint32 => 4,
         }
     }
 }
@@ -58,9 +67,21 @@ struct ResolvedVertexBufferBinding {
     attributes: Vec<wgpu::VertexAttribute>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct VertexBufferLayoutSignature {
+    slot: u32,
+    array_stride: u64,
+    step_mode: wgpu::VertexStepMode,
+    attributes: Vec<VertexAttributeDescriptor>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MeshLayoutSignature(Vec<VertexBufferLayoutSignature>);
+
 pub struct Mesh {
     vertex_count: u32,
     bindings: Vec<ResolvedVertexBufferBinding>,
+    device: Option<Device>,
     index_buffer: Option<Buffer>,
     index_count: u32,
     index_format: MeshIndexFormat,
@@ -74,6 +95,7 @@ impl Mesh {
         Ok(Self {
             vertex_count,
             bindings: Vec::new(),
+            device: None,
             index_buffer: None,
             index_count: 0,
             index_format: MeshIndexFormat::Uint16,
@@ -106,26 +128,16 @@ impl Mesh {
     }
 
     pub fn vertex_layouts(&self) -> Vec<Option<wgpu::VertexBufferLayout<'_>>> {
-        if self.bindings.is_empty() {
-            return Vec::new();
-        }
-        let max_slot = self
-            .bindings
+        self.bindings
             .iter()
-            .map(|binding| binding.slot)
-            .max()
-            .unwrap_or(0);
-        let mut layouts = vec![None; max_slot as usize + 1];
-
-        for binding in &self.bindings {
-            layouts[binding.slot as usize] = Some(wgpu::VertexBufferLayout {
-                array_stride: binding.array_stride,
-                step_mode: binding.step_mode,
-                attributes: &binding.attributes,
-            });
-        }
-
-        layouts
+            .map(|binding| {
+                Some(wgpu::VertexBufferLayout {
+                    array_stride: binding.array_stride,
+                    step_mode: binding.step_mode,
+                    attributes: &binding.attributes,
+                })
+            })
+            .collect()
     }
 
     pub fn set_index_buffer(
@@ -134,7 +146,24 @@ impl Mesh {
         count: u32,
         format: MeshIndexFormat,
     ) -> BelfastResult<&mut Self> {
+        if self
+            .device
+            .as_ref()
+            .is_some_and(|device| !device.is_same(buffer.device()))
+        {
+            return Err(BelfastError::IndexBufferDeviceMismatch);
+        }
+        let required = u64::from(count) * format.byte_size();
+        if buffer.size() < required {
+            return Err(BelfastError::IndexBufferTooSmall {
+                required,
+                actual: buffer.size(),
+            });
+        }
         self.set_index_buffer_metadata(count, format)?;
+        if self.device.is_none() {
+            self.device = Some(buffer.device().clone());
+        }
         self.index_buffer = Some(buffer);
         Ok(self)
     }
@@ -179,6 +208,32 @@ impl Mesh {
         self.index_format
     }
 
+    pub fn device(&self) -> Option<&Device> {
+        self.device.as_ref()
+    }
+
+    pub fn layout_signature(&self) -> MeshLayoutSignature {
+        MeshLayoutSignature(
+            self.bindings
+                .iter()
+                .map(|binding| VertexBufferLayoutSignature {
+                    slot: binding.slot,
+                    array_stride: binding.array_stride,
+                    step_mode: binding.step_mode,
+                    attributes: binding
+                        .attributes
+                        .iter()
+                        .map(|attribute| VertexAttributeDescriptor {
+                            shader_location: attribute.shader_location,
+                            format: attribute.format,
+                            offset: attribute.offset,
+                        })
+                        .collect(),
+                })
+                .collect(),
+        )
+    }
+
     fn push_binding(
         &mut self,
         buffer: Option<Buffer>,
@@ -190,25 +245,148 @@ impl Mesh {
         if attributes.is_empty() {
             return Err(BelfastError::EmptyVertexAttributes);
         }
-        let slot = slot.unwrap_or_else(|| self.next_free_slot());
-        if self.bindings.iter().any(|entry| entry.slot == slot) {
-            return Err(BelfastError::DuplicateVertexBufferSlot(slot));
+        if array_stride == 0 {
+            return Err(BelfastError::InvalidVertexBufferStride);
         }
+        if !array_stride.is_multiple_of(4) {
+            return Err(BelfastError::MisalignedVertexBufferStride(array_stride));
+        }
+
+        let expected_slot = self.bindings.len() as u32;
+        let slot = slot.unwrap_or(expected_slot);
+        if slot != expected_slot {
+            return Err(BelfastError::NonContiguousVertexBufferSlot {
+                expected: expected_slot,
+                actual: slot,
+            });
+        }
+
+        for (attribute_index, attribute) in attributes.iter().enumerate() {
+            let attribute_alignment = attribute.format.size().min(4);
+            if !attribute.offset.is_multiple_of(attribute_alignment) {
+                return Err(BelfastError::MisalignedVertexAttributeOffset {
+                    shader_location: attribute.shader_location,
+                    offset: attribute.offset,
+                });
+            }
+            if attribute
+                .offset
+                .checked_add(attribute.format.size())
+                .is_none_or(|end| end > array_stride)
+            {
+                return Err(BelfastError::VertexAttributeExceedsStride {
+                    shader_location: attribute.shader_location,
+                    array_stride,
+                });
+            }
+            let duplicates_current_binding = attributes[..attribute_index]
+                .iter()
+                .any(|existing| existing.shader_location == attribute.shader_location);
+            if duplicates_current_binding
+                || self.bindings.iter().any(|binding| {
+                    binding
+                        .attributes
+                        .iter()
+                        .any(|existing| existing.shader_location == attribute.shader_location)
+                })
+            {
+                return Err(BelfastError::DuplicateVertexAttributeLocation(
+                    attribute.shader_location,
+                ));
+            }
+        }
+        let step_mode = step_mode.unwrap_or(wgpu::VertexStepMode::Vertex);
+        if let Some(buffer) = buffer.as_ref() {
+            self.validate_buffer_binding(buffer, slot, array_stride, &attributes, step_mode)?;
+            if self.device.is_none() {
+                self.device = Some(buffer.device().clone());
+            }
+        }
+
         self.bindings.push(ResolvedVertexBufferBinding {
             buffer,
             slot,
             array_stride,
-            step_mode: step_mode.unwrap_or(wgpu::VertexStepMode::Vertex),
+            step_mode,
             attributes: attributes.into_iter().map(Into::into).collect(),
         });
         Ok(())
     }
 
-    fn next_free_slot(&self) -> u32 {
-        let mut slot = 0;
-        while self.bindings.iter().any(|binding| binding.slot == slot) {
-            slot += 1;
+    fn validate_buffer_binding(
+        &self,
+        buffer: &Buffer,
+        slot: u32,
+        array_stride: u64,
+        attributes: &[VertexAttributeDescriptor],
+        step_mode: wgpu::VertexStepMode,
+    ) -> BelfastResult<()> {
+        if self
+            .device
+            .as_ref()
+            .is_some_and(|device| !device.is_same(buffer.device()))
+        {
+            return Err(BelfastError::VertexBufferDeviceMismatch { slot });
         }
-        slot
+
+        let limits = buffer.device().gpu().limits();
+        if slot >= limits.max_vertex_buffers {
+            return Err(BelfastError::VertexBufferSlotExceedsLimit {
+                slot,
+                limit: limits.max_vertex_buffers,
+            });
+        }
+        if array_stride > u64::from(limits.max_vertex_buffer_array_stride) {
+            return Err(BelfastError::VertexBufferStrideExceedsLimit {
+                stride: array_stride,
+                limit: limits.max_vertex_buffer_array_stride,
+            });
+        }
+
+        let attribute_count = self
+            .bindings
+            .iter()
+            .map(|binding| binding.attributes.len() as u32)
+            .sum::<u32>()
+            + attributes.len() as u32;
+        if attribute_count > limits.max_vertex_attributes {
+            return Err(BelfastError::VertexAttributeCountExceedsLimit {
+                count: attribute_count,
+                limit: limits.max_vertex_attributes,
+            });
+        }
+        if let Some(attribute) = attributes
+            .iter()
+            .find(|attribute| attribute.shader_location >= limits.max_vertex_attributes)
+        {
+            return Err(BelfastError::VertexAttributeLocationExceedsLimit {
+                location: attribute.shader_location,
+                limit: limits.max_vertex_attributes,
+            });
+        }
+
+        let element_count = match step_mode {
+            wgpu::VertexStepMode::Vertex => u64::from(self.vertex_count),
+            wgpu::VertexStepMode::Instance => 1,
+        };
+        let attribute_end = attributes
+            .iter()
+            .map(|attribute| attribute.offset + attribute.format.size())
+            .max()
+            .unwrap_or(0);
+        let required = element_count
+            .saturating_sub(1)
+            .checked_mul(array_stride)
+            .and_then(|prefix| prefix.checked_add(attribute_end))
+            .ok_or(BelfastError::VertexBufferExtentOverflow(slot))?;
+        if buffer.size() < required {
+            return Err(BelfastError::VertexBufferTooSmall {
+                slot,
+                required,
+                actual: buffer.size(),
+            });
+        }
+
+        Ok(())
     }
 }

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use wasm_bindgen::prelude::*;
 
 use crate::{to_js_error, WasmDevice, WasmMesh};
@@ -9,12 +11,13 @@ struct DrawOptionsInput {
     label: Option<String>,
 }
 
+#[cfg(test)]
 fn parse_and_validate_shader(shader_code: &str) -> Result<naga::Module, String> {
     let module = naga::front::wgsl::parse_str(shader_code)
         .map_err(|error| format!("WGSL parse failed: {error}"))?;
     let mut validator = naga::valid::Validator::new(
         naga::valid::ValidationFlags::all(),
-        naga::valid::Capabilities::all(),
+        naga::valid::Capabilities::empty(),
     );
     validator
         .validate(&module)
@@ -33,20 +36,73 @@ fn validate_draw_interface(
     shader_code: &str,
     mesh_attributes: &[(u32, wgpu::VertexFormat)],
 ) -> Result<(), String> {
-    let module = parse_and_validate_shader(shader_code)?;
-    validate_module_draw_interface(&module, mesh_attributes)
+    parse_and_validate_draw_shader(shader_code, mesh_attributes).map(|_| ())
+}
+
+fn parse_and_validate_draw_shader(
+    shader_code: &str,
+    mesh_attributes: &[(u32, wgpu::VertexFormat)],
+) -> Result<naga::Module, String> {
+    let module = naga::front::wgsl::parse_str(shader_code)
+        .map_err(|error| format!("WGSL parse failed: {error}"))?;
+    validate_module_draw_interface(&module, mesh_attributes)?;
+    let mut validator = naga::valid::Validator::new(
+        naga::valid::ValidationFlags::all(),
+        naga::valid::Capabilities::empty(),
+    );
+    validator
+        .validate(&module)
+        .map_err(|error| format!("WGSL validation failed: {error}"))?;
+    Ok(module)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InterfaceType {
+    F32,
+    Vec2F32,
+    Vec3F32,
+    Vec4F32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct InterfaceField {
+    ty: InterfaceType,
+    interpolation: Option<naga::Interpolation>,
+    sampling: Option<naga::Sampling>,
+}
+
+impl std::fmt::Display for InterfaceType {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::F32 => "f32",
+            Self::Vec2F32 => "vec2<f32>",
+            Self::Vec3F32 => "vec3<f32>",
+            Self::Vec4F32 => "vec4<f32>",
+        })
+    }
 }
 
 fn validate_module_draw_interface(
     module: &naga::Module,
     mesh_attributes: &[(u32, wgpu::VertexFormat)],
 ) -> Result<(), String> {
+    if let Some(binding) = module
+        .global_variables
+        .iter()
+        .find_map(|(_, variable)| variable.binding.as_ref())
+    {
+        return Err(format!(
+            "shader resource @group({}) @binding({}) is unsupported",
+            binding.group, binding.binding
+        ));
+    }
+
     let vertex_entry = module
         .entry_points
         .iter()
         .find(|entry| entry.name == "vs_main" && entry.stage == naga::ShaderStage::Vertex)
         .ok_or_else(|| "shader is missing required vertex entry point \"vs_main\"".to_owned())?;
-    module
+    let fragment_entry = module
         .entry_points
         .iter()
         .find(|entry| entry.name == "fs_main" && entry.stage == naga::ShaderStage::Fragment)
@@ -69,7 +125,194 @@ fn validate_module_draw_interface(
         }
     }
 
+    let vertex_outputs = validate_vertex_outputs(module, vertex_entry)?;
+    validate_fragment_inputs(module, fragment_entry, &vertex_outputs)?;
+    validate_fragment_output(module, fragment_entry)?;
+
     Ok(())
+}
+
+fn validate_vertex_outputs(
+    module: &naga::Module,
+    entry: &naga::EntryPoint,
+) -> Result<BTreeMap<u32, InterfaceField>, String> {
+    let result = entry
+        .function
+        .result
+        .as_ref()
+        .ok_or_else(|| "vertex shader must output @builtin(position) vec4<f32>".to_owned())?;
+    let bindings =
+        bound_interface_fields(module, result.ty, result.binding.as_ref(), "vertex output")?;
+    let mut has_position = false;
+    let mut locations = BTreeMap::new();
+
+    for (binding, ty) in bindings {
+        match binding {
+            naga::Binding::BuiltIn(naga::BuiltIn::Position { .. }) => {
+                if interface_type(module, ty) != Some(InterfaceType::Vec4F32) {
+                    return Err("vertex shader must output @builtin(position) vec4<f32>".into());
+                }
+                has_position = true;
+            }
+            naga::Binding::Location {
+                location,
+                interpolation,
+                sampling,
+                ..
+            } => {
+                let ty = interface_type(module, ty).ok_or_else(|| {
+                    format!("unsupported vertex output @location({location}) type")
+                })?;
+                locations.insert(
+                    location,
+                    InterfaceField {
+                        ty,
+                        interpolation,
+                        sampling,
+                    },
+                );
+            }
+            naga::Binding::BuiltIn(builtin) => {
+                return Err(format!("unsupported vertex output builtin {builtin:?}"));
+            }
+        }
+    }
+
+    if !has_position {
+        return Err("vertex shader must output @builtin(position) vec4<f32>".into());
+    }
+    Ok(locations)
+}
+
+fn validate_fragment_inputs(
+    module: &naga::Module,
+    entry: &naga::EntryPoint,
+    vertex_outputs: &BTreeMap<u32, InterfaceField>,
+) -> Result<(), String> {
+    for argument in &entry.function.arguments {
+        for (binding, ty) in bound_interface_fields(
+            module,
+            argument.ty,
+            argument.binding.as_ref(),
+            "fragment input",
+        )? {
+            let naga::Binding::Location {
+                location,
+                interpolation,
+                sampling,
+                ..
+            } = binding
+            else {
+                continue;
+            };
+            let fragment_type = interface_type(module, ty)
+                .ok_or_else(|| format!("unsupported fragment input @location({location}) type"))?;
+            let vertex_type = vertex_outputs.get(&location).ok_or_else(|| {
+                format!("fragment input @location({location}) has no matching vertex output")
+            })?;
+            if fragment_type != vertex_type.ty {
+                return Err(format!(
+                    "fragment input @location({location}) has type {fragment_type}, but vertex output has type {}",
+                    vertex_type.ty
+                ));
+            }
+            if interpolation != vertex_type.interpolation || sampling != vertex_type.sampling {
+                return Err(format!(
+                    "fragment input @location({location}) interpolation does not match vertex output"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_fragment_output(module: &naga::Module, entry: &naga::EntryPoint) -> Result<(), String> {
+    let Some(result) = entry.function.result.as_ref() else {
+        return Err("fragment shader must output exactly @location(0) vec4<f32>".into());
+    };
+    let bindings = bound_interface_fields(
+        module,
+        result.ty,
+        result.binding.as_ref(),
+        "fragment output",
+    )?;
+    if bindings.len() != 1 {
+        return Err("fragment shader must output exactly @location(0) vec4<f32>".into());
+    }
+    let (binding, ty) = &bindings[0];
+    let is_color_zero = matches!(
+        binding,
+        naga::Binding::Location {
+            location: 0,
+            blend_src: None,
+            ..
+        }
+    );
+    if !is_color_zero || interface_type(module, *ty) != Some(InterfaceType::Vec4F32) {
+        return Err("fragment shader must output exactly @location(0) vec4<f32>".into());
+    }
+    Ok(())
+}
+
+fn bound_interface_fields(
+    module: &naga::Module,
+    ty: naga::Handle<naga::Type>,
+    binding: Option<&naga::Binding>,
+    subject: &str,
+) -> Result<Vec<(naga::Binding, naga::Handle<naga::Type>)>, String> {
+    if let Some(binding) = binding {
+        return Ok(vec![(binding.clone(), ty)]);
+    }
+
+    let naga::TypeInner::Struct { members, .. } = &module.types[ty].inner else {
+        return Err(format!(
+            "unsupported {subject} without an interface binding"
+        ));
+    };
+    members
+        .iter()
+        .map(|member| {
+            member
+                .binding
+                .clone()
+                .map(|binding| (binding, member.ty))
+                .ok_or_else(|| format!("unsupported {subject} struct member without a binding"))
+        })
+        .collect()
+}
+
+fn interface_type(module: &naga::Module, ty: naga::Handle<naga::Type>) -> Option<InterfaceType> {
+    match module.types[ty].inner {
+        naga::TypeInner::Scalar(naga::Scalar {
+            kind: naga::ScalarKind::Float,
+            width: 4,
+        }) => Some(InterfaceType::F32),
+        naga::TypeInner::Vector {
+            size: naga::VectorSize::Bi,
+            scalar:
+                naga::Scalar {
+                    kind: naga::ScalarKind::Float,
+                    width: 4,
+                },
+        } => Some(InterfaceType::Vec2F32),
+        naga::TypeInner::Vector {
+            size: naga::VectorSize::Tri,
+            scalar:
+                naga::Scalar {
+                    kind: naga::ScalarKind::Float,
+                    width: 4,
+                },
+        } => Some(InterfaceType::Vec3F32),
+        naga::TypeInner::Vector {
+            size: naga::VectorSize::Quad,
+            scalar:
+                naga::Scalar {
+                    kind: naga::ScalarKind::Float,
+                    width: 4,
+                },
+        } => Some(InterfaceType::Vec4F32),
+        _ => None,
+    }
 }
 
 fn required_vertex_attributes(
@@ -158,7 +401,7 @@ impl WasmDraw {
     ) -> Result<WasmDraw, JsValue> {
         let options: DrawOptionsInput =
             serde_wasm_bindgen::from_value(options).map_err(to_js_error)?;
-        let module = parse_and_validate_shader(shader_code).map_err(to_js_error)?;
+        belfast::Draw::validate_mesh_device(&device.inner, mesh.inner()).map_err(to_js_error)?;
         let vertex_layouts = mesh.inner().vertex_layouts();
         let mesh_attributes: Vec<_> = vertex_layouts
             .iter()
@@ -166,7 +409,7 @@ impl WasmDraw {
             .flat_map(|layout| layout.attributes)
             .map(|attribute| (attribute.shader_location, attribute.format))
             .collect();
-        validate_module_draw_interface(&module, &mesh_attributes).map_err(to_js_error)?;
+        parse_and_validate_draw_shader(shader_code, &mesh_attributes).map_err(to_js_error)?;
         let inner = belfast::Draw::new(
             &device.inner,
             shader_code,
@@ -350,6 +593,141 @@ fn fs_main() -> @location(0) vec4f {
                 "unsupported shader vertex input @location(0) type; expected vec2<f32> or vec3<f32>"
                     .into()
             )
+        );
+    }
+
+    #[test]
+    fn rejects_bind_group_resources_until_facade_can_bind_them() {
+        let shader = r#"
+@group(0) @binding(2) var<uniform> tint: vec4f;
+
+@vertex
+fn vs_main(@location(0) position: vec2f) -> @builtin(position) vec4f {
+    return vec4f(position, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return tint;
+}
+"#;
+
+        assert_eq!(
+            validate_draw_interface(shader, &[(0, wgpu::VertexFormat::Float32x2)]),
+            Err("shader resource @group(0) @binding(2) is unsupported".into())
+        );
+    }
+
+    #[test]
+    fn rejects_mismatched_vertex_fragment_interface() {
+        let shader = r#"
+struct VertexOutput {
+    @builtin(position) position: vec4f,
+    @location(0) color: vec3f,
+}
+
+@vertex
+fn vs_main(@location(0) position: vec2f) -> VertexOutput {
+    return VertexOutput(vec4f(position, 0.0, 1.0), vec3f(1.0));
+}
+
+@fragment
+fn fs_main(@location(0) color: vec2f) -> @location(0) vec4f {
+    return vec4f(color, 0.0, 1.0);
+}
+"#;
+
+        assert_eq!(
+            validate_draw_interface(shader, &[(0, wgpu::VertexFormat::Float32x2)]),
+            Err(
+                "fragment input @location(0) has type vec2<f32>, but vertex output has type vec3<f32>"
+                    .into()
+            )
+        );
+    }
+
+    #[test]
+    fn rejects_mismatched_vertex_fragment_interpolation() {
+        let shader = r#"
+struct VertexOutput {
+    @builtin(position) position: vec4f,
+    @location(0) @interpolate(flat) color: vec3f,
+}
+
+@vertex
+fn vs_main(@location(0) position: vec2f) -> VertexOutput {
+    return VertexOutput(vec4f(position, 0.0, 1.0), vec3f(1.0));
+}
+
+@fragment
+fn fs_main(@location(0) color: vec3f) -> @location(0) vec4f {
+    return vec4f(color, 1.0);
+}
+"#;
+
+        assert_eq!(
+            validate_draw_interface(shader, &[(0, wgpu::VertexFormat::Float32x2)]),
+            Err("fragment input @location(0) interpolation does not match vertex output".into())
+        );
+    }
+
+    #[test]
+    fn rejects_vertex_shader_without_position_output() {
+        let shader = r#"
+@vertex
+fn vs_main(@location(0) position: vec2f) -> @location(0) vec2f {
+    return position;
+}
+
+@fragment
+fn fs_main(@location(0) position: vec2f) -> @location(0) vec4f {
+    return vec4f(position, 0.0, 1.0);
+}
+"#;
+
+        assert_eq!(
+            validate_draw_interface(shader, &[(0, wgpu::VertexFormat::Float32x2)]),
+            Err("vertex shader must output @builtin(position) vec4<f32>".into())
+        );
+    }
+
+    #[test]
+    fn rejects_unsupported_fragment_outputs() {
+        let wrong_color_type = r#"
+@vertex
+fn vs_main() -> @builtin(position) vec4f {
+    return vec4f(0.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec3f {
+    return vec3f(1.0);
+}
+"#;
+        assert_eq!(
+            validate_draw_interface(wrong_color_type, &[]),
+            Err("fragment shader must output exactly @location(0) vec4<f32>".into())
+        );
+
+        let depth_output = r#"
+struct FragmentOutput {
+    @location(0) color: vec4f,
+    @builtin(frag_depth) depth: f32,
+}
+
+@vertex
+fn vs_main() -> @builtin(position) vec4f {
+    return vec4f(0.0);
+}
+
+@fragment
+fn fs_main() -> FragmentOutput {
+    return FragmentOutput(vec4f(1.0), 0.5);
+}
+"#;
+        assert_eq!(
+            validate_draw_interface(depth_output, &[]),
+            Err("fragment shader must output exactly @location(0) vec4<f32>".into())
         );
     }
 }

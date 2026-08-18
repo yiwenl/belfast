@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use wasm_bindgen::prelude::*;
 
 use crate::to_js_error;
@@ -7,13 +9,77 @@ use crate::{WasmDraw, WasmMesh};
 #[cfg(target_arch = "wasm32")]
 struct CanvasTarget {
     canvas: web_sys::HtmlCanvasElement,
+    instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl CanvasTarget {
+    fn recreate_surface(&mut self, device: &wgpu::Device) -> Result<(), String> {
+        let surface = self
+            .instance
+            .create_surface(wgpu::SurfaceTarget::Canvas(self.canvas.clone()))
+            .map_err(|error| format!("failed to recreate canvas surface: {error}"))?;
+        surface.configure(device, &self.config);
+        self.surface = surface;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Default)]
+struct PendingGpuErrors {
+    message: Arc<Mutex<Option<String>>>,
+}
+
+impl PendingGpuErrors {
+    fn record(&self, error: wgpu::Error) {
+        let message = match error {
+            wgpu::Error::OutOfMemory { .. } => "WebGPU device ran out of memory".to_owned(),
+            wgpu::Error::Validation { description, .. } => {
+                format!("WebGPU validation error: {description}")
+            }
+            wgpu::Error::Internal { description, .. } => {
+                format!("WebGPU internal error: {description}")
+            }
+        };
+        self.record_message(message);
+    }
+
+    fn record_message(&self, message: String) {
+        let mut pending = self
+            .message
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if pending.is_none() {
+            *pending = Some(message);
+        }
+    }
+
+    #[cfg_attr(not(any(target_arch = "wasm32", test)), allow(dead_code))]
+    fn take(&self) -> Option<String> {
+        self.message
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
+    }
+}
+
+fn install_gpu_error_handlers(device: &wgpu::Device, pending: &PendingGpuErrors) {
+    let uncaptured = pending.clone();
+    device.on_uncaptured_error(Arc::new(move |error| uncaptured.record(error)));
+
+    let lost = pending.clone();
+    device.set_device_lost_callback(move |reason, message| {
+        lost.record_message(format!("WebGPU device lost ({reason:?}): {message}"));
+    });
 }
 
 #[wasm_bindgen(js_name = Device)]
 pub struct WasmDevice {
     pub(crate) inner: belfast::Device,
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pending_gpu_errors: PendingGpuErrors,
     #[cfg(target_arch = "wasm32")]
     canvas_target: Option<CanvasTarget>,
 }
@@ -59,6 +125,8 @@ impl WasmDevice {
             .copied()
             .ok_or_else(|| to_js_error("canvas surface has no supported alpha modes"))?;
         let inner = belfast::Device::from_wgpu(gpu, queue, format);
+        let pending_gpu_errors = PendingGpuErrors::default();
+        install_gpu_error_handlers(inner.gpu(), &pending_gpu_errors);
         let max_texture_dimension_2d = inner.gpu().limits().max_texture_dimension_2d;
         let window = web_sys::window().ok_or_else(|| to_js_error("browser window unavailable"))?;
         let size = surface_size(
@@ -87,8 +155,10 @@ impl WasmDevice {
 
         Ok(Self {
             inner,
+            pending_gpu_errors,
             canvas_target: Some(CanvasTarget {
                 canvas,
+                instance,
                 surface,
                 config,
             }),
@@ -100,8 +170,11 @@ impl WasmDevice {
         let inner = belfast::Device::create_headless()
             .await
             .map_err(to_js_error)?;
+        let pending_gpu_errors = PendingGpuErrors::default();
+        install_gpu_error_handlers(inner.gpu(), &pending_gpu_errors);
         Ok(Self {
             inner,
+            pending_gpu_errors,
             #[cfg(target_arch = "wasm32")]
             canvas_target: None,
         })
@@ -141,10 +214,16 @@ impl WasmDevice {
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub fn render(&self, draw: &WasmDraw, mesh: &WasmMesh) -> Result<(), JsValue> {
+    pub fn render(&mut self, draw: &WasmDraw, mesh: &WasmMesh) -> Result<(), JsValue> {
+        if let Some(error) = self.pending_gpu_errors.take() {
+            return Err(to_js_error(error));
+        }
+        draw.inner
+            .validate_for_render(&self.inner, mesh.inner())
+            .map_err(to_js_error)?;
         let target = self
             .canvas_target
-            .as_ref()
+            .as_mut()
             .ok_or_else(|| to_js_error("cannot render with a headless device"))?;
         if target.config.width == 0 || target.config.height == 0 {
             return Ok(());
@@ -161,10 +240,20 @@ impl WasmDevice {
                 return Ok(());
             }
             wgpu::CurrentSurfaceTexture::Lost => {
-                return Err(to_js_error("canvas surface was lost and must be recreated"))
+                if let Some(error) = self.pending_gpu_errors.take() {
+                    return Err(to_js_error(error));
+                }
+                target
+                    .recreate_surface(self.inner.gpu())
+                    .map_err(to_js_error)?;
+                return Ok(());
             }
             wgpu::CurrentSurfaceTexture::Validation => {
-                return Err(to_js_error("canvas surface validation failed"))
+                return Err(to_js_error(
+                    self.pending_gpu_errors
+                        .take()
+                        .unwrap_or_else(|| "canvas surface validation failed".into()),
+                ));
             }
         };
         let view = frame
@@ -204,6 +293,10 @@ impl WasmDevice {
         frame.present();
         if reconfigure_after_present {
             target.surface.configure(self.inner.gpu(), &target.config);
+        }
+
+        if let Some(error) = self.pending_gpu_errors.take() {
+            return Err(to_js_error(error));
         }
 
         Ok(())
@@ -304,6 +397,34 @@ mod tests {
         assert_eq!(
             check_surface_size_limit(Some((4097, 2048)), 4096),
             Err("surface dimensions 4097x2048 exceed limit 4096".into())
+        );
+    }
+
+    #[test]
+    fn captures_uncaptured_gpu_errors_for_the_next_api_boundary() {
+        let pending = PendingGpuErrors::default();
+        pending.record(wgpu::Error::Validation {
+            source: Box::new(std::io::Error::other("validation source")),
+            description: "bad pipeline".into(),
+        });
+
+        assert_eq!(
+            pending.take().as_deref(),
+            Some("WebGPU validation error: bad pipeline")
+        );
+        assert_eq!(pending.take(), None);
+    }
+
+    #[test]
+    fn labels_out_of_memory_as_a_fatal_gpu_error() {
+        let pending = PendingGpuErrors::default();
+        pending.record(wgpu::Error::OutOfMemory {
+            source: Box::new(std::io::Error::other("oom source")),
+        });
+
+        assert_eq!(
+            pending.take().as_deref(),
+            Some("WebGPU device ran out of memory")
         );
     }
 }

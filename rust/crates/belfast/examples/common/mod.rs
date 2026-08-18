@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 mod input;
 
@@ -108,12 +111,51 @@ impl<E: Example> ApplicationHandler for ExampleApplication<E> {
 
 struct ExampleState<E: Example> {
     window: Arc<Window>,
+    instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
     context: ExampleContext,
     example: E,
     input: input::InputState,
     last_frame_at: Instant,
+    pending_gpu_errors: PendingGpuErrors,
+}
+
+#[derive(Clone, Default)]
+struct PendingGpuErrors {
+    message: Arc<Mutex<Option<String>>>,
+}
+
+impl PendingGpuErrors {
+    fn record(&self, error: wgpu::Error) {
+        let message = match error {
+            wgpu::Error::OutOfMemory { .. } => "WebGPU device ran out of memory".to_owned(),
+            wgpu::Error::Validation { description, .. } => {
+                format!("WebGPU validation error: {description}")
+            }
+            wgpu::Error::Internal { description, .. } => {
+                format!("WebGPU internal error: {description}")
+            }
+        };
+        self.record_message(message);
+    }
+
+    fn record_message(&self, message: String) {
+        let mut pending = self
+            .message
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if pending.is_none() {
+            *pending = Some(message);
+        }
+    }
+
+    fn take(&self) -> Option<String> {
+        self.message
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
+    }
 }
 
 impl<E: Example> ExampleState<E> {
@@ -140,6 +182,13 @@ impl<E: Example> ExampleState<E> {
             ..Default::default()
         }))
         .expect("request wgpu device");
+        let pending_gpu_errors = PendingGpuErrors::default();
+        let uncaptured = pending_gpu_errors.clone();
+        gpu.on_uncaptured_error(Arc::new(move |error| uncaptured.record(error)));
+        let lost = pending_gpu_errors.clone();
+        gpu.set_device_lost_callback(move |reason, message| {
+            lost.record_message(format!("WebGPU device lost ({reason:?}): {message}"));
+        });
 
         let capabilities = surface.get_capabilities(&adapter);
         let format = capabilities
@@ -173,12 +222,14 @@ impl<E: Example> ExampleState<E> {
 
         Self {
             window,
+            instance,
             surface,
             config,
             context,
             example,
             input: Default::default(),
             last_frame_at: Instant::now(),
+            pending_gpu_errors,
         }
     }
 
@@ -196,6 +247,12 @@ impl<E: Example> ExampleState<E> {
     }
 
     fn render(&mut self, event_loop: &ActiveEventLoop) {
+        if let Some(error) = self.pending_gpu_errors.take() {
+            eprintln!("{error}");
+            event_loop.exit();
+            return;
+        }
+
         let now = Instant::now();
         let delta_seconds = (now - self.last_frame_at).as_secs_f32().min(0.1);
         self.last_frame_at = now;
@@ -214,7 +271,22 @@ impl<E: Example> ExampleState<E> {
                 self.window.request_redraw();
                 return;
             }
-            wgpu::CurrentSurfaceTexture::Lost | wgpu::CurrentSurfaceTexture::Validation => {
+            wgpu::CurrentSurfaceTexture::Lost => {
+                if let Err(error) = self.recreate_surface() {
+                    eprintln!("{error}");
+                    event_loop.exit();
+                    return;
+                }
+                self.last_frame_at = Instant::now();
+                self.window.request_redraw();
+                return;
+            }
+            wgpu::CurrentSurfaceTexture::Validation => {
+                let error = self
+                    .pending_gpu_errors
+                    .take()
+                    .unwrap_or_else(|| "WebGPU surface validation failed".into());
+                eprintln!("{error}");
                 event_loop.exit();
                 return;
             }
@@ -229,6 +301,21 @@ impl<E: Example> ExampleState<E> {
             self.surface
                 .configure(self.context.device.gpu(), &self.config);
         }
+        if let Some(error) = self.pending_gpu_errors.take() {
+            eprintln!("{error}");
+            event_loop.exit();
+            return;
+        }
         self.window.request_redraw();
+    }
+
+    fn recreate_surface(&mut self) -> Result<(), String> {
+        let surface = self
+            .instance
+            .create_surface(self.window.clone())
+            .map_err(|error| format!("failed to recreate example surface: {error}"))?;
+        surface.configure(self.context.device.gpu(), &self.config);
+        self.surface = surface;
+        Ok(())
     }
 }

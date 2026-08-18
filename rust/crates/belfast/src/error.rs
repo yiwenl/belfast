@@ -15,8 +15,57 @@ pub enum BelfastError {
     InvalidMeshIndexCount,
     #[error("vertex buffer slot {0} is already in use")]
     DuplicateVertexBufferSlot(u32),
+    #[error("vertex buffer slot {actual} is not contiguous; expected slot {expected}")]
+    NonContiguousVertexBufferSlot { expected: u32, actual: u32 },
     #[error("vertex buffer layout must include at least one attribute")]
     EmptyVertexAttributes,
+    #[error("vertex buffer array stride must be greater than zero")]
+    InvalidVertexBufferStride,
+    #[error("vertex buffer array stride {0} must be a multiple of 4")]
+    MisalignedVertexBufferStride(u64),
+    #[error(
+        "vertex attribute at shader location {shader_location} has misaligned offset {offset}"
+    )]
+    MisalignedVertexAttributeOffset { shader_location: u32, offset: u64 },
+    #[error(
+        "vertex attribute at shader location {shader_location} exceeds array stride {array_stride}"
+    )]
+    VertexAttributeExceedsStride {
+        shader_location: u32,
+        array_stride: u64,
+    },
+    #[error("vertex attribute shader location {0} is already in use")]
+    DuplicateVertexAttributeLocation(u32),
+    #[error("vertex buffer at slot {slot} was created by a different device")]
+    VertexBufferDeviceMismatch { slot: u32 },
+    #[error("vertex buffer slot {slot} exceeds device limit {limit}")]
+    VertexBufferSlotExceedsLimit { slot: u32, limit: u32 },
+    #[error("vertex buffer array stride {stride} exceeds device limit {limit}")]
+    VertexBufferStrideExceedsLimit { stride: u64, limit: u32 },
+    #[error("vertex attribute count {count} exceeds device limit {limit}")]
+    VertexAttributeCountExceedsLimit { count: u32, limit: u32 },
+    #[error("vertex attribute shader location {location} exceeds device limit {limit}")]
+    VertexAttributeLocationExceedsLimit { location: u32, limit: u32 },
+    #[error(
+        "vertex buffer at slot {slot} requires at least {required} bytes for this mesh, got {actual}"
+    )]
+    VertexBufferTooSmall {
+        slot: u32,
+        required: u64,
+        actual: u64,
+    },
+    #[error("vertex buffer byte extent overflowed at slot {0}")]
+    VertexBufferExtentOverflow(u32),
+    #[error("draw was created by a different device")]
+    DrawDeviceMismatch,
+    #[error("mesh contains resources created by a different device")]
+    MeshDeviceMismatch,
+    #[error("mesh layout is incompatible with this draw")]
+    DrawMeshLayoutMismatch,
+    #[error("index buffer was created by a different device")]
+    IndexBufferDeviceMismatch,
+    #[error("index buffer requires at least {required} bytes, got {actual}")]
+    IndexBufferTooSmall { required: u64, actual: u64 },
     #[error("unknown uniform field \"{0}\"")]
     UnknownUniformField(String),
     #[error("uniform field \"{name}\" expects {expected}, got {actual}")]

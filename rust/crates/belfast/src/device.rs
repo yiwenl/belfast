@@ -81,4 +81,8 @@ impl Device {
     pub fn format(&self) -> wgpu::TextureFormat {
         self.inner.format
     }
+
+    pub fn is_same(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
 }

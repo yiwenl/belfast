@@ -8,6 +8,7 @@ use crate::Device;
 pub struct Buffer {
     gpu: Arc<wgpu::Buffer>,
     size: u64,
+    device: Device,
 }
 
 impl Buffer {
@@ -21,6 +22,7 @@ impl Buffer {
         Self {
             gpu: Arc::new(gpu),
             size,
+            device: device.clone(),
         }
     }
 
@@ -41,6 +43,7 @@ impl Buffer {
         Self {
             gpu: Arc::new(gpu),
             size: contents.len() as u64,
+            device: device.clone(),
         }
     }
 
@@ -56,6 +59,10 @@ impl Buffer {
 
     pub fn size(&self) -> u64 {
         self.size
+    }
+
+    pub fn device(&self) -> &Device {
+        &self.device
     }
 }
 
