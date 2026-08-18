@@ -36,16 +36,31 @@ fn validate_draw_interface(
     shader_code: &str,
     mesh_attributes: &[(u32, wgpu::VertexFormat)],
 ) -> Result<(), String> {
-    parse_and_validate_draw_shader(shader_code, mesh_attributes).map(|_| ())
+    validate_draw_interface_with_limit(shader_code, mesh_attributes, 16)
+}
+
+#[cfg(test)]
+fn validate_draw_interface_with_limit(
+    shader_code: &str,
+    mesh_attributes: &[(u32, wgpu::VertexFormat)],
+    max_inter_stage_shader_variables: u32,
+) -> Result<(), String> {
+    parse_and_validate_draw_shader(
+        shader_code,
+        mesh_attributes,
+        max_inter_stage_shader_variables,
+    )
+    .map(|_| ())
 }
 
 fn parse_and_validate_draw_shader(
     shader_code: &str,
     mesh_attributes: &[(u32, wgpu::VertexFormat)],
+    max_inter_stage_shader_variables: u32,
 ) -> Result<naga::Module, String> {
     let module = naga::front::wgsl::parse_str(shader_code)
         .map_err(|error| format!("WGSL parse failed: {error}"))?;
-    validate_module_draw_interface(&module, mesh_attributes)?;
+    validate_module_draw_interface(&module, mesh_attributes, max_inter_stage_shader_variables)?;
     let mut validator = naga::valid::Validator::new(
         naga::valid::ValidationFlags::all(),
         naga::valid::Capabilities::empty(),
@@ -85,6 +100,7 @@ impl std::fmt::Display for InterfaceType {
 fn validate_module_draw_interface(
     module: &naga::Module,
     mesh_attributes: &[(u32, wgpu::VertexFormat)],
+    max_inter_stage_shader_variables: u32,
 ) -> Result<(), String> {
     if let Some(binding) = module
         .global_variables
@@ -126,8 +142,32 @@ fn validate_module_draw_interface(
     }
 
     let vertex_outputs = validate_vertex_outputs(module, vertex_entry)?;
+    validate_interstage_limits(&vertex_outputs, max_inter_stage_shader_variables)?;
     validate_fragment_inputs(module, fragment_entry, &vertex_outputs)?;
     validate_fragment_output(module, fragment_entry)?;
+
+    Ok(())
+}
+
+fn validate_interstage_limits(
+    vertex_outputs: &BTreeMap<u32, InterfaceField>,
+    max_inter_stage_shader_variables: u32,
+) -> Result<(), String> {
+    if vertex_outputs.len() > max_inter_stage_shader_variables as usize {
+        return Err(format!(
+            "shader uses {} inter-stage variables, but the device supports at most {max_inter_stage_shader_variables}",
+            vertex_outputs.len()
+        ));
+    }
+
+    if let Some(location) = vertex_outputs
+        .keys()
+        .find(|location| **location >= max_inter_stage_shader_variables)
+    {
+        return Err(format!(
+            "shader inter-stage @location({location}) exceeds the device limit of {max_inter_stage_shader_variables} variables"
+        ));
+    }
 
     Ok(())
 }
@@ -409,7 +449,12 @@ impl WasmDraw {
             .flat_map(|layout| layout.attributes)
             .map(|attribute| (attribute.shader_location, attribute.format))
             .collect();
-        parse_and_validate_draw_shader(shader_code, &mesh_attributes).map_err(to_js_error)?;
+        parse_and_validate_draw_shader(
+            shader_code,
+            &mesh_attributes,
+            device.inner.gpu().limits().max_inter_stage_shader_variables,
+        )
+        .map_err(to_js_error)?;
         let inner = belfast::Draw::new(
             &device.inner,
             shader_code,
@@ -668,6 +713,31 @@ fn fs_main(@location(0) color: vec3f) -> @location(0) vec4f {
         assert_eq!(
             validate_draw_interface(shader, &[(0, wgpu::VertexFormat::Float32x2)]),
             Err("fragment input @location(0) interpolation does not match vertex output".into())
+        );
+    }
+
+    #[test]
+    fn rejects_interstage_location_beyond_device_limit() {
+        let shader = r#"
+struct VertexOutput {
+    @builtin(position) position: vec4f,
+    @location(4) color: vec3f,
+}
+
+@vertex
+fn vs_main() -> VertexOutput {
+    return VertexOutput(vec4f(0.0, 0.0, 0.0, 1.0), vec3f(1.0));
+}
+
+@fragment
+fn fs_main(@location(4) color: vec3f) -> @location(0) vec4f {
+    return vec4f(color, 1.0);
+}
+"#;
+
+        assert_eq!(
+            validate_draw_interface_with_limit(shader, &[], 4),
+            Err("shader inter-stage @location(4) exceeds the device limit of 4 variables".into())
         );
     }
 
