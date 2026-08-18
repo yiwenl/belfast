@@ -286,6 +286,19 @@ importers:
         specifier: ^4.4.0
         version: 4.5.4(rollup@4.60.4)(typescript@5.9.3)(vite@6.4.2(yaml@2.9.0))
 
+  rust/web/examples:
+    dependencies:
+      belfast-wasm:
+        specifier: file:../../pkg/belfast-wasm
+        version: file:rust/pkg/belfast-wasm
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.3
+        version: 6.4.2(yaml@2.9.0)
+
 packages:
 
   '@babel/helper-string-parser@7.27.1':
@@ -733,6 +746,9 @@ packages:
 
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
+
+  belfast-wasm@file:rust/pkg/belfast-wasm:
+    resolution: {directory: rust/pkg/belfast-wasm, type: directory}
 
   brace-expansion@2.1.0:
     resolution: {integrity: sha512-TN1kCZAgdgweJhWWpgKYrQaMNHcDULHkWwQIspdtjV4Y5aurRdZpjAqn6yX3FPqTA9ngHCc4hJxMAMgGfve85w==}
@@ -1477,6 +1493,8 @@ snapshots:
   balanced-match@4.0.4: {}
 
   base64-js@1.5.1: {}
+
+  belfast-wasm@file:rust/pkg/belfast-wasm: {}
 
   brace-expansion@2.1.0:
     dependencies:
