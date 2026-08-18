@@ -1,31 +1,15 @@
 //! WebAssembly facade for the Rust Belfast runtime.
 
 mod bindings;
+mod device;
+mod draw;
 mod resources;
 
+pub use device::WasmDevice;
+pub use draw::WasmDraw;
 pub use resources::{WasmBuffer, WasmBufferUsage, WasmMesh};
 
 use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen(js_name = Device)]
-pub struct WasmDevice {
-    inner: belfast::Device,
-}
-
-#[wasm_bindgen(js_class = Device)]
-impl WasmDevice {
-    #[wasm_bindgen(js_name = createHeadless)]
-    pub async fn create_headless() -> Result<WasmDevice, JsValue> {
-        let inner = belfast::Device::create_headless()
-            .await
-            .map_err(to_js_error)?;
-        Ok(Self { inner })
-    }
-
-    pub fn format(&self) -> String {
-        format!("{:?}", self.inner.format())
-    }
-}
 
 #[wasm_bindgen(js_name = UniformBlock)]
 pub struct WasmUniformBlock {
@@ -142,9 +126,6 @@ impl WasmOrthographicCamera {
         self.inner.look_at_target().to_vec()
     }
 }
-
-#[wasm_bindgen(js_name = Draw)]
-pub struct WasmDraw;
 
 fn slice_to_vec3(name: &str, value: &[f32]) -> Result<[f32; 3], JsValue> {
     if value.len() < 3 {
