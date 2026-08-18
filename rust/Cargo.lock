@@ -122,6 +122,7 @@ version = "0.1.0"
 dependencies = [
  "belfast",
  "js-sys",
+ "naga",
  "serde",
  "serde-wasm-bindgen",
  "wasm-bindgen",

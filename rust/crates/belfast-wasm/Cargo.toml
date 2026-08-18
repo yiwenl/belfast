@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 belfast.workspace = true
 js-sys.workspace = true
+naga.workspace = true
 serde.workspace = true
 serde-wasm-bindgen.workspace = true
 wasm-bindgen.workspace = true

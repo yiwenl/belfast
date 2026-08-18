@@ -60,12 +60,16 @@ impl WasmDevice {
             .first()
             .copied()
             .ok_or_else(|| to_js_error("canvas surface has no supported alpha modes"))?;
+        let inner = belfast::Device::from_wgpu(gpu, queue, format);
+        let max_texture_dimension_2d = inner.gpu().limits().max_texture_dimension_2d;
         let window = web_sys::window().ok_or_else(|| to_js_error("browser window unavailable"))?;
         let size = surface_size(
             canvas.client_width().max(0) as u32,
             canvas.client_height().max(0) as u32,
             window.device_pixel_ratio(),
-        );
+        )
+        .and_then(|size| check_surface_size_limit(size, max_texture_dimension_2d))
+        .map_err(to_js_error)?;
         let (width, height) = size.unwrap_or((0, 0));
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -80,11 +84,11 @@ impl WasmDevice {
         if size.is_some() {
             canvas.set_width(width);
             canvas.set_height(height);
-            surface.configure(&gpu, &config);
+            surface.configure(inner.gpu(), &config);
         }
 
         Ok(Self {
-            inner: belfast::Device::from_wgpu(gpu, queue, format),
+            inner,
             canvas_target: Some(CanvasTarget {
                 canvas,
                 surface,
@@ -107,6 +111,7 @@ impl WasmDevice {
 
     #[cfg(target_arch = "wasm32")]
     pub fn resize(&mut self) -> Result<bool, JsValue> {
+        let max_texture_dimension_2d = self.inner.gpu().limits().max_texture_dimension_2d;
         let Some(target) = self.canvas_target.as_mut() else {
             return Ok(false);
         };
@@ -115,7 +120,10 @@ impl WasmDevice {
             target.canvas.client_width().max(0) as u32,
             target.canvas.client_height().max(0) as u32,
             window.device_pixel_ratio(),
-        ) else {
+        )
+        .and_then(|size| check_surface_size_limit(size, max_texture_dimension_2d))
+        .map_err(to_js_error)?
+        else {
             return Ok(false);
         };
 
@@ -200,9 +208,9 @@ pub(crate) fn surface_size(
     client_width: u32,
     client_height: u32,
     device_pixel_ratio: f64,
-) -> Option<(u32, u32)> {
+) -> Result<Option<(u32, u32)>, String> {
     if client_width == 0 || client_height == 0 {
-        return None;
+        return Ok(None);
     }
 
     let device_pixel_ratio = if device_pixel_ratio.is_finite() && device_pixel_ratio > 0.0 {
@@ -212,12 +220,38 @@ pub(crate) fn surface_size(
     };
     let width = (f64::from(client_width) * device_pixel_ratio)
         .round()
-        .max(1.0) as u32;
+        .max(1.0);
     let height = (f64::from(client_height) * device_pixel_ratio)
         .round()
-        .max(1.0) as u32;
+        .max(1.0);
+    if width > f64::from(u32::MAX) || height > f64::from(u32::MAX) {
+        return Err(surface_size_limit_error(width, height, u32::MAX));
+    }
 
-    Some((width, height))
+    Ok(Some((width as u32, height as u32)))
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+fn check_surface_size_limit(
+    size: Option<(u32, u32)>,
+    max_texture_dimension_2d: u32,
+) -> Result<Option<(u32, u32)>, String> {
+    if let Some((width, height)) = size {
+        if width > max_texture_dimension_2d || height > max_texture_dimension_2d {
+            return Err(surface_size_limit_error(
+                f64::from(width),
+                f64::from(height),
+                max_texture_dimension_2d,
+            ));
+        }
+    }
+
+    Ok(size)
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+fn surface_size_limit_error(width: f64, height: f64, limit: u32) -> String {
+    format!("surface dimensions {width:.0}x{height:.0} exceed limit {limit}")
 }
 
 #[cfg(test)]
@@ -226,23 +260,39 @@ mod tests {
 
     #[test]
     fn scales_css_size_by_device_pixel_ratio() {
-        assert_eq!(surface_size(320, 180, 2.0), Some((640, 360)));
+        assert_eq!(surface_size(320, 180, 2.0), Ok(Some((640, 360))));
     }
 
     #[test]
     fn rounds_fractional_device_pixel_dimensions() {
-        assert_eq!(surface_size(321, 181, 1.5), Some((482, 272)));
+        assert_eq!(surface_size(321, 181, 1.5), Ok(Some((482, 272))));
     }
 
     #[test]
     fn skips_zero_sized_canvas() {
-        assert_eq!(surface_size(0, 180, 2.0), None);
-        assert_eq!(surface_size(320, 0, 2.0), None);
+        assert_eq!(surface_size(0, 180, 2.0), Ok(None));
+        assert_eq!(surface_size(320, 0, 2.0), Ok(None));
     }
 
     #[test]
     fn normalizes_invalid_device_pixel_ratio() {
-        assert_eq!(surface_size(320, 180, f64::NAN), Some((320, 180)));
-        assert_eq!(surface_size(320, 180, 0.0), Some((320, 180)));
+        assert_eq!(surface_size(320, 180, f64::NAN), Ok(Some((320, 180))));
+        assert_eq!(surface_size(320, 180, 0.0), Ok(Some((320, 180))));
+    }
+
+    #[test]
+    fn rejects_finite_dpr_that_overflows_u32() {
+        assert_eq!(
+            surface_size(2, 1, f64::from(u32::MAX)),
+            Err("surface dimensions 8589934590x4294967295 exceed limit 4294967295".into())
+        );
+    }
+
+    #[test]
+    fn rejects_dimensions_above_max_texture_dimension() {
+        assert_eq!(
+            check_surface_size_limit(Some((4097, 2048)), 4096),
+            Err("surface dimensions 4097x2048 exceed limit 4096".into())
+        );
     }
 }
