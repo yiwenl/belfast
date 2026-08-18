@@ -222,6 +222,7 @@ impl RenderTarget {
             .unwrap_or(&self.color_view);
         let color_attachment = Some(wgpu::RenderPassColorAttachment {
             view: color_view,
+            depth_slice: None,
             resolve_target: self
                 .multisampled_color_view
                 .as_ref()
@@ -250,6 +251,7 @@ impl RenderTarget {
             depth_stencil_attachment,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         })
     }
 

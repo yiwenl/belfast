@@ -34,7 +34,7 @@ impl Device {
     }
 
     pub async fn create_headless_with_options(options: DeviceOptions) -> BelfastResult<Self> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: options.power_preference,
@@ -42,17 +42,15 @@ impl Device {
                 force_fallback_adapter: false,
             })
             .await
-            .ok_or(BelfastError::AdapterUnavailable)?;
+            .map_err(|_| BelfastError::AdapterUnavailable)?;
 
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some("BelfastDevice"),
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::default(),
-                },
-                None,
-            )
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("BelfastDevice"),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
+                ..Default::default()
+            })
             .await?;
 
         Ok(Self::from_wgpu(device, queue, options.format))

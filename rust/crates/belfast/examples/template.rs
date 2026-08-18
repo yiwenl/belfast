@@ -113,8 +113,8 @@ impl Example for Experiment {
                 .gpu()
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("ExperimentPipelineLayout"),
-                    bind_group_layouts: &[&camera_bind_group_layout],
-                    push_constant_ranges: &[],
+                    bind_group_layouts: &[Some(&camera_bind_group_layout)],
+                    immediate_size: 0,
                 });
         let mut draw_options = DrawOptions::new("Experiment", context.format);
         draw_options.layout = Some(&pipeline_layout);

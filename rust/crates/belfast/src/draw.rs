@@ -49,20 +49,21 @@ impl Draw {
                 layout: options.layout,
                 vertex: wgpu::VertexState {
                     module: &module,
-                    entry_point: "vs_main",
+                    entry_point: Some("vs_main"),
                     compilation_options: Default::default(),
                     buffers: &layouts,
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &module,
-                    entry_point: "fs_main",
+                    entry_point: Some("fs_main"),
                     compilation_options: Default::default(),
                     targets: &options.targets,
                 }),
                 primitive: options.primitive,
                 depth_stencil: options.depth_stencil,
                 multisample: options.multisample,
-                multiview: None,
+                multiview_mask: None,
+                cache: None,
             });
 
         Self { pipeline }

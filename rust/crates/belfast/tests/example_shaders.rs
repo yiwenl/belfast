@@ -34,15 +34,18 @@ fn native_example_shaders_pass_wgpu_validation() {
     ];
 
     for (label, source) in shaders {
-        device.gpu().push_error_scope(wgpu::ErrorFilter::Validation);
+        let error_scope = device.gpu().push_error_scope(wgpu::ErrorFilter::Validation);
         let _module = device
             .gpu()
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some(label),
                 source: wgpu::ShaderSource::Wgsl(source.into()),
             });
-        device.gpu().poll(wgpu::Maintain::Wait);
-        let error = pollster::block_on(device.gpu().pop_error_scope());
+        device
+            .gpu()
+            .poll(wgpu::PollType::wait_indefinitely())
+            .expect("poll device");
+        let error = pollster::block_on(error_scope.pop());
 
         assert!(error.is_none(), "{label}: {}", error.unwrap());
     }

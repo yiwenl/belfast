@@ -48,6 +48,7 @@ pub fn begin_render_pass<'a>(
         label: Some("ExampleSurfacePass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
             view,
+            depth_slice: None,
             resolve_target: None,
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Clear(clear_color),
@@ -57,6 +58,7 @@ pub fn begin_render_pass<'a>(
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     })
 }
 
@@ -119,7 +121,9 @@ impl<E: Example> ExampleState<E> {
         let attributes = Window::default_attributes().with_title(title);
         let window = Arc::new(event_loop.create_window(attributes).expect("create window"));
         let size = window.inner_size();
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
+            Box::new(event_loop.owned_display_handle()),
+        ));
         let surface = instance
             .create_surface(window.clone())
             .expect("create wgpu surface");
@@ -129,14 +133,12 @@ impl<E: Example> ExampleState<E> {
             force_fallback_adapter: false,
         }))
         .expect("request surface-compatible adapter");
-        let (gpu, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("BelfastExampleDevice"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-            },
-            None,
-        ))
+        let (gpu, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("BelfastExampleDevice"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::default(),
+            ..Default::default()
+        }))
         .expect("request wgpu device");
 
         let capabilities = surface.get_capabilities(&adapter);
@@ -198,23 +200,35 @@ impl<E: Example> ExampleState<E> {
         let delta_seconds = (now - self.last_frame_at).as_secs_f32().min(0.1);
         self.last_frame_at = now;
 
-        match self.surface.get_current_texture() {
-            Ok(frame) => {
-                let view = frame
-                    .texture
-                    .create_view(&wgpu::TextureViewDescriptor::default());
-                self.example.update(&self.context, delta_seconds);
-                self.example.render(&self.context, &view);
-                frame.present();
-                self.window.request_redraw();
-            }
-            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+        let (frame, reconfigure_after_present) = match self.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(frame) => (frame, false),
+            wgpu::CurrentSurfaceTexture::Suboptimal(frame) => (frame, true),
+            wgpu::CurrentSurfaceTexture::Outdated => {
                 self.surface
                     .configure(self.context.device.gpu(), &self.config);
                 self.last_frame_at = Instant::now();
+                self.window.request_redraw();
+                return;
             }
-            Err(wgpu::SurfaceError::Timeout) => self.window.request_redraw(),
-            Err(wgpu::SurfaceError::OutOfMemory) => event_loop.exit(),
+            wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
+                self.window.request_redraw();
+                return;
+            }
+            wgpu::CurrentSurfaceTexture::Lost | wgpu::CurrentSurfaceTexture::Validation => {
+                event_loop.exit();
+                return;
+            }
+        };
+        let view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        self.example.update(&self.context, delta_seconds);
+        self.example.render(&self.context, &view);
+        frame.present();
+        if reconfigure_after_present {
+            self.surface
+                .configure(self.context.device.gpu(), &self.config);
         }
+        self.window.request_redraw();
     }
 }

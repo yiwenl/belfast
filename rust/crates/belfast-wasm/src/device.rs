@@ -23,7 +23,7 @@ impl WasmDevice {
     #[cfg(target_arch = "wasm32")]
     #[wasm_bindgen(js_name = create)]
     pub async fn create(canvas: web_sys::HtmlCanvasElement) -> Result<WasmDevice, JsValue> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let surface = instance
             .create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone()))
             .map_err(to_js_error)?;
@@ -34,16 +34,14 @@ impl WasmDevice {
                 force_fallback_adapter: false,
             })
             .await
-            .ok_or_else(|| to_js_error("WebGPU adapter unavailable"))?;
+            .map_err(|_| to_js_error("WebGPU adapter unavailable"))?;
         let (gpu, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some("BelfastDevice"),
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
-                },
-                None,
-            )
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("BelfastDevice"),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                ..Default::default()
+            })
             .await
             .map_err(to_js_error)?;
 
@@ -152,14 +150,22 @@ impl WasmDevice {
             return Ok(());
         }
 
-        let frame = match target.surface.get_current_texture() {
-            Ok(frame) => frame,
-            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+        let (frame, reconfigure_after_present) = match target.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(frame) => (frame, false),
+            wgpu::CurrentSurfaceTexture::Suboptimal(frame) => (frame, true),
+            wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
+                return Ok(())
+            }
+            wgpu::CurrentSurfaceTexture::Outdated => {
                 target.surface.configure(self.inner.gpu(), &target.config);
                 return Ok(());
             }
-            Err(wgpu::SurfaceError::Timeout) => return Ok(()),
-            Err(error @ wgpu::SurfaceError::OutOfMemory) => return Err(to_js_error(error)),
+            wgpu::CurrentSurfaceTexture::Lost => {
+                return Err(to_js_error("canvas surface was lost and must be recreated"))
+            }
+            wgpu::CurrentSurfaceTexture::Validation => {
+                return Err(to_js_error("canvas surface validation failed"))
+            }
         };
         let view = frame
             .texture
@@ -175,6 +181,7 @@ impl WasmDevice {
                 label: Some("BelfastRenderPass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -189,11 +196,15 @@ impl WasmDevice {
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
             draw.inner.draw(&mut pass, mesh.inner(), 1);
         }
         self.inner.queue().submit([encoder.finish()]);
         frame.present();
+        if reconfigure_after_present {
+            target.surface.configure(self.inner.gpu(), &target.config);
+        }
 
         Ok(())
     }
