@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "belfast-wasm": "file:../../pkg/belfast-wasm"
+    "belfast-wasm": "link:../../pkg/belfast-wasm"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
