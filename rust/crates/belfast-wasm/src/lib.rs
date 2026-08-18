@@ -1,5 +1,10 @@
 //! WebAssembly facade for the Rust Belfast runtime.
 
+mod bindings;
+mod resources;
+
+pub use resources::{WasmBuffer, WasmBufferUsage, WasmMesh};
+
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = Device)]
@@ -137,34 +142,6 @@ impl WasmOrthographicCamera {
         self.inner.look_at_target().to_vec()
     }
 }
-
-#[wasm_bindgen(js_name = Mesh)]
-pub struct WasmMesh {
-    inner: belfast::Mesh,
-}
-
-#[wasm_bindgen(js_class = Mesh)]
-impl WasmMesh {
-    #[wasm_bindgen(constructor)]
-    pub fn new(vertex_count: u32) -> Result<WasmMesh, JsValue> {
-        Ok(Self {
-            inner: belfast::Mesh::new(vertex_count).map_err(to_js_error)?,
-        })
-    }
-
-    #[wasm_bindgen(js_name = vertexCount)]
-    pub fn vertex_count(&self) -> u32 {
-        self.inner.vertex_count()
-    }
-
-    #[wasm_bindgen(js_name = hasIndexBuffer)]
-    pub fn has_index_buffer(&self) -> bool {
-        self.inner.has_index_buffer()
-    }
-}
-
-#[wasm_bindgen(js_name = Buffer)]
-pub struct WasmBuffer;
 
 #[wasm_bindgen(js_name = Draw)]
 pub struct WasmDraw;
