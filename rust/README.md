@@ -38,3 +38,19 @@ cargo run -p belfast --example my_experiment
 ```
 
 The `wasm-pack` command writes a generated npm package to `rust/pkg/belfast-wasm`. That directory is ignored by Git and contains no handwritten Belfast source.
+
+## Web examples
+
+Build the generated WebAssembly package before installing or building the browser gallery:
+
+```bash
+cd rust
+wasm-pack build crates/belfast-wasm --target web --out-dir ../../pkg/belfast-wasm
+cd ..
+pnpm install
+pnpm --filter @belfast/rust-wasm-examples dev
+```
+
+The gallery's colored triangle is available at `/?example=colored-triangle` (for example, `http://127.0.0.1:5173/?example=colored-triangle` when Vite uses its default port).
+
+Add browser example modules in `rust/web/examples/src/examples` and their WGSL shaders in `rust/web/examples/src/shaders`.
