@@ -88,6 +88,8 @@ pub enum BelfastError {
     InvalidAxisLength,
     #[error("texture dimensions must be greater than 0, got {width}x{height}")]
     InvalidTextureDimensions { width: u32, height: u32 },
+    #[error("texture dimensions {width}x{height} exceed device limit {limit}")]
+    TextureDimensionsExceedLimit { width: u32, height: u32, limit: u32 },
     #[error("RGBA texture data requires {expected} bytes, got {actual}")]
     InvalidTextureDataLength { expected: usize, actual: usize },
 }

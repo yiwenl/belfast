@@ -1,6 +1,25 @@
 use belfast::{BelfastError, Device, RenderPassOptions, RenderTarget, RenderTargetOptions};
 
 #[test]
+fn render_target_tracks_creator_device_after_resize() {
+    let Some(device) = create_optional_device() else {
+        return;
+    };
+    let mut target = RenderTarget::create(
+        &device,
+        RenderTargetOptions {
+            width: 8,
+            height: 8,
+            ..Default::default()
+        },
+    );
+    target.resize(16, 12);
+
+    assert!(target.device().is_same(&device));
+    assert_eq!((target.width(), target.height()), (16, 12));
+}
+
+#[test]
 fn render_target_options_clamp_dimensions_and_default_format() {
     let options = RenderTargetOptions {
         width: 0,

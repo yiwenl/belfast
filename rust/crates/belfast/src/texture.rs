@@ -22,7 +22,8 @@ impl Default for TextureOptions {
 }
 
 pub struct Texture {
-    _gpu: wgpu::Texture,
+    device: Device,
+    gpu: wgpu::Texture,
     view: wgpu::TextureView,
     sampler: wgpu::Sampler,
     width: u32,
@@ -31,22 +32,22 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn from_rgba8(
+    pub fn create_2d(
         device: &Device,
         width: u32,
         height: u32,
-        data: &[u8],
         options: TextureOptions,
     ) -> BelfastResult<Self> {
         if width == 0 || height == 0 {
             return Err(BelfastError::InvalidTextureDimensions { width, height });
         }
 
-        let expected = width as usize * height as usize * 4;
-        if data.len() != expected {
-            return Err(BelfastError::InvalidTextureDataLength {
-                expected,
-                actual: data.len(),
+        let limit = device.gpu().limits().max_texture_dimension_2d;
+        if width > limit || height > limit {
+            return Err(BelfastError::TextureDimensionsExceedLimit {
+                width,
+                height,
+                limit,
             });
         }
 
@@ -64,9 +65,47 @@ impl Texture {
             usage: options.usage,
             view_formats: &[],
         });
-        device.queue().write_texture(
+        let view = gpu.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = device.gpu().create_sampler(&wgpu::SamplerDescriptor {
+            label: Some(&format!("{}Sampler", options.label)),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: options.mag_filter,
+            min_filter: options.min_filter,
+            ..Default::default()
+        });
+
+        Ok(Self {
+            device: device.clone(),
+            gpu,
+            view,
+            sampler,
+            width,
+            height,
+            format: options.format,
+        })
+    }
+
+    pub fn from_rgba8(
+        device: &Device,
+        width: u32,
+        height: u32,
+        data: &[u8],
+        options: TextureOptions,
+    ) -> BelfastResult<Self> {
+        let expected = width as usize * height as usize * 4;
+        if data.len() != expected {
+            return Err(BelfastError::InvalidTextureDataLength {
+                expected,
+                actual: data.len(),
+            });
+        }
+
+        let texture = Self::create_2d(device, width, height, options)?;
+        texture.device.queue().write_texture(
             wgpu::TexelCopyTextureInfo {
-                texture: &gpu,
+                texture: &texture.gpu,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
@@ -84,25 +123,15 @@ impl Texture {
             },
         );
 
-        let view = gpu.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.gpu().create_sampler(&wgpu::SamplerDescriptor {
-            label: Some(&format!("{}Sampler", options.label)),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: options.mag_filter,
-            min_filter: options.min_filter,
-            ..Default::default()
-        });
+        Ok(texture)
+    }
 
-        Ok(Self {
-            _gpu: gpu,
-            view,
-            sampler,
-            width,
-            height,
-            format: options.format,
-        })
+    pub fn gpu(&self) -> &wgpu::Texture {
+        &self.gpu
+    }
+
+    pub fn device(&self) -> &Device {
+        &self.device
     }
 
     pub fn view(&self) -> &wgpu::TextureView {

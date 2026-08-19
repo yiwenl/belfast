@@ -1,6 +1,44 @@
 use belfast::{BelfastError, Device, Texture, TextureOptions};
 
 #[test]
+fn texture_tracks_creator_device() {
+    let Some(first) = create_optional_device() else {
+        return;
+    };
+    let Some(second) = create_optional_device() else {
+        return;
+    };
+    let texture = Texture::create_2d(&first, 4, 8, TextureOptions::default()).unwrap();
+
+    assert!(texture.device().is_same(&first));
+    assert!(!texture.device().is_same(&second));
+    assert_eq!(texture.width(), 4);
+    assert_eq!(texture.height(), 8);
+}
+
+#[test]
+fn rejects_texture_dimensions_exceeding_device_limit() {
+    let Some(device) = create_optional_device() else {
+        return;
+    };
+    let limit = device.gpu().limits().max_texture_dimension_2d;
+    let width = limit
+        .checked_add(1)
+        .expect("device texture limit must be below u32::MAX");
+
+    let result = Texture::create_2d(&device, width, 1, TextureOptions::default());
+
+    assert!(matches!(
+        result,
+        Err(BelfastError::TextureDimensionsExceedLimit {
+            width: actual_width,
+            height: 1,
+            limit: actual_limit,
+        }) if actual_width == width && actual_limit == limit
+    ));
+}
+
+#[test]
 fn rejects_zero_sized_rgba_textures() {
     let Some(device) = create_optional_device() else {
         return;

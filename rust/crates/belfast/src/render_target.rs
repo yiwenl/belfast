@@ -169,6 +169,10 @@ impl RenderTarget {
         self.height
     }
 
+    pub fn device(&self) -> &Device {
+        &self.device
+    }
+
     pub fn format(&self) -> wgpu::TextureFormat {
         self.format
     }

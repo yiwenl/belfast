@@ -1,6 +1,7 @@
 use crate::Device;
 
 pub struct BindGroup {
+    device: Device,
     gpu: wgpu::BindGroup,
 }
 
@@ -16,7 +17,10 @@ impl BindGroup {
             layout,
             entries,
         });
-        Self { gpu }
+        Self {
+            device: device.clone(),
+            gpu,
+        }
     }
 
     pub fn bind<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, index: u32) {
@@ -25,5 +29,9 @@ impl BindGroup {
 
     pub fn gpu(&self) -> &wgpu::BindGroup {
         &self.gpu
+    }
+
+    pub fn device(&self) -> &Device {
+        &self.device
     }
 }
