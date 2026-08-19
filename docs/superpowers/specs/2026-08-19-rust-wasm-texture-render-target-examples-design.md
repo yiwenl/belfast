@@ -38,10 +38,14 @@ surface texture because their Rust lifetimes do not map to ordinary JavaScript
 objects. A `Frame` class will own those resources and expose pass-sized methods:
 
 ```ts
+const source = new Draw(device, sourceShader, sourceMesh, sourceDrawOptions);
+const present = new Draw(device, presentShader, fullscreenMesh, presentDrawOptions);
 const frame = device.beginFrame();
 if (frame) {
-  frame.drawTo(renderTarget, sourceDraw, sourceMesh, undefined, sourcePassOptions);
-  frame.draw(presentDraw, presentMesh, presentBindGroup, presentPassOptions);
+  frame.bindTarget(renderTarget, sourcePassOptions);
+  frame.render(source);
+  frame.bindTarget(null, presentPassOptions);
+  frame.render(present, presentBindGroup);
   frame.submit();
 }
 ```
@@ -52,15 +56,42 @@ recoverable surface loss. It returns a JavaScript error for fatal device or
 validation failures. `Frame.submit()` consumes the frame, submits one command
 buffer, presents the surface texture, and reports pending GPU errors.
 
-`Frame.drawTo()` opens and closes one render pass targeting a `RenderTarget`.
-`Frame.draw()` does the same for the canvas surface. Both methods accept an
-optional `BindGroup` and an options object whose only field in this milestone is
-`clearColor: { r, g, b, a }`. Omitting it uses the existing Belfast dark clear
-color. The methods validate device ownership, draw/mesh compatibility,
-draw/bind-group compatibility, and target format before recording commands.
+`Frame.bindTarget(target, options)` selects the destination for the next logical
+render pass. Passing a `RenderTarget` selects its offscreen texture; passing
+`null`, `undefined`, or no target selects the canvas, following the WebGL
+default-framebuffer convention. Calling it again closes the previous logical
+pass and starts another. The only pass option in this milestone is
+`clearColor: { r, g, b, a }`; omitting it uses the existing Belfast dark clear
+color.
 
-The existing `Device.render(draw, mesh)` remains as the single-pass convenience
-API and uses the same frame acquisition and error-handling path internally.
+`Frame.render(draw, bindGroup?)` appends a draw command to the active logical
+pass. If no target has been explicitly bound, the frame defaults to the canvas.
+Multiple render calls after one `bindTarget()` belong to the same logical pass.
+The frame stores an owned linear command list and materializes wgpu render
+passes during `submit()`, avoiding a self-referential Rust render-pass lifetime.
+
+Frame methods validate device ownership, draw/bind-group compatibility, and
+target format before recording commands. The existing `Device.render(draw)`
+remains as the single-pass convenience API and uses the same frame acquisition
+and error-handling path internally.
+
+### Draw And Mesh Ownership
+
+The WASM `Draw` constructor consumes and owns its `Mesh`:
+
+```ts
+const draw = new Draw(device, shaderCode, mesh, options);
+```
+
+The mesh argument is not passed again to `Frame.render()` or `Device.render()`.
+This differs from the native Rust and original JavaScript draw helpers, where a
+pipeline can be applied to multiple meshes, but it gives the browser facade an
+unambiguous owned draw command while Rust controls resource lifetimes.
+
+`Draw.setMesh(mesh)` consumes a replacement mesh after validating that its
+device and vertex-layout signature match the draw pipeline. The texture example
+uses this operation to update aspect-fit positions after resize without
+recreating its shader module or render pipeline.
 
 ### Texture Upload
 
@@ -160,8 +191,9 @@ position and UV buffers.
 
 The quad is centered and aspect-fit against the current canvas dimensions, with
 the uncovered area cleared to the existing dark background. When the canvas
-aspect ratio changes, the example replaces only its position buffer and mesh;
-the draw remains reusable because the vertex layout signature is unchanged.
+aspect ratio changes, the example creates a replacement position buffer and
+layout-compatible mesh, then transfers that mesh into `Draw.setMesh()`; the
+shader module and render pipeline remain reusable.
 
 The example is selected with:
 
