@@ -1,6 +1,7 @@
 import init from "belfast-wasm";
 
 import { coloredTriangle } from "./examples/colored-triangle";
+import { textureExample } from "./examples/texture";
 import "./style.css";
 
 export type ReportError = (error: unknown) => void;
@@ -12,6 +13,7 @@ export type WebExample = (
 
 const examples: Record<string, WebExample> = {
   "colored-triangle": coloredTriangle,
+  texture: textureExample,
 };
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas");
