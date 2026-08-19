@@ -39,6 +39,25 @@ fn rejects_texture_dimensions_exceeding_device_limit() {
 }
 
 #[test]
+fn rejects_extreme_rgba_dimensions_before_calculating_data_length() {
+    let Some(device) = create_optional_device() else {
+        return;
+    };
+    let limit = device.gpu().limits().max_texture_dimension_2d;
+
+    let result = Texture::from_rgba8(&device, u32::MAX, u32::MAX, &[], TextureOptions::default());
+
+    assert!(matches!(
+        result,
+        Err(BelfastError::TextureDimensionsExceedLimit {
+            width: u32::MAX,
+            height: u32::MAX,
+            limit: actual_limit,
+        }) if actual_limit == limit
+    ));
+}
+
+#[test]
 fn rejects_zero_sized_rgba_textures() {
     let Some(device) = create_optional_device() else {
         return;

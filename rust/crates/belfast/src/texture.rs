@@ -31,6 +31,22 @@ pub struct Texture {
     format: wgpu::TextureFormat,
 }
 
+fn validate_dimensions(width: u32, height: u32, limit: u32) -> BelfastResult<()> {
+    if width == 0 || height == 0 {
+        return Err(BelfastError::InvalidTextureDimensions { width, height });
+    }
+
+    if width > limit || height > limit {
+        return Err(BelfastError::TextureDimensionsExceedLimit {
+            width,
+            height,
+            limit,
+        });
+    }
+
+    Ok(())
+}
+
 impl Texture {
     pub fn create_2d(
         device: &Device,
@@ -38,18 +54,8 @@ impl Texture {
         height: u32,
         options: TextureOptions,
     ) -> BelfastResult<Self> {
-        if width == 0 || height == 0 {
-            return Err(BelfastError::InvalidTextureDimensions { width, height });
-        }
-
         let limit = device.gpu().limits().max_texture_dimension_2d;
-        if width > limit || height > limit {
-            return Err(BelfastError::TextureDimensionsExceedLimit {
-                width,
-                height,
-                limit,
-            });
-        }
+        validate_dimensions(width, height, limit)?;
 
         let gpu = device.gpu().create_texture(&wgpu::TextureDescriptor {
             label: Some(&options.label),
@@ -94,6 +100,9 @@ impl Texture {
         data: &[u8],
         options: TextureOptions,
     ) -> BelfastResult<Self> {
+        let limit = device.gpu().limits().max_texture_dimension_2d;
+        validate_dimensions(width, height, limit)?;
+
         let expected = width as usize * height as usize * 4;
         if data.len() != expected {
             return Err(BelfastError::InvalidTextureDataLength {
@@ -152,5 +161,23 @@ impl Texture {
 
     pub fn format(&self) -> wgpu::TextureFormat {
         self.format
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_dimensions;
+    use crate::BelfastError;
+
+    #[test]
+    fn validation_rejects_extreme_dimensions_before_size_calculation() {
+        assert!(matches!(
+            validate_dimensions(u32::MAX, u32::MAX, 8_192),
+            Err(BelfastError::TextureDimensionsExceedLimit {
+                width: u32::MAX,
+                height: u32::MAX,
+                limit: 8_192,
+            })
+        ));
     }
 }
