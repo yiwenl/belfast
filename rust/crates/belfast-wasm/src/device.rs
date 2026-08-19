@@ -1,13 +1,16 @@
 use std::sync::{Arc, Mutex};
 
+#[cfg(target_arch = "wasm32")]
+use std::{cell::RefCell, rc::Rc};
+
 use wasm_bindgen::prelude::*;
 
 use crate::to_js_error;
 #[cfg(target_arch = "wasm32")]
-use crate::WasmDraw;
+use crate::{WasmDraw, WasmFrame};
 
 #[cfg(target_arch = "wasm32")]
-struct CanvasTarget {
+pub(crate) struct CanvasTarget {
     canvas: web_sys::HtmlCanvasElement,
     instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
@@ -25,10 +28,14 @@ impl CanvasTarget {
         self.surface = surface;
         Ok(())
     }
+
+    pub(crate) fn configure(&self, device: &wgpu::Device) {
+        self.surface.configure(device, &self.config);
+    }
 }
 
 #[derive(Clone, Default)]
-struct PendingGpuErrors {
+pub(crate) struct PendingGpuErrors {
     message: Arc<Mutex<Option<String>>>,
 }
 
@@ -57,7 +64,7 @@ impl PendingGpuErrors {
     }
 
     #[cfg_attr(not(any(target_arch = "wasm32", test)), allow(dead_code))]
-    fn take(&self) -> Option<String> {
+    pub(crate) fn take(&self) -> Option<String> {
         self.message
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -81,7 +88,7 @@ pub struct WasmDevice {
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
     pending_gpu_errors: PendingGpuErrors,
     #[cfg(target_arch = "wasm32")]
-    canvas_target: Option<CanvasTarget>,
+    canvas_target: Option<Rc<RefCell<CanvasTarget>>>,
 }
 
 #[wasm_bindgen(js_class = Device)]
@@ -156,12 +163,12 @@ impl WasmDevice {
         Ok(Self {
             inner,
             pending_gpu_errors,
-            canvas_target: Some(CanvasTarget {
+            canvas_target: Some(Rc::new(RefCell::new(CanvasTarget {
                 canvas,
                 instance,
                 surface,
                 config,
-            }),
+            }))),
         })
     }
 
@@ -183,9 +190,10 @@ impl WasmDevice {
     #[cfg(target_arch = "wasm32")]
     pub fn resize(&mut self) -> Result<bool, JsValue> {
         let max_texture_dimension_2d = self.inner.gpu().limits().max_texture_dimension_2d;
-        let Some(target) = self.canvas_target.as_mut() else {
+        let Some(target) = self.canvas_target.as_ref() else {
             return Ok(false);
         };
+        let mut target = target.borrow_mut();
         let window = web_sys::window().ok_or_else(|| to_js_error("browser window unavailable"))?;
         let Some((width, height)) = surface_size(
             target.canvas.client_width().max(0) as u32,
@@ -214,41 +222,43 @@ impl WasmDevice {
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub fn render(&mut self, draw: &WasmDraw) -> Result<(), JsValue> {
+    #[wasm_bindgen(js_name = beginFrame)]
+    pub fn begin_frame(&mut self) -> Result<Option<WasmFrame>, JsValue> {
         if let Some(error) = self.pending_gpu_errors.take() {
             return Err(to_js_error(error));
         }
-        let mesh = draw.state.mesh();
-        draw.state
-            .draw()
-            .validate_for_render(&self.inner, &mesh)
-            .map_err(to_js_error)?;
         let target = self
             .canvas_target
-            .as_mut()
+            .as_ref()
+            .cloned()
             .ok_or_else(|| to_js_error("cannot render with a headless device"))?;
-        if target.config.width == 0 || target.config.height == 0 {
-            return Ok(());
+        {
+            let target = target.borrow();
+            if target.config.width == 0 || target.config.height == 0 {
+                return Ok(None);
+            }
         }
 
-        let (frame, reconfigure_after_present) = match target.surface.get_current_texture() {
+        let current_texture = target.borrow().surface.get_current_texture();
+        let (frame, reconfigure_after_present) = match current_texture {
             wgpu::CurrentSurfaceTexture::Success(frame) => (frame, false),
             wgpu::CurrentSurfaceTexture::Suboptimal(frame) => (frame, true),
             wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
-                return Ok(())
+                return Ok(None)
             }
             wgpu::CurrentSurfaceTexture::Outdated => {
-                target.surface.configure(self.inner.gpu(), &target.config);
-                return Ok(());
+                target.borrow().configure(self.inner.gpu());
+                return Ok(None);
             }
             wgpu::CurrentSurfaceTexture::Lost => {
                 if let Some(error) = self.pending_gpu_errors.take() {
                     return Err(to_js_error(error));
                 }
                 target
+                    .borrow_mut()
                     .recreate_surface(self.inner.gpu())
                     .map_err(to_js_error)?;
-                return Ok(());
+                return Ok(None);
             }
             wgpu::CurrentSurfaceTexture::Validation => {
                 return Err(to_js_error(
@@ -258,50 +268,23 @@ impl WasmDevice {
                 ));
             }
         };
-        let view = frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder =
-            self.inner
-                .gpu()
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("BelfastRenderEncoder"),
-                });
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("BelfastRenderPass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.02,
-                            g: 0.025,
-                            b: 0.04,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-            draw.state.draw().draw(&mut pass, &mesh, 1);
-        }
-        self.inner.queue().submit([encoder.finish()]);
-        frame.present();
-        if reconfigure_after_present {
-            target.surface.configure(self.inner.gpu(), &target.config);
-        }
 
-        if let Some(error) = self.pending_gpu_errors.take() {
-            return Err(to_js_error(error));
-        }
+        Ok(Some(WasmFrame::new(
+            self.inner.clone(),
+            self.pending_gpu_errors.clone(),
+            target,
+            frame,
+            reconfigure_after_present,
+        )))
+    }
 
-        Ok(())
+    #[cfg(target_arch = "wasm32")]
+    pub fn render(&mut self, draw: &WasmDraw) -> Result<(), JsValue> {
+        let Some(mut frame) = self.begin_frame()? else {
+            return Ok(());
+        };
+        frame.render(draw, JsValue::UNDEFINED)?;
+        frame.submit()
     }
 
     pub fn format(&self) -> String {

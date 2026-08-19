@@ -4,6 +4,10 @@ mod bind_group;
 mod bindings;
 mod device;
 mod draw;
+#[cfg(any(target_arch = "wasm32", test))]
+mod frame;
+#[cfg(any(target_arch = "wasm32", test))]
+mod render_target;
 mod resources;
 mod texture;
 
@@ -11,6 +15,10 @@ mod texture;
 pub use bind_group::WasmBindGroup;
 pub use device::WasmDevice;
 pub use draw::WasmDraw;
+#[cfg(target_arch = "wasm32")]
+pub use frame::WasmFrame;
+#[cfg(target_arch = "wasm32")]
+pub use render_target::WasmRenderTarget;
 pub use resources::{WasmBuffer, WasmBufferUsage, WasmMesh};
 #[cfg(target_arch = "wasm32")]
 pub use texture::WasmTexture;
