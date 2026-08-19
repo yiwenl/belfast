@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
 use wasm_bindgen::prelude::*;
 
@@ -9,6 +9,16 @@ use crate::{to_js_error, WasmDevice, WasmMesh};
 struct DrawOptionsInput {
     #[serde(default)]
     label: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ShaderResourceLayout {
+    None,
+    TextureSampler {
+        group: u32,
+        texture_binding: u32,
+        sampler_binding: u32,
+    },
 }
 
 #[cfg(test)]
@@ -35,7 +45,7 @@ fn validate_shader_code(shader_code: &str) -> Result<(), String> {
 fn validate_draw_interface(
     shader_code: &str,
     mesh_attributes: &[(u32, wgpu::VertexFormat)],
-) -> Result<(), String> {
+) -> Result<ShaderResourceLayout, String> {
     validate_draw_interface_with_limit(shader_code, mesh_attributes, 16)
 }
 
@@ -44,23 +54,23 @@ fn validate_draw_interface_with_limit(
     shader_code: &str,
     mesh_attributes: &[(u32, wgpu::VertexFormat)],
     max_inter_stage_shader_variables: u32,
-) -> Result<(), String> {
+) -> Result<ShaderResourceLayout, String> {
     parse_and_validate_draw_shader(
         shader_code,
         mesh_attributes,
         max_inter_stage_shader_variables,
     )
-    .map(|_| ())
 }
 
 fn parse_and_validate_draw_shader(
     shader_code: &str,
     mesh_attributes: &[(u32, wgpu::VertexFormat)],
     max_inter_stage_shader_variables: u32,
-) -> Result<naga::Module, String> {
+) -> Result<ShaderResourceLayout, String> {
     let module = naga::front::wgsl::parse_str(shader_code)
         .map_err(|error| format!("WGSL parse failed: {error}"))?;
-    validate_module_draw_interface(&module, mesh_attributes, max_inter_stage_shader_variables)?;
+    let resources =
+        validate_module_draw_interface(&module, mesh_attributes, max_inter_stage_shader_variables)?;
     let mut validator = naga::valid::Validator::new(
         naga::valid::ValidationFlags::all(),
         naga::valid::Capabilities::empty(),
@@ -68,7 +78,7 @@ fn parse_and_validate_draw_shader(
     validator
         .validate(&module)
         .map_err(|error| format!("WGSL validation failed: {error}"))?;
-    Ok(module)
+    Ok(resources)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -101,17 +111,8 @@ fn validate_module_draw_interface(
     module: &naga::Module,
     mesh_attributes: &[(u32, wgpu::VertexFormat)],
     max_inter_stage_shader_variables: u32,
-) -> Result<(), String> {
-    if let Some(binding) = module
-        .global_variables
-        .iter()
-        .find_map(|(_, variable)| variable.binding.as_ref())
-    {
-        return Err(format!(
-            "shader resource @group({}) @binding({}) is unsupported",
-            binding.group, binding.binding
-        ));
-    }
+) -> Result<ShaderResourceLayout, String> {
+    let resources = validate_shader_resource_layout(module)?;
 
     let vertex_entry = module
         .entry_points
@@ -146,7 +147,83 @@ fn validate_module_draw_interface(
     validate_fragment_inputs(module, fragment_entry, &vertex_outputs)?;
     validate_fragment_output(module, fragment_entry)?;
 
-    Ok(())
+    Ok(resources)
+}
+
+fn validate_shader_resource_layout(module: &naga::Module) -> Result<ShaderResourceLayout, String> {
+    let mut texture = None;
+    let mut sampler = None;
+
+    for (_, variable) in module.global_variables.iter() {
+        let Some(binding) = variable.binding else {
+            continue;
+        };
+        if binding.group != 0 {
+            return Err(unsupported_shader_resource(binding));
+        }
+
+        match &module.types[variable.ty].inner {
+            naga::TypeInner::Image {
+                dim: naga::ImageDimension::D2,
+                arrayed: false,
+                class:
+                    naga::ImageClass::Sampled {
+                        kind: naga::ScalarKind::Float,
+                        multi: false,
+                    },
+            } => {
+                if texture.replace(binding).is_some() {
+                    return Err(unsupported_shader_resource(binding));
+                }
+            }
+            naga::TypeInner::Sampler { comparison: false } => {
+                if sampler.replace(binding).is_some() {
+                    return Err(unsupported_shader_resource(binding));
+                }
+            }
+            naga::TypeInner::Sampler { comparison: true } => {
+                return Err(format!(
+                    "shader resource @group({}) @binding({}) must be a filtering sampler",
+                    binding.group, binding.binding
+                ));
+            }
+            _ => return Err(unsupported_shader_resource(binding)),
+        }
+    }
+
+    match (texture, sampler) {
+        (None, None) => Ok(ShaderResourceLayout::None),
+        (Some(texture), Some(sampler)) if texture.group == sampler.group => {
+            Ok(ShaderResourceLayout::TextureSampler {
+                group: texture.group,
+                texture_binding: texture.binding,
+                sampler_binding: sampler.binding,
+            })
+        }
+        (Some(_), None) => {
+            Err("sampled texture requires one filtering sampler in the same bind group".into())
+        }
+        (None, Some(_)) => {
+            Err("filtering sampler requires one sampled texture in the same bind group".into())
+        }
+        (Some(_), Some(_)) => {
+            Err("sampled texture and filtering sampler must use the same bind group".into())
+        }
+    }
+}
+
+fn unsupported_shader_resource(binding: naga::ResourceBinding) -> String {
+    format!(
+        "unsupported shader resource @group({}) @binding({})",
+        binding.group, binding.binding
+    )
+}
+
+fn replacement_layout_matches(
+    pipeline_layout: &belfast::MeshLayoutSignature,
+    replacement_layout: &belfast::MeshLayoutSignature,
+) -> bool {
+    pipeline_layout == replacement_layout
 }
 
 fn validate_interstage_limits(
@@ -426,8 +503,26 @@ fn collect_bound_vertex_input(
 
 #[wasm_bindgen(js_name = Draw)]
 pub struct WasmDraw {
-    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
-    pub(crate) inner: belfast::Draw,
+    pub(crate) state: Rc<DrawState>,
+}
+
+pub(crate) struct DrawState {
+    draw: belfast::Draw,
+    mesh: RefCell<belfast::Mesh>,
+    #[allow(dead_code)]
+    resources: ShaderResourceLayout,
+}
+
+impl DrawState {
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn draw(&self) -> &belfast::Draw {
+        &self.draw
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn mesh(&self) -> std::cell::Ref<'_, belfast::Mesh> {
+        self.mesh.borrow()
+    }
 }
 
 #[wasm_bindgen(js_class = Draw)]
@@ -436,36 +531,60 @@ impl WasmDraw {
     pub fn new(
         device: &WasmDevice,
         shader_code: &str,
-        mesh: &WasmMesh,
+        mesh: WasmMesh,
         options: JsValue,
     ) -> Result<WasmDraw, JsValue> {
         let options: DrawOptionsInput =
             serde_wasm_bindgen::from_value(options).map_err(to_js_error)?;
-        belfast::Draw::validate_mesh_device(&device.inner, mesh.inner()).map_err(to_js_error)?;
-        let vertex_layouts = mesh.inner().vertex_layouts();
-        let mesh_attributes: Vec<_> = vertex_layouts
-            .iter()
-            .flatten()
-            .flat_map(|layout| layout.attributes)
-            .map(|attribute| (attribute.shader_location, attribute.format))
-            .collect();
-        parse_and_validate_draw_shader(
+        let mesh = mesh.into_inner();
+        belfast::Draw::validate_mesh_device(&device.inner, &mesh).map_err(to_js_error)?;
+        let mesh_attributes: Vec<_> = {
+            let vertex_layouts = mesh.vertex_layouts();
+            vertex_layouts
+                .iter()
+                .flatten()
+                .flat_map(|layout| layout.attributes)
+                .map(|attribute| (attribute.shader_location, attribute.format))
+                .collect()
+        };
+        let resources = parse_and_validate_draw_shader(
             shader_code,
             &mesh_attributes,
             device.inner.gpu().limits().max_inter_stage_shader_variables,
         )
         .map_err(to_js_error)?;
-        let inner = belfast::Draw::new(
+        let draw = belfast::Draw::new(
             &device.inner,
             shader_code,
-            mesh.inner(),
+            &mesh,
             belfast::DrawOptions::new(
                 options.label.as_deref().unwrap_or("Draw"),
                 device.inner.format(),
             ),
         );
 
-        Ok(Self { inner })
+        Ok(Self {
+            state: Rc::new(DrawState {
+                draw,
+                mesh: RefCell::new(mesh),
+                resources,
+            }),
+        })
+    }
+
+    #[wasm_bindgen(js_name = setMesh)]
+    pub fn set_mesh(&self, mesh: WasmMesh) -> Result<(), JsValue> {
+        let mesh = mesh.into_inner();
+        self.state
+            .draw
+            .validate_for_render(self.state.draw.device(), &mesh)
+            .map_err(to_js_error)?;
+        debug_assert!(replacement_layout_matches(
+            self.state.draw.mesh_layout_signature(),
+            &mesh.layout_signature()
+        ));
+        self.state.mesh.replace(mesh);
+        Ok(())
     }
 }
 
@@ -522,6 +641,63 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 }
 "#;
 
+    const TEXTURE_SHADER: &str = r#"
+@group(0) @binding(0) var image: texture_2d<f32>;
+@group(0) @binding(1) var image_sampler: sampler;
+
+@vertex
+fn vs_main(@location(0) position: vec2f) -> @builtin(position) vec4f {
+    return vec4f(position, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return textureSample(image, image_sampler, vec2f(0.5));
+}
+"#;
+
+    const STORAGE_TEXTURE_SHADER: &str = r#"
+@group(0) @binding(0) var image: texture_storage_2d<rgba8unorm, write>;
+
+@vertex
+fn vs_main() -> @builtin(position) vec4f {
+    return vec4f(0.0, 0.0, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return vec4f(1.0);
+}
+"#;
+
+    const COMPARISON_SAMPLER_SHADER: &str = r#"
+@group(0) @binding(0) var image_sampler: sampler_comparison;
+
+@vertex
+fn vs_main() -> @builtin(position) vec4f {
+    return vec4f(0.0, 0.0, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return vec4f(1.0);
+}
+"#;
+
+    const TEXTURE_ONLY_SHADER: &str = r#"
+@group(0) @binding(0) var image: texture_2d<f32>;
+
+@vertex
+fn vs_main() -> @builtin(position) vec4f {
+    return vec4f(0.0, 0.0, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return textureLoad(image, vec2i(0), 0);
+}
+"#;
+
     const TRIANGLE_ATTRIBUTES: &[(u32, wgpu::VertexFormat)] = &[
         (0, wgpu::VertexFormat::Float32x2),
         (1, wgpu::VertexFormat::Float32x3),
@@ -531,8 +707,61 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     fn accepts_valid_colored_triangle_shader() {
         assert_eq!(
             validate_draw_interface(COLORED_TRIANGLE_SHADER, TRIANGLE_ATTRIBUTES),
-            Ok(())
+            Ok(ShaderResourceLayout::None)
         );
+    }
+
+    #[test]
+    fn accepts_supported_texture_and_sampler_pair() {
+        let layout =
+            validate_draw_interface_with_limit(TEXTURE_SHADER, TRIANGLE_ATTRIBUTES, 16).unwrap();
+        assert_eq!(
+            layout,
+            ShaderResourceLayout::TextureSampler {
+                group: 0,
+                texture_binding: 0,
+                sampler_binding: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_storage_texture_and_comparison_sampler() {
+        assert!(
+            validate_draw_interface_with_limit(STORAGE_TEXTURE_SHADER, &[], 16)
+                .unwrap_err()
+                .contains("unsupported shader resource")
+        );
+        assert!(
+            validate_draw_interface_with_limit(COMPARISON_SAMPLER_SHADER, &[], 16)
+                .unwrap_err()
+                .contains("filtering sampler")
+        );
+    }
+
+    #[test]
+    fn rejects_incomplete_texture_sampler_pair() {
+        assert_eq!(
+            validate_draw_interface_with_limit(TEXTURE_ONLY_SHADER, &[], 16),
+            Err("sampled texture requires one filtering sampler in the same bind group".into())
+        );
+    }
+
+    #[test]
+    fn replacement_mesh_layout_must_match_pipeline_signature() {
+        let pipeline_mesh = mesh_with_position_format(wgpu::VertexFormat::Float32x2);
+        let compatible_mesh = mesh_with_position_format(wgpu::VertexFormat::Float32x2);
+        let incompatible_mesh = mesh_with_position_format(wgpu::VertexFormat::Float32x3);
+        let pipeline_layout = pipeline_mesh.layout_signature();
+
+        assert!(replacement_layout_matches(
+            &pipeline_layout,
+            &compatible_mesh.layout_signature()
+        ));
+        assert!(!replacement_layout_matches(
+            &pipeline_layout,
+            &incompatible_mesh.layout_signature()
+        ));
     }
 
     #[test]
@@ -614,7 +843,7 @@ fn vs_main() -> @builtin(position) vec4f {
 
         assert_eq!(
             validate_draw_interface(STRUCT_INPUT_SHADER, &attributes),
-            Ok(())
+            Ok(ShaderResourceLayout::None)
         );
     }
 
@@ -642,7 +871,7 @@ fn fs_main() -> @location(0) vec4f {
     }
 
     #[test]
-    fn rejects_bind_group_resources_until_facade_can_bind_them() {
+    fn rejects_unsupported_uniform_resource() {
         let shader = r#"
 @group(0) @binding(2) var<uniform> tint: vec4f;
 
@@ -659,7 +888,7 @@ fn fs_main() -> @location(0) vec4f {
 
         assert_eq!(
             validate_draw_interface(shader, &[(0, wgpu::VertexFormat::Float32x2)]),
-            Err("shader resource @group(0) @binding(2) is unsupported".into())
+            Err("unsupported shader resource @group(0) @binding(2)".into())
         );
     }
 
@@ -799,5 +1028,21 @@ fn fs_main() -> FragmentOutput {
             validate_draw_interface(depth_output, &[]),
             Err("fragment shader must output exactly @location(0) vec4<f32>".into())
         );
+    }
+
+    fn mesh_with_position_format(format: wgpu::VertexFormat) -> belfast::Mesh {
+        belfast::Mesh::new(3)
+            .unwrap()
+            .add_vertex_buffer_layout(belfast::VertexBufferLayoutDescriptor {
+                array_stride: format.size(),
+                attributes: vec![belfast::VertexAttributeDescriptor {
+                    shader_location: 0,
+                    format,
+                    offset: 0,
+                }],
+                slot: Some(0),
+                step_mode: Some(wgpu::VertexStepMode::Vertex),
+            })
+            .unwrap()
     }
 }

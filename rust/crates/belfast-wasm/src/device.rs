@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::to_js_error;
 #[cfg(target_arch = "wasm32")]
-use crate::{WasmDraw, WasmMesh};
+use crate::WasmDraw;
 
 #[cfg(target_arch = "wasm32")]
 struct CanvasTarget {
@@ -214,12 +214,14 @@ impl WasmDevice {
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub fn render(&mut self, draw: &WasmDraw, mesh: &WasmMesh) -> Result<(), JsValue> {
+    pub fn render(&mut self, draw: &WasmDraw) -> Result<(), JsValue> {
         if let Some(error) = self.pending_gpu_errors.take() {
             return Err(to_js_error(error));
         }
-        draw.inner
-            .validate_for_render(&self.inner, mesh.inner())
+        let mesh = draw.state.mesh();
+        draw.state
+            .draw()
+            .validate_for_render(&self.inner, &mesh)
             .map_err(to_js_error)?;
         let target = self
             .canvas_target
@@ -287,7 +289,7 @@ impl WasmDevice {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            draw.inner.draw(&mut pass, mesh.inner(), 1);
+            draw.state.draw().draw(&mut pass, &mesh, 1);
         }
         self.inner.queue().submit([encoder.finish()]);
         frame.present();

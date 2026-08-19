@@ -61,6 +61,10 @@ impl WasmMesh {
     pub(crate) fn inner(&self) -> &belfast::Mesh {
         &self.inner
     }
+
+    pub(crate) fn into_inner(self) -> belfast::Mesh {
+        self.inner
+    }
 }
 
 #[wasm_bindgen(js_class = Mesh)]

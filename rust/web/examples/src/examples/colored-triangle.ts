@@ -39,7 +39,7 @@ export const coloredTriangle: WebExample = async (canvas, reportError) => {
 
     try {
       if (device.resize()) {
-        device.render(draw, mesh);
+        device.render(draw);
       }
     } catch (error) {
       stopped = true;
@@ -56,7 +56,6 @@ export const coloredTriangle: WebExample = async (canvas, reportError) => {
     stopped = true;
     cancelAnimationFrame(frame);
     draw.free();
-    mesh.free();
     positionBuffer.free();
     colorBuffer.free();
     device.free();
