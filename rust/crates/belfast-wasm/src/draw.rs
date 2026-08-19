@@ -509,8 +509,8 @@ pub struct WasmDraw {
 pub(crate) struct DrawState {
     draw: belfast::Draw,
     mesh: RefCell<belfast::Mesh>,
-    #[allow(dead_code)]
-    resources: ShaderResourceLayout,
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub(crate) resources: ShaderResourceLayout,
 }
 
 impl DrawState {

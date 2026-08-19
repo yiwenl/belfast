@@ -1,13 +1,19 @@
 //! WebAssembly facade for the Rust Belfast runtime.
 
+mod bind_group;
 mod bindings;
 mod device;
 mod draw;
 mod resources;
+mod texture;
 
+#[cfg(target_arch = "wasm32")]
+pub use bind_group::WasmBindGroup;
 pub use device::WasmDevice;
 pub use draw::WasmDraw;
 pub use resources::{WasmBuffer, WasmBufferUsage, WasmMesh};
+#[cfg(target_arch = "wasm32")]
+pub use texture::WasmTexture;
 
 use wasm_bindgen::prelude::*;
 
