@@ -1,13 +1,67 @@
 use std::sync::{Arc, Mutex};
 
 #[cfg(target_arch = "wasm32")]
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+#[cfg(any(target_arch = "wasm32", test))]
+use std::{cell::Cell, rc::Rc};
 
 use wasm_bindgen::prelude::*;
 
 use crate::to_js_error;
 #[cfg(target_arch = "wasm32")]
 use crate::{WasmDraw, WasmFrame};
+
+#[cfg(any(target_arch = "wasm32", test))]
+const ACTIVE_FRAME_SURFACE_ERROR: &str = "canvas surface is owned by an active frame";
+
+#[cfg(any(target_arch = "wasm32", test))]
+#[derive(Clone, Default)]
+pub(crate) struct SurfaceLease {
+    active: Rc<Cell<bool>>,
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+impl SurfaceLease {
+    pub(crate) fn ensure_available(&self) -> Result<(), String> {
+        if self.active.get() {
+            Err(ACTIVE_FRAME_SURFACE_ERROR.into())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) fn acquire(&self) -> Result<SurfaceLeaseGuard, String> {
+        self.ensure_available()?;
+        self.active.set(true);
+        Ok(SurfaceLeaseGuard {
+            lease: self.clone(),
+            held: true,
+        })
+    }
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+pub(crate) struct SurfaceLeaseGuard {
+    lease: SurfaceLease,
+    held: bool,
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+impl SurfaceLeaseGuard {
+    pub(crate) fn release(&mut self) {
+        if self.held {
+            self.lease.active.set(false);
+            self.held = false;
+        }
+    }
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+impl Drop for SurfaceLeaseGuard {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) struct CanvasTarget {
@@ -82,6 +136,24 @@ fn install_gpu_error_handlers(device: &wgpu::Device, pending: &PendingGpuErrors)
     });
 }
 
+#[cfg(any(target_arch = "wasm32", test))]
+fn begin_after_draw_validation<T, E>(
+    validation: Result<(), E>,
+    begin: impl FnOnce() -> Result<Option<T>, E>,
+) -> Result<Option<T>, E> {
+    validation?;
+    begin()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn validate_compatibility_draw(device: &belfast::Device, draw: &WasmDraw) -> Result<(), JsValue> {
+    let mesh = draw.state.mesh();
+    draw.state
+        .draw()
+        .validate_for_render(device, &mesh)
+        .map_err(to_js_error)
+}
+
 #[wasm_bindgen(js_name = Device)]
 pub struct WasmDevice {
     pub(crate) inner: belfast::Device,
@@ -89,6 +161,8 @@ pub struct WasmDevice {
     pending_gpu_errors: PendingGpuErrors,
     #[cfg(target_arch = "wasm32")]
     canvas_target: Option<Rc<RefCell<CanvasTarget>>>,
+    #[cfg(target_arch = "wasm32")]
+    surface_lease: SurfaceLease,
 }
 
 #[wasm_bindgen(js_class = Device)]
@@ -169,6 +243,7 @@ impl WasmDevice {
                 surface,
                 config,
             }))),
+            surface_lease: SurfaceLease::default(),
         })
     }
 
@@ -184,11 +259,14 @@ impl WasmDevice {
             pending_gpu_errors,
             #[cfg(target_arch = "wasm32")]
             canvas_target: None,
+            #[cfg(target_arch = "wasm32")]
+            surface_lease: SurfaceLease::default(),
         })
     }
 
     #[cfg(target_arch = "wasm32")]
     pub fn resize(&mut self) -> Result<bool, JsValue> {
+        self.surface_lease.ensure_available().map_err(to_js_error)?;
         let max_texture_dimension_2d = self.inner.gpu().limits().max_texture_dimension_2d;
         let Some(target) = self.canvas_target.as_ref() else {
             return Ok(false);
@@ -227,6 +305,7 @@ impl WasmDevice {
         if let Some(error) = self.pending_gpu_errors.take() {
             return Err(to_js_error(error));
         }
+        let surface_lease = self.surface_lease.acquire().map_err(to_js_error)?;
         let target = self
             .canvas_target
             .as_ref()
@@ -274,13 +353,19 @@ impl WasmDevice {
             self.pending_gpu_errors.clone(),
             target,
             frame,
+            surface_lease,
             reconfigure_after_present,
         )))
     }
 
     #[cfg(target_arch = "wasm32")]
     pub fn render(&mut self, draw: &WasmDraw) -> Result<(), JsValue> {
-        let Some(mut frame) = self.begin_frame()? else {
+        if let Some(error) = self.pending_gpu_errors.take() {
+            return Err(to_js_error(error));
+        }
+        let validation = validate_compatibility_draw(&self.inner, draw);
+        let Some(mut frame) = begin_after_draw_validation(validation, || self.begin_frame())?
+        else {
             return Ok(());
         };
         frame.render(draw, JsValue::UNDEFINED)?;
@@ -411,5 +496,49 @@ mod tests {
             pending.take().as_deref(),
             Some("WebGPU device ran out of memory")
         );
+    }
+
+    #[test]
+    fn surface_lease_rejects_overlap_until_the_active_guard_drops() {
+        let lease = SurfaceLease::default();
+        let guard = lease.acquire().unwrap();
+
+        assert_eq!(
+            lease.acquire().err().as_deref(),
+            Some("canvas surface is owned by an active frame")
+        );
+        assert_eq!(
+            lease.ensure_available().err().as_deref(),
+            Some("canvas surface is owned by an active frame")
+        );
+
+        drop(guard);
+        assert!(lease.acquire().is_ok());
+    }
+
+    #[test]
+    fn surface_lease_can_be_released_before_reconfiguration() {
+        let lease = SurfaceLease::default();
+        let mut guard = lease.acquire().unwrap();
+
+        guard.release();
+        guard.release();
+
+        assert!(lease.ensure_available().is_ok());
+        assert!(lease.acquire().is_ok());
+    }
+
+    #[test]
+    fn compatibility_render_validation_precedes_surface_acquisition() {
+        let surface_was_acquired = Cell::new(false);
+
+        let result: Result<Option<()>, String> =
+            begin_after_draw_validation(Err("invalid draw".into()), || {
+                surface_was_acquired.set(true);
+                Ok(Some(()))
+            });
+
+        assert_eq!(result, Err("invalid draw".into()));
+        assert!(!surface_was_acquired.get());
     }
 }

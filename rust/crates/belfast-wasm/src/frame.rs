@@ -11,10 +11,60 @@ use wasm_bindgen::{convert::TryFromJsValue, prelude::*, JsCast};
 #[cfg(target_arch = "wasm32")]
 use crate::{
     bind_group::BindGroupState,
-    device::{CanvasTarget, PendingGpuErrors},
+    device::{CanvasTarget, PendingGpuErrors, SurfaceLeaseGuard},
     draw::{DrawState, ShaderResourceLayout},
     to_js_error, WasmBindGroup, WasmDraw, WasmRenderTarget,
 };
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(inline_js = r#"
+export function borrowWasmClass(value) {
+    return new Proxy(value, {
+        get(target, property, receiver) {
+            if (property !== "__destroy_into_raw") {
+                return Reflect.get(target, property, receiver);
+            }
+            return () => {
+                const pointerDescriptor = Object.getOwnPropertyDescriptor(target, "__wbg_ptr");
+                const pointer = pointerDescriptor?.value;
+                if (!Number.isInteger(pointer) || pointer <= 0 || pointer > 0xffffffff) {
+                    return 0;
+                }
+
+                const prototype = Object.getPrototypeOf(target);
+                const cloneMethod = Object.getOwnPropertyDescriptor(
+                    prototype,
+                    "__frameHandle",
+                )?.value;
+                if (typeof cloneMethod !== "function") {
+                    return 0;
+                }
+
+                const clone = Reflect.apply(cloneMethod, target, []);
+                const clonePrototype = Object.getPrototypeOf(clone);
+                const takeMethod = Object.getOwnPropertyDescriptor(
+                    clonePrototype,
+                    "__destroy_into_raw",
+                )?.value;
+                if (typeof takeMethod !== "function") {
+                    return 0;
+                }
+                return Reflect.apply(takeMethod, clone, []);
+            };
+        },
+    });
+}
+"#)]
+extern "C" {
+    #[wasm_bindgen(js_name = borrowWasmClass)]
+    fn borrow_wasm_class(value: &JsValue) -> JsValue;
+}
+
+#[cfg(target_arch = "wasm32")]
+std::thread_local! {
+    static RENDER_TARGET_WRAPPERS: js_sys::WeakMap = js_sys::WeakMap::new();
+    static BIND_GROUP_WRAPPERS: js_sys::WeakMap = js_sys::WeakMap::new();
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct DeviceKey(u64);
@@ -105,6 +155,34 @@ fn validate_clear_color(color: wgpu::Color) -> Result<wgpu::Color, String> {
     } else {
         Err("clearColor components must be finite".into())
     }
+}
+
+fn validate_live_wrapper_pointer(pointer: Option<f64>) -> Result<u32, String> {
+    let Some(pointer) = pointer else {
+        return Err("wrapper must contain a live wasm pointer".into());
+    };
+    if !pointer.is_finite()
+        || pointer.fract() != 0.0
+        || pointer < 1.0
+        || pointer > f64::from(u32::MAX)
+    {
+        return Err("wrapper must contain a live wasm pointer".into());
+    }
+    Ok(pointer as u32)
+}
+
+fn validate_registered_wrapper_pointer(
+    current: Option<f64>,
+    registered: Option<f64>,
+) -> Result<u32, String> {
+    const ERROR: &str = "wrapper must be registered with its original live wasm pointer";
+
+    let current = validate_live_wrapper_pointer(current).map_err(|_| ERROR.to_owned())?;
+    let registered = validate_live_wrapper_pointer(registered).map_err(|_| ERROR.to_owned())?;
+    if current != registered {
+        return Err(ERROR.into());
+    }
+    Ok(current)
 }
 
 #[derive(Debug, PartialEq)]
@@ -231,10 +309,14 @@ fn optional_render_target(value: JsValue) -> Result<Option<WasmRenderTarget>, Js
     if value.is_null() || value.is_undefined() {
         return Ok(None);
     }
-    let handle = clone_frame_handle(&value, "RenderTarget")?;
+    let handle = borrow_registered_wasm_class(
+        &value,
+        &RENDER_TARGET_WRAPPERS,
+        "target must be a live RenderTarget or null",
+    )?;
     WasmRenderTarget::try_from_js_value(handle)
         .map(Some)
-        .map_err(|_| to_js_error("target must be a RenderTarget or null"))
+        .map_err(|_| to_js_error("target must be a live RenderTarget or null"))
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -242,19 +324,85 @@ fn optional_bind_group(value: JsValue) -> Result<Option<WasmBindGroup>, JsValue>
     if value.is_null() || value.is_undefined() {
         return Ok(None);
     }
-    let handle = clone_frame_handle(&value, "BindGroup")?;
+    let handle = borrow_registered_wasm_class(
+        &value,
+        &BIND_GROUP_WRAPPERS,
+        "bindGroup must be a live BindGroup or null",
+    )?;
     WasmBindGroup::try_from_js_value(handle)
         .map(Some)
-        .map_err(|_| to_js_error("bindGroup must be a BindGroup or null"))
+        .map_err(|_| to_js_error("bindGroup must be a live BindGroup or null"))
 }
 
 #[cfg(target_arch = "wasm32")]
-fn clone_frame_handle(value: &JsValue, class_name: &str) -> Result<JsValue, JsValue> {
-    // wasm-bindgen cannot export Option<&Class>; consume a cloned wrapper, not the caller's.
-    let method = js_sys::Reflect::get(value, &JsValue::from_str("__frameHandle"))?
-        .dyn_into::<js_sys::Function>()
-        .map_err(|_| to_js_error(format!("value must be a {class_name}")))?;
-    method.call0(value)
+fn wrapper_object_and_pointer<'a>(
+    value: &'a JsValue,
+    error: &str,
+) -> Result<(&'a js_sys::Object, Option<f64>), JsValue> {
+    let object = value
+        .dyn_ref::<js_sys::Object>()
+        .ok_or_else(|| to_js_error(error))?;
+    let descriptor =
+        js_sys::Reflect::get_own_property_descriptor(object, &JsValue::from_str("__wbg_ptr"))
+            .map_err(|_| to_js_error(error))?;
+    let pointer = if descriptor.is_undefined() {
+        None
+    } else {
+        js_sys::Reflect::get(&descriptor, &JsValue::from_str("value"))
+            .ok()
+            .and_then(|value| value.as_f64())
+    };
+    Ok((object, pointer))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn register_wasm_class(
+    value: &JsValue,
+    wrappers: &'static std::thread::LocalKey<js_sys::WeakMap>,
+    error: &str,
+) -> Result<(), JsValue> {
+    let (object, pointer) = wrapper_object_and_pointer(value, error)?;
+    let pointer = validate_live_wrapper_pointer(pointer).map_err(|_| to_js_error(error))?;
+    wrappers.with(|wrappers| {
+        wrappers.set(object, &JsValue::from_f64(f64::from(pointer)));
+    });
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn borrow_registered_wasm_class(
+    value: &JsValue,
+    wrappers: &'static std::thread::LocalKey<js_sys::WeakMap>,
+    error: &str,
+) -> Result<JsValue, JsValue> {
+    let (object, current_pointer) = wrapper_object_and_pointer(value, error)?;
+    let registered_pointer = wrappers
+        .with(|wrappers| wrappers.get_checked(object))
+        .and_then(|pointer| pointer.as_f64());
+    validate_registered_wrapper_pointer(current_pointer, registered_pointer)
+        .map_err(|_| to_js_error(error))?;
+
+    // Exact object identity and the original pointer are checked before the
+    // generated lexical instanceof check can clone or enter a Rust &self method.
+    Ok(borrow_wasm_class(value))
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn register_render_target_wrapper(value: &JsValue) -> Result<(), JsValue> {
+    register_wasm_class(
+        value,
+        &RENDER_TARGET_WRAPPERS,
+        "failed to register RenderTarget wrapper",
+    )
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn register_bind_group_wrapper(value: &JsValue) -> Result<(), JsValue> {
+    register_wasm_class(
+        value,
+        &BIND_GROUP_WRAPPERS,
+        "failed to register BindGroup wrapper",
+    )
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -282,7 +430,8 @@ pub struct WasmFrame {
     device: belfast::Device,
     pending_gpu_errors: PendingGpuErrors,
     canvas_target: Rc<RefCell<CanvasTarget>>,
-    surface_texture: wgpu::SurfaceTexture,
+    surface_texture: Option<wgpu::SurfaceTexture>,
+    surface_lease: SurfaceLeaseGuard,
     canvas_view: wgpu::TextureView,
     reconfigure_after_present: bool,
     plan: FramePlan,
@@ -298,6 +447,7 @@ impl WasmFrame {
         pending_gpu_errors: PendingGpuErrors,
         canvas_target: Rc<RefCell<CanvasTarget>>,
         surface_texture: wgpu::SurfaceTexture,
+        surface_lease: SurfaceLeaseGuard,
         reconfigure_after_present: bool,
     ) -> Self {
         let canvas_view = surface_texture
@@ -307,7 +457,8 @@ impl WasmFrame {
             device,
             pending_gpu_errors,
             canvas_target,
-            surface_texture,
+            surface_texture: Some(surface_texture),
+            surface_lease,
             canvas_view,
             reconfigure_after_present,
             plan: FramePlan::new(),
@@ -315,6 +466,14 @@ impl WasmFrame {
             draws: HashMap::new(),
             bind_groups: HashMap::new(),
         }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Drop for WasmFrame {
+    fn drop(&mut self) {
+        drop(self.surface_texture.take());
+        self.surface_lease.release();
     }
 }
 
@@ -399,39 +558,38 @@ impl WasmFrame {
             .map_err(to_js_error)
     }
 
-    pub fn submit(self) -> Result<(), JsValue> {
-        let Self {
-            device,
-            pending_gpu_errors,
-            canvas_target,
-            surface_texture,
-            canvas_view,
-            reconfigure_after_present,
-            plan,
-            render_targets,
-            draws,
-            bind_groups,
-        } = self;
+    pub fn submit(mut self) -> Result<(), JsValue> {
+        let plan = std::mem::replace(&mut self.plan, FramePlan::new());
         let planned_passes = plan.finish().map_err(to_js_error)?;
-        let logical_passes =
-            materialize_passes(planned_passes, &render_targets, &draws, &bind_groups)
-                .map_err(to_js_error)?;
-        let mut encoder = device
-            .gpu()
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("BelfastFrameEncoder"),
-            });
+        let logical_passes = materialize_passes(
+            planned_passes,
+            &self.render_targets,
+            &self.draws,
+            &self.bind_groups,
+        )
+        .map_err(to_js_error)?;
+        let mut encoder =
+            self.device
+                .gpu()
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("BelfastFrameEncoder"),
+                });
 
         for logical_pass in logical_passes {
-            encode_logical_pass(&mut encoder, &canvas_view, logical_pass);
+            encode_logical_pass(&mut encoder, &self.canvas_view, logical_pass);
         }
 
-        device.queue().submit([encoder.finish()]);
+        self.device.queue().submit([encoder.finish()]);
+        let surface_texture = self
+            .surface_texture
+            .take()
+            .ok_or_else(|| to_js_error("frame surface texture is unavailable"))?;
         surface_texture.present();
-        if reconfigure_after_present {
-            canvas_target.borrow().configure(device.gpu());
+        self.surface_lease.release();
+        if self.reconfigure_after_present {
+            self.canvas_target.borrow().configure(self.device.gpu());
         }
-        if let Some(error) = pending_gpu_errors.take() {
+        if let Some(error) = self.pending_gpu_errors.take() {
             return Err(to_js_error(error));
         }
         Ok(())
@@ -703,6 +861,49 @@ mod tests {
             assert_eq!(
                 validate_clear_color(color),
                 Err("clearColor components must be finite".into())
+            );
+        }
+    }
+
+    #[test]
+    fn optional_wrapper_pointer_must_be_a_live_wasm_pointer() {
+        assert_eq!(validate_live_wrapper_pointer(Some(1.0)), Ok(1));
+        assert_eq!(
+            validate_live_wrapper_pointer(Some(f64::from(u32::MAX))),
+            Ok(u32::MAX)
+        );
+
+        for pointer in [
+            None,
+            Some(0.0),
+            Some(-1.0),
+            Some(1.5),
+            Some(f64::NAN),
+            Some(f64::INFINITY),
+            Some(f64::from(u32::MAX) + 1.0),
+        ] {
+            assert_eq!(
+                validate_live_wrapper_pointer(pointer),
+                Err("wrapper must contain a live wasm pointer".into())
+            );
+        }
+    }
+
+    #[test]
+    fn optional_wrapper_requires_registered_identity_and_original_pointer() {
+        assert_eq!(
+            validate_registered_wrapper_pointer(Some(7.0), Some(7.0)),
+            Ok(7)
+        );
+
+        for (current, registered) in [
+            (Some(7.0), None),
+            (Some(8.0), Some(7.0)),
+            (Some(0.0), Some(7.0)),
+        ] {
+            assert_eq!(
+                validate_registered_wrapper_pointer(current, registered),
+                Err("wrapper must be registered with its original live wasm pointer".into())
             );
         }
     }

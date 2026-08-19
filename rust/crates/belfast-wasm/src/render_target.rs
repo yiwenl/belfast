@@ -52,8 +52,8 @@ pub struct WasmRenderTarget {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_class = RenderTarget)]
 impl WasmRenderTarget {
-    #[wasm_bindgen(js_name = create)]
-    pub fn create(device: &WasmDevice, options: JsValue) -> Result<WasmRenderTarget, JsValue> {
+    #[wasm_bindgen(js_name = create, unchecked_return_type = "RenderTarget")]
+    pub fn create(device: &WasmDevice, options: JsValue) -> Result<JsValue, JsValue> {
         let options: RenderTargetOptionsInput =
             serde_wasm_bindgen::from_value(options).map_err(to_js_error)?;
         validate_render_target_dimensions(
@@ -75,10 +75,12 @@ impl WasmRenderTarget {
             },
         );
 
-        Ok(Self {
+        let wrapper = JsValue::from(Self {
             target: Rc::new(RefCell::new(target)),
             device: device.inner.clone(),
-        })
+        });
+        crate::frame::register_render_target_wrapper(&wrapper)?;
+        Ok(wrapper)
     }
 
     #[wasm_bindgen(getter)]

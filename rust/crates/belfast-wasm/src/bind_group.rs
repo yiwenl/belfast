@@ -115,13 +115,13 @@ pub struct WasmBindGroup {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_class = BindGroup)]
 impl WasmBindGroup {
-    #[wasm_bindgen(js_name = fromTexture)]
+    #[wasm_bindgen(js_name = fromTexture, unchecked_return_type = "BindGroup")]
     pub fn from_texture(
         device: &WasmDevice,
         draw: &WasmDraw,
         texture: &WasmTexture,
         options: Option<JsValue>,
-    ) -> Result<WasmBindGroup, JsValue> {
+    ) -> Result<JsValue, JsValue> {
         let options: BindGroupOptionsInput = options
             .map(serde_wasm_bindgen::from_value)
             .transpose()
@@ -160,23 +160,25 @@ impl WasmBindGroup {
             &options.label,
         );
 
-        Ok(Self {
+        let wrapper = JsValue::from(Self {
             state: Rc::new(BindGroupState {
                 bind_group,
                 draw: draw.state.clone(),
                 group_index: options.group_index,
                 source: BindGroupSource::Texture(texture.state.clone()),
             }),
-        })
+        });
+        crate::frame::register_bind_group_wrapper(&wrapper)?;
+        Ok(wrapper)
     }
 
-    #[wasm_bindgen(js_name = fromRenderTarget)]
+    #[wasm_bindgen(js_name = fromRenderTarget, unchecked_return_type = "BindGroup")]
     pub fn from_render_target(
         device: &WasmDevice,
         draw: &WasmDraw,
         render_target: &WasmRenderTarget,
         options: Option<JsValue>,
-    ) -> Result<WasmBindGroup, JsValue> {
+    ) -> Result<JsValue, JsValue> {
         let options: BindGroupOptionsInput = options
             .map(serde_wasm_bindgen::from_value)
             .transpose()
@@ -220,14 +222,16 @@ impl WasmBindGroup {
             )
         };
 
-        Ok(Self {
+        let wrapper = JsValue::from(Self {
             state: Rc::new(BindGroupState {
                 bind_group,
                 draw: draw.state.clone(),
                 group_index: options.group_index,
                 source: BindGroupSource::RenderTarget(render_target.target.clone()),
             }),
-        })
+        });
+        crate::frame::register_bind_group_wrapper(&wrapper)?;
+        Ok(wrapper)
     }
 
     #[wasm_bindgen(js_name = __frameHandle, skip_typescript)]
