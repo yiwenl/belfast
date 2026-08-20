@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "belfast-review-bridge": {
-      "command": "uv",
-      "args": ["run", "--directory", "mcp", "server.py"]
-    }
-  }
-}
