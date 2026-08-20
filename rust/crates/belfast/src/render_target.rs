@@ -268,10 +268,10 @@ impl RenderTarget {
                 height: self.height,
                 format: self.format,
                 sample_count: self.sample_count,
-                depth_format: self.with_depth.then_some(
+                depth_format: self.with_depth.then(|| {
                     self.depth_format
-                        .expect("depth format exists when with_depth"),
-                ),
+                        .expect("depth format exists when with_depth")
+                }),
                 depth_texture_usage: self.depth_texture_usage,
             },
         );

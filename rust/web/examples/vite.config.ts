@@ -10,6 +10,7 @@ export default defineConfig({
         main: "index.html",
         basic: "basic/index.html",
         template: "template/index.html",
+        instancing: "instancing/index.html",
       },
     },
   },

@@ -265,6 +265,7 @@ enum PlannedDrawable {
 struct PlannedRenderCommand {
     drawable: PlannedDrawable,
     bind_group: Option<BindGroupKey>,
+    instance_count: u32,
 }
 
 #[derive(Debug, PartialEq)]
@@ -272,6 +273,7 @@ struct PlannedRenderPass {
     target: TargetKey,
     load_op: PlannedLoadOp,
     clear_color: wgpu::Color,
+    depth: bool,
     commands: Vec<PlannedRenderCommand>,
 }
 
@@ -290,10 +292,12 @@ enum RecordedCommand {
     BindTarget {
         target: TargetKey,
         clear_color: wgpu::Color,
+        depth: bool,
     },
     Render {
         drawable: PlannedDrawable,
         bind_group: Option<BindGroupKey>,
+        instance_count: u32,
     },
     Dispatch {
         compute: ComputeKey,
@@ -313,17 +317,24 @@ impl FramePlan {
         }
     }
 
-    fn bind_target(&mut self, target: TargetKey, clear_color: wgpu::Color) {
+    fn bind_target(&mut self, target: TargetKey, clear_color: wgpu::Color, depth: bool) {
         self.commands.push(RecordedCommand::BindTarget {
             target,
             clear_color,
+            depth,
         });
     }
 
-    fn render(&mut self, draw: DrawKey, bind_group: Option<BindGroupKey>) -> Result<(), String> {
+    fn render(
+        &mut self,
+        draw: DrawKey,
+        bind_group: Option<BindGroupKey>,
+        instance_count: u32,
+    ) -> Result<(), String> {
         self.commands.push(RecordedCommand::Render {
             drawable: PlannedDrawable::Draw(draw),
             bind_group,
+            instance_count,
         });
         Ok(())
     }
@@ -332,6 +343,7 @@ impl FramePlan {
         self.commands.push(RecordedCommand::Render {
             drawable: PlannedDrawable::Axis(axis),
             bind_group: Some(bind_group),
+            instance_count: 1,
         });
         Ok(())
     }
@@ -353,7 +365,7 @@ impl FramePlan {
     fn finish(self) -> Result<Vec<PlannedOp>, String> {
         let mut ops = Vec::new();
         let mut current_pass: Option<PlannedRenderPass> = None;
-        let mut bound_target: Option<(TargetKey, wgpu::Color)> = None;
+        let mut bound_target: Option<(TargetKey, wgpu::Color, bool)> = None;
         let mut next_load = HashMap::new();
 
         let flush_pass =
@@ -373,19 +385,21 @@ impl FramePlan {
                 RecordedCommand::BindTarget {
                     target,
                     clear_color,
+                    depth,
                 } => {
                     flush_pass(&mut current_pass, &mut ops, &mut next_load);
-                    bound_target = Some((target, clear_color));
+                    bound_target = Some((target, clear_color, depth));
                     next_load.insert(target, PlannedLoadOp::Clear);
                 }
                 RecordedCommand::Render {
                     drawable,
                     bind_group,
+                    instance_count,
                 } => {
-                    let (target, clear_color) =
-                        bound_target.unwrap_or_else(|| (TargetKey::Canvas, default_clear_color()));
+                    let (target, clear_color, depth) = bound_target
+                        .unwrap_or_else(|| (TargetKey::Canvas, default_clear_color(), false));
                     if bound_target.is_none() {
-                        bound_target = Some((target, clear_color));
+                        bound_target = Some((target, clear_color, depth));
                     }
                     let needs_new_pass = current_pass
                         .as_ref()
@@ -399,6 +413,7 @@ impl FramePlan {
                                 .copied()
                                 .unwrap_or(PlannedLoadOp::Clear),
                             clear_color,
+                            depth,
                             commands: Vec::new(),
                         });
                     }
@@ -409,6 +424,7 @@ impl FramePlan {
                         .push(PlannedRenderCommand {
                             drawable,
                             bind_group,
+                            instance_count,
                         });
                 }
                 RecordedCommand::Dispatch {
@@ -448,6 +464,8 @@ fn default_clear_color() -> wgpu::Color {
 struct FramePassOptionsInput {
     #[serde(default)]
     clear_color: Option<ClearColorInput>,
+    #[serde(default)]
+    depth: bool,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -473,19 +491,20 @@ impl From<ClearColorInput> for wgpu::Color {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn parse_clear_color(options: JsValue) -> Result<wgpu::Color, JsValue> {
+fn parse_pass_options(options: JsValue) -> Result<(wgpu::Color, bool), JsValue> {
     let options = if options.is_undefined() {
         FramePassOptionsInput::default()
     } else {
         serde_wasm_bindgen::from_value(options).map_err(to_js_error)?
     };
-    validate_clear_color(
+    let clear_color = validate_clear_color(
         options
             .clear_color
             .map(Into::into)
             .unwrap_or_else(default_clear_color),
     )
-    .map_err(to_js_error)
+    .map_err(to_js_error)?;
+    Ok((clear_color, options.depth))
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -626,6 +645,7 @@ enum RenderCommand {
     Draw {
         draw: Rc<DrawState>,
         bind_group: Option<Rc<BindGroupState>>,
+        instance_count: u32,
     },
     Axis {
         axis: Rc<AxisHelperState>,
@@ -645,6 +665,7 @@ struct LogicalPass {
     target: FrameTarget,
     load_op: PlannedLoadOp,
     clear_color: wgpu::Color,
+    depth: bool,
     commands: Vec<RenderCommand>,
 }
 
@@ -653,6 +674,15 @@ enum LogicalOp {
     Compute(ComputeCommand),
     Render(LogicalPass),
 }
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(typescript_custom_section)]
+const FRAME_PASS_TYPES: &str = r#"
+export interface FramePassOptions {
+  clearColor?: { r: number; g: number; b: number; a: number };
+  depth?: boolean;
+}
+"#;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = Frame)]
@@ -706,6 +736,7 @@ impl WasmFrame {
         &mut self,
         draw: &WasmDraw,
         bind_group: JsValue,
+        instance_count: u32,
     ) -> Result<(), JsValue> {
         let bind_group_handle = optional_bind_group(bind_group)?;
         let bind_group = bind_group_handle.as_ref();
@@ -738,7 +769,11 @@ impl WasmFrame {
             );
         }
         self.plan
-            .render(draw_key, bind_group_validation.map(|binding| binding.key))
+            .render(
+                draw_key,
+                bind_group_validation.map(|binding| binding.key),
+                instance_count,
+            )
             .map_err(to_js_error)
     }
 
@@ -785,9 +820,9 @@ impl WasmFrame {
     pub fn bind_target(
         &mut self,
         #[wasm_bindgen(unchecked_optional_param_type = "RenderTarget | null")] target: JsValue,
-        #[wasm_bindgen(unchecked_optional_param_type = "unknown")] options: JsValue,
+        #[wasm_bindgen(unchecked_optional_param_type = "FramePassOptions")] options: JsValue,
     ) -> Result<(), JsValue> {
-        let clear_color = parse_clear_color(options)?;
+        let (clear_color, mut depth) = parse_pass_options(options)?;
         let target_handle = optional_render_target(target)?;
         let target = if let Some(target) = target_handle.as_ref() {
             let target_key = TargetKey::Offscreen(rc_key(&target.target));
@@ -807,7 +842,8 @@ impl WasmFrame {
         } else {
             TargetKey::Canvas
         };
-        self.plan.bind_target(target, clear_color);
+        depth &= matches!(target, TargetKey::Canvas);
+        self.plan.bind_target(target, clear_color, depth);
         Ok(())
     }
 
@@ -819,10 +855,33 @@ impl WasmFrame {
             unchecked_optional_param_type = "BindGroup | null"
         )]
         bind_group: JsValue,
+        #[wasm_bindgen(js_name = instanceCount, unchecked_optional_param_type = "number")]
+        instance_count: JsValue,
     ) -> Result<(), JsValue> {
+        let has_instance_count = !instance_count.is_undefined() && !instance_count.is_null();
         match parse_draw_or_axis_helper(&drawable)? {
-            DrawOrAxisHelper::Draw(draw) => self.render_draw(&draw, bind_group),
-            DrawOrAxisHelper::Axis(axes) => self.render_axis(&axes, bind_group),
+            DrawOrAxisHelper::Draw(draw) => {
+                let instance_count = if has_instance_count {
+                    Some(instance_count.as_f64().ok_or_else(|| {
+                        to_js_error(
+                            "instanceCount must be a finite integer between 0 and 4294967295",
+                        )
+                    })?)
+                } else {
+                    None
+                };
+                let instance_count =
+                    crate::bindings::parse_instance_count(instance_count).map_err(to_js_error)?;
+                self.render_draw(&draw, bind_group, instance_count)
+            }
+            DrawOrAxisHelper::Axis(axes) => {
+                if has_instance_count {
+                    return Err(to_js_error(
+                        "instanceCount is only supported when rendering a Draw",
+                    ));
+                }
+                self.render_axis(&axes, bind_group)
+            }
         }
     }
 
@@ -899,8 +958,25 @@ impl WasmFrame {
                     label: Some("BelfastFrameEncoder"),
                 });
 
+        let needs_canvas_depth = logical_ops.iter().any(|op| match op {
+            LogicalOp::Render(pass) => matches!(pass.target, FrameTarget::Canvas) && pass.depth,
+            LogicalOp::Compute(_) => false,
+        });
+        if needs_canvas_depth {
+            let (width, height) = self.canvas_target.borrow().size();
+            self.canvas_target
+                .borrow_mut()
+                .ensure_depth(self.device.gpu(), width, height)
+                .map_err(to_js_error)?;
+        }
+
         for logical_op in logical_ops {
-            encode_logical_op(&mut encoder, &self.canvas_view, logical_op);
+            encode_logical_op(
+                &mut encoder,
+                &self.canvas_view,
+                &self.canvas_target,
+                logical_op,
+            );
         }
 
         self.device.queue().submit([encoder.finish()]);
@@ -934,6 +1010,14 @@ fn bind_group_validation(bind_group: &WasmBindGroup) -> BindGroupValidation {
             .axis_helper()
             .map(|axis| AxisKey(rc_key(axis))),
         device: device_key(bind_group.state.bind_group().device()),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn depth_load_op(load_op: PlannedLoadOp) -> wgpu::LoadOp<f32> {
+    match load_op {
+        PlannedLoadOp::Clear => wgpu::LoadOp::Clear(1.0),
+        PlannedLoadOp::Load => wgpu::LoadOp::Load,
     }
 }
 
@@ -1006,6 +1090,7 @@ fn materialize_ops(
                                     .cloned()
                                     .ok_or_else(|| "frame draw is unavailable".to_owned())?,
                                 bind_group,
+                                instance_count: command.instance_count,
                             }),
                             PlannedDrawable::Axis(axis) => Ok(RenderCommand::Axis {
                                 axis: axes
@@ -1023,6 +1108,7 @@ fn materialize_ops(
                     target,
                     load_op: planned_pass.load_op,
                     clear_color: planned_pass.clear_color,
+                    depth: planned_pass.depth,
                     commands,
                 }))
             }
@@ -1034,12 +1120,13 @@ fn materialize_ops(
 fn encode_logical_op(
     encoder: &mut wgpu::CommandEncoder,
     canvas_view: &wgpu::TextureView,
+    canvas_target: &RefCell<CanvasTarget>,
     logical_op: LogicalOp,
 ) {
     match logical_op {
         LogicalOp::Compute(command) => encode_compute_command(encoder, command),
         LogicalOp::Render(logical_pass) => {
-            encode_logical_pass(encoder, canvas_view, logical_pass);
+            encode_logical_pass(encoder, canvas_view, canvas_target, logical_pass);
         }
     }
 }
@@ -1065,15 +1152,18 @@ fn encode_compute_command(encoder: &mut wgpu::CommandEncoder, command: ComputeCo
 fn encode_logical_pass(
     encoder: &mut wgpu::CommandEncoder,
     canvas_view: &wgpu::TextureView,
+    canvas_target: &RefCell<CanvasTarget>,
     logical_pass: LogicalPass,
 ) {
     let LogicalPass {
         target,
         load_op,
         clear_color,
+        depth,
         commands,
     } = logical_pass;
     let color_load = color_load_op(load_op, clear_color);
+    let depth_load = depth_load_op(load_op);
     let draw_meshes: Vec<_> = commands
         .iter()
         .map(|command| match command {
@@ -1084,6 +1174,7 @@ fn encode_logical_pass(
 
     match target {
         FrameTarget::Canvas => {
+            let canvas_target = canvas_target.borrow();
             let color_attachments = [Some(wgpu::RenderPassColorAttachment {
                 view: canvas_view,
                 depth_slice: None,
@@ -1093,10 +1184,24 @@ fn encode_logical_pass(
                     store: wgpu::StoreOp::Store,
                 },
             })];
+            let depth_stencil_attachment = if depth {
+                canvas_target
+                    .depth_view()
+                    .map(|view| wgpu::RenderPassDepthStencilAttachment {
+                        view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: depth_load,
+                            store: wgpu::StoreOp::Store,
+                        }),
+                        stencil_ops: None,
+                    })
+            } else {
+                None
+            };
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("BelfastCanvasRenderPass"),
                 color_attachments: &color_attachments,
-                depth_stencil_attachment: None,
+                depth_stencil_attachment,
                 timestamp_writes: None,
                 occlusion_query_set: None,
                 multiview_mask: None,
@@ -1110,10 +1215,6 @@ fn encode_logical_pass(
                 belfast::RenderPassOptions {
                     clear_color,
                     load_op: color_load,
-                    depth_load_op: match load_op {
-                        PlannedLoadOp::Clear => wgpu::LoadOp::Clear(1.0),
-                        PlannedLoadOp::Load => wgpu::LoadOp::Load,
-                    },
                     ..Default::default()
                 },
             );
@@ -1130,14 +1231,18 @@ fn encode_render_commands<'pass>(
 ) {
     for (command, mesh) in commands.iter().zip(draw_meshes) {
         match command {
-            RenderCommand::Draw { draw, bind_group } => {
+            RenderCommand::Draw {
+                draw,
+                bind_group,
+                instance_count,
+            } => {
                 if let Some(bind_group) = bind_group.as_ref() {
                     bind_group.bind_group().bind(pass, bind_group.group_index());
                 }
                 draw.draw().draw(
                     pass,
                     mesh.as_ref().expect("draw command requires a mesh"),
-                    1,
+                    *instance_count,
                 );
             }
             RenderCommand::Axis { axis, bind_group } => {
@@ -1233,10 +1338,10 @@ mod tests {
     #[test]
     fn binding_a_new_target_closes_the_previous_logical_pass() {
         let mut plan = FramePlan::new();
-        plan.bind_target(TargetKey::Offscreen(7), clear(0.1));
-        plan.render(DrawKey(1), None).unwrap();
-        plan.bind_target(TargetKey::Canvas, clear(0.0));
-        plan.render(DrawKey(2), Some(BindGroupKey(3))).unwrap();
+        plan.bind_target(TargetKey::Offscreen(7), clear(0.1), false);
+        plan.render(DrawKey(1), None, 1).unwrap();
+        plan.bind_target(TargetKey::Canvas, clear(0.0), false);
+        plan.render(DrawKey(2), Some(BindGroupKey(3)), 1).unwrap();
 
         let ops = plan.finish().unwrap();
         assert_eq!(ops.len(), 2);
@@ -1249,7 +1354,7 @@ mod tests {
     #[test]
     fn render_without_bind_defaults_to_canvas() {
         let mut plan = FramePlan::new();
-        plan.render(DrawKey(1), None).unwrap();
+        plan.render(DrawKey(1), None, 1).unwrap();
         assert_eq!(
             render_pass(&plan.finish().unwrap()[0]).target,
             TargetKey::Canvas
@@ -1281,11 +1386,11 @@ mod tests {
     #[test]
     fn compute_splits_render_pass_and_reopens_with_load() {
         let mut plan = FramePlan::new();
-        plan.bind_target(TargetKey::Canvas, clear(0.2));
-        plan.render(DrawKey(1), None).unwrap();
+        plan.bind_target(TargetKey::Canvas, clear(0.2), false);
+        plan.render(DrawKey(1), None, 1).unwrap();
         plan.dispatch(ComputeKey(7), Some(BindGroupKey(8)), [4, 1, 1])
             .unwrap();
-        plan.render(DrawKey(2), None).unwrap();
+        plan.render(DrawKey(2), None, 1).unwrap();
 
         let ops = plan.finish().unwrap();
         assert_eq!(ops.len(), 3);
@@ -1305,11 +1410,11 @@ mod tests {
     #[test]
     fn bind_target_after_compute_clears_again() {
         let mut plan = FramePlan::new();
-        plan.bind_target(TargetKey::Canvas, clear(0.2));
-        plan.render(DrawKey(1), None).unwrap();
+        plan.bind_target(TargetKey::Canvas, clear(0.2), false);
+        plan.render(DrawKey(1), None, 1).unwrap();
         plan.dispatch(ComputeKey(7), None, [1, 1, 1]).unwrap();
-        plan.bind_target(TargetKey::Canvas, clear(0.9));
-        plan.render(DrawKey(2), None).unwrap();
+        plan.bind_target(TargetKey::Canvas, clear(0.9), false);
+        plan.render(DrawKey(2), None, 1).unwrap();
 
         let ops = plan.finish().unwrap();
         assert_eq!(render_pass(&ops[2]).load_op, PlannedLoadOp::Clear);
@@ -1361,10 +1466,42 @@ mod tests {
     }
 
     #[test]
+    fn instance_counts_survive_pass_splits_and_depth_is_preserved() {
+        let mut plan = FramePlan::new();
+        plan.bind_target(TargetKey::Canvas, clear(0.2), true);
+        plan.render(DrawKey(1), None, 64).unwrap();
+        plan.dispatch(ComputeKey(7), None, [1, 1, 1]).unwrap();
+        plan.render(DrawKey(2), None, 128).unwrap();
+
+        let ops = plan.finish().unwrap();
+        assert_eq!(ops.len(), 3);
+        let first = render_pass(&ops[0]);
+        assert!(first.depth);
+        assert_eq!(first.load_op, PlannedLoadOp::Clear);
+        assert_eq!(first.commands[0].instance_count, 64);
+        let second = render_pass(&ops[2]);
+        assert!(second.depth);
+        assert_eq!(second.load_op, PlannedLoadOp::Load);
+        assert_eq!(second.commands[0].instance_count, 128);
+    }
+
+    #[test]
+    fn bind_target_depth_is_used_on_the_next_pass() {
+        let mut plan = FramePlan::new();
+        plan.bind_target(TargetKey::Canvas, clear(0.1), true);
+        plan.render(DrawKey(1), None, 1).unwrap();
+
+        let ops = plan.finish().unwrap();
+        let pass = render_pass(&ops[0]);
+        assert!(pass.depth);
+        assert_eq!(pass.commands[0].instance_count, 1);
+    }
+
+    #[test]
     fn axis_helper_joins_the_current_render_pass() {
         let mut plan = FramePlan::new();
-        plan.bind_target(TargetKey::Canvas, clear(0.2));
-        plan.render(DrawKey(1), None).unwrap();
+        plan.bind_target(TargetKey::Canvas, clear(0.2), false);
+        plan.render(DrawKey(1), None, 1).unwrap();
         plan.render_axis(AxisKey(2), BindGroupKey(3)).unwrap();
 
         let ops = plan.finish().unwrap();
@@ -1375,6 +1512,7 @@ mod tests {
             PlannedRenderCommand {
                 drawable: PlannedDrawable::Axis(AxisKey(2)),
                 bind_group: Some(BindGroupKey(3)),
+                instance_count: 1,
             }
         );
     }

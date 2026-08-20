@@ -2,7 +2,16 @@ use std::rc::Rc;
 
 use wasm_bindgen::prelude::*;
 
-use crate::{to_js_error, WasmDevice};
+use crate::{bindings, to_js_error, WasmDevice};
+
+#[wasm_bindgen(typescript_custom_section)]
+const AXIS_HELPER_OPTION_TYPES: &str = r#"
+export interface AxisHelperOptions {
+  length?: number;
+  label?: string;
+  depth?: boolean;
+}
+"#;
 
 #[derive(Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -11,6 +20,8 @@ struct AxisHelperOptionsInput {
     length: Option<f32>,
     #[serde(default)]
     label: Option<String>,
+    #[serde(default)]
+    depth: bool,
 }
 
 pub(crate) struct AxisHelperState {
@@ -34,7 +45,12 @@ pub struct WasmAxisHelper {
 #[wasm_bindgen(js_class = AxisHelper)]
 impl WasmAxisHelper {
     #[wasm_bindgen(constructor)]
-    pub fn new(device: &WasmDevice, options: Option<JsValue>) -> Result<WasmAxisHelper, JsValue> {
+    pub fn new(
+        device: &WasmDevice,
+        #[wasm_bindgen(unchecked_optional_param_type = "AxisHelperOptions")] options: Option<
+            JsValue,
+        >,
+    ) -> Result<WasmAxisHelper, JsValue> {
         let options: AxisHelperOptionsInput = options
             .map(serde_wasm_bindgen::from_value)
             .transpose()
@@ -73,6 +89,7 @@ impl WasmAxisHelper {
             belfast::AxisHelperOptions {
                 label: &label,
                 length,
+                depth_stencil: options.depth.then(bindings::default_depth_state),
                 ..belfast::AxisHelperOptions::new(device.inner.format(), &pipeline_layout)
             },
         )

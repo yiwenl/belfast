@@ -70,7 +70,6 @@ impl WasmRenderTarget {
                 label: options.label.unwrap_or_else(|| "RenderTarget".into()),
                 format: Some(device.inner.format()),
                 sample_count: 1,
-                with_depth: false,
                 ..Default::default()
             },
         );

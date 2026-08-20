@@ -1,10 +1,12 @@
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 
 use crate::{bindings, to_js_error, WasmDevice, WasmUniformBlock};
 
 #[wasm_bindgen(typescript_custom_section)]
 const MESH_DESCRIPTOR_TYPES: &str = r#"
-export type VertexFormat = "vec2" | "vec3" | "vec4";
+export type VertexFormat = "vec2" | "vec3" | "vec4" | "float32x2" | "float32x3" | "float32x4";
+export type MeshIndexFormat = "uint16" | "uint32";
 
 export interface VertexAttributeDescriptor {
   shaderLocation: number;
@@ -115,6 +117,33 @@ impl WasmBuffer {
         self.write_bytes(device, block.inner().bytes())
     }
 
+    #[wasm_bindgen(js_name = fromIndices)]
+    pub fn from_indices(
+        device: &WasmDevice,
+        #[wasm_bindgen(unchecked_param_type = "Uint16Array | Uint32Array")] indices: JsValue,
+        label: Option<String>,
+    ) -> Result<WasmBuffer, JsValue> {
+        let label = label.as_deref().unwrap_or("IndexBuffer");
+        match parse_index_array(&indices)? {
+            IndexData::Uint16(values) => Ok(Self {
+                inner: belfast::Buffer::from_data(
+                    &device.inner,
+                    &values,
+                    belfast::BufferUsage::index(),
+                    label,
+                ),
+            }),
+            IndexData::Uint32(values) => Ok(Self {
+                inner: belfast::Buffer::from_data(
+                    &device.inner,
+                    &values,
+                    belfast::BufferUsage::index(),
+                    label,
+                ),
+            }),
+        }
+    }
+
     #[wasm_bindgen(js_name = writeData)]
     pub fn write_data(&self, device: &WasmDevice, values: &[f32]) -> Result<(), JsValue> {
         if !self.inner.device().is_same(&device.inner) {
@@ -200,4 +229,44 @@ impl WasmMesh {
     pub fn has_index_buffer(&self) -> bool {
         self.inner.has_index_buffer()
     }
+
+    #[wasm_bindgen(js_name = setIndexBuffer)]
+    pub fn set_index_buffer(
+        mut self,
+        buffer: &WasmBuffer,
+        count: u32,
+        #[wasm_bindgen(unchecked_optional_param_type = "MeshIndexFormat")] format: Option<String>,
+    ) -> Result<WasmMesh, JsValue> {
+        let format = bindings::parse_index_format(format.as_deref().unwrap_or("uint16"))
+            .map_err(to_js_error)?;
+        self.inner
+            .set_index_buffer(buffer.inner().clone(), count, format)
+            .map_err(to_js_error)?;
+        Ok(self)
+    }
+}
+
+enum IndexData {
+    Uint16(Vec<u16>),
+    Uint32(Vec<u32>),
+}
+
+fn parse_index_array(value: &JsValue) -> Result<IndexData, JsValue> {
+    if let Ok(array) = value.clone().dyn_into::<js_sys::Uint32Array>() {
+        if array.length() == 0 {
+            return Err(to_js_error("index values must not be empty"));
+        }
+        let mut indices = vec![0u32; array.length() as usize];
+        array.copy_to(&mut indices);
+        return Ok(IndexData::Uint32(indices));
+    }
+    if let Ok(array) = value.clone().dyn_into::<js_sys::Uint16Array>() {
+        if array.length() == 0 {
+            return Err(to_js_error("index values must not be empty"));
+        }
+        let mut indices = vec![0u16; array.length() as usize];
+        array.copy_to(&mut indices);
+        return Ok(IndexData::Uint16(indices));
+    }
+    Err(to_js_error("indices must be a Uint16Array or Uint32Array"))
 }

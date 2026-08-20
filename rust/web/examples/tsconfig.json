@@ -8,5 +8,5 @@
     "lib": ["ES2022", "ESNext.Disposable", "DOM", "DOM.Iterable"],
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "basic/src/**/*.ts", "template/src/**/*.ts"]
+  "include": ["src/**/*.ts", "basic/src/**/*.ts", "template/src/**/*.ts", "instancing/src/**/*.ts"]
 }

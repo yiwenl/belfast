@@ -9,6 +9,7 @@ mod device;
 mod draw;
 #[cfg(any(target_arch = "wasm32", test))]
 mod frame;
+mod geom;
 #[cfg(target_arch = "wasm32")]
 mod orbital_control;
 #[cfg(any(target_arch = "wasm32", test))]
@@ -26,6 +27,7 @@ pub use device::WasmDevice;
 pub use draw::WasmDraw;
 #[cfg(target_arch = "wasm32")]
 pub use frame::WasmFrame;
+pub use geom::WasmGeom;
 #[cfg(target_arch = "wasm32")]
 pub use orbital_control::WasmOrbitalControl;
 #[cfg(target_arch = "wasm32")]

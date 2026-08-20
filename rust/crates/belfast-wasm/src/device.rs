@@ -7,6 +7,8 @@ use std::{cell::Cell, rc::Rc};
 
 use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
+use crate::bindings;
 use crate::to_js_error;
 #[cfg(target_arch = "wasm32")]
 use crate::{WasmDraw, WasmFrame};
@@ -69,6 +71,8 @@ pub(crate) struct CanvasTarget {
     instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
+    depth_texture: Option<wgpu::Texture>,
+    depth_view: Option<wgpu::TextureView>,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -85,6 +89,57 @@ impl CanvasTarget {
 
     pub(crate) fn configure(&self, device: &wgpu::Device) {
         self.surface.configure(device, &self.config);
+    }
+
+    pub(crate) fn size(&self) -> (u32, u32) {
+        (self.config.width, self.config.height)
+    }
+
+    pub(crate) fn depth_view(&self) -> Option<&wgpu::TextureView> {
+        self.depth_view.as_ref()
+    }
+
+    pub(crate) fn clear_depth(&mut self) {
+        self.depth_view = None;
+        self.depth_texture = None;
+    }
+
+    pub(crate) fn ensure_depth(
+        &mut self,
+        device: &wgpu::Device,
+        width: u32,
+        height: u32,
+    ) -> Result<(), String> {
+        if width == 0 || height == 0 {
+            return Err("canvas depth requires a non-zero surface".into());
+        }
+        if self.depth_view.is_some()
+            && self
+                .depth_texture
+                .as_ref()
+                .is_some_and(|texture| texture.width() == width && texture.height() == height)
+        {
+            return Ok(());
+        }
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("BelfastCanvasDepth"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: bindings::DEPTH_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        self.depth_texture = Some(texture);
+        self.depth_view = Some(view);
+        Ok(())
     }
 }
 
@@ -242,6 +297,8 @@ impl WasmDevice {
                 instance,
                 surface,
                 config,
+                depth_texture: None,
+                depth_view: None,
             }))),
             surface_lease: SurfaceLease::default(),
         })
@@ -294,6 +351,7 @@ impl WasmDevice {
             target.config.width = width;
             target.config.height = height;
             target.surface.configure(self.inner.gpu(), &target.config);
+            target.clear_depth();
         }
 
         Ok(true)
@@ -368,7 +426,7 @@ impl WasmDevice {
         else {
             return Ok(());
         };
-        frame.render_draw(draw, JsValue::UNDEFINED)?;
+        frame.render_draw(draw, JsValue::UNDEFINED, 1)?;
         frame.submit()
     }
 

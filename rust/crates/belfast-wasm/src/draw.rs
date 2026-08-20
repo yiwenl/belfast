@@ -2,13 +2,30 @@ use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
 use wasm_bindgen::prelude::*;
 
-use crate::{to_js_error, WasmDevice, WasmMesh};
+use crate::{bindings, to_js_error, WasmDevice, WasmMesh};
 
-#[derive(serde::Deserialize)]
+#[wasm_bindgen(typescript_custom_section)]
+const DRAW_OPTION_TYPES: &str = r#"
+export interface DrawPrimitiveState {
+  cullMode?: "none" | "front" | "back";
+}
+
+export interface DrawOptions {
+  label?: string;
+  primitive?: DrawPrimitiveState;
+  depth?: boolean;
+}
+"#;
+
+#[derive(Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DrawOptionsInput {
     #[serde(default)]
     label: Option<String>,
+    #[serde(default)]
+    primitive: Option<bindings::PrimitiveStateInput>,
+    #[serde(default)]
+    depth: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -560,10 +577,13 @@ impl WasmDraw {
         device: &WasmDevice,
         shader_code: &str,
         mesh: WasmMesh,
-        options: JsValue,
+        #[wasm_bindgen(unchecked_param_type = "DrawOptions")] options: JsValue,
     ) -> Result<WasmDraw, JsValue> {
-        let options: DrawOptionsInput =
-            serde_wasm_bindgen::from_value(options).map_err(to_js_error)?;
+        let options: DrawOptionsInput = if options.is_undefined() || options.is_null() {
+            DrawOptionsInput::default()
+        } else {
+            serde_wasm_bindgen::from_value(options).map_err(to_js_error)?
+        };
         let mesh = mesh.into_inner();
         belfast::Draw::validate_mesh_device(&device.inner, &mesh).map_err(to_js_error)?;
         let mesh_attributes: Vec<_> = {
@@ -581,15 +601,17 @@ impl WasmDraw {
             device.inner.gpu().limits().max_inter_stage_shader_variables,
         )
         .map_err(to_js_error)?;
-        let draw = belfast::Draw::new(
-            &device.inner,
-            shader_code,
-            &mesh,
-            belfast::DrawOptions::new(
-                options.label.as_deref().unwrap_or("Draw"),
-                device.inner.format(),
-            ),
-        );
+        let label = options.label.unwrap_or_else(|| "Draw".to_owned());
+        let mut draw_options = belfast::DrawOptions::new(&label, device.inner.format());
+        if let Some(primitive) = options.primitive {
+            primitive
+                .apply(&mut draw_options.primitive)
+                .map_err(to_js_error)?;
+        }
+        if options.depth {
+            draw_options.depth_stencil = Some(bindings::default_depth_state());
+        }
+        let draw = belfast::Draw::new(&device.inner, shader_code, &mesh, draw_options);
 
         Ok(Self {
             state: Rc::new(DrawState {

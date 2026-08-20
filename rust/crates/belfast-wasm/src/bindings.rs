@@ -77,6 +77,34 @@ impl VertexBufferDescriptorInput {
     }
 }
 
+#[derive(Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PrimitiveStateInput {
+    #[serde(default)]
+    pub cull_mode: Option<String>,
+}
+
+impl PrimitiveStateInput {
+    pub(crate) fn apply(self, primitive: &mut wgpu::PrimitiveState) -> Result<(), String> {
+        if let Some(cull_mode) = self.cull_mode.as_deref() {
+            primitive.cull_mode = parse_cull_mode(cull_mode)?;
+        }
+        Ok(())
+    }
+}
+
+pub(crate) const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
+
+pub(crate) fn default_depth_state() -> wgpu::DepthStencilState {
+    wgpu::DepthStencilState {
+        format: DEPTH_FORMAT,
+        depth_write_enabled: Some(true),
+        depth_compare: Some(wgpu::CompareFunction::Less),
+        stencil: wgpu::StencilState::default(),
+        bias: wgpu::DepthBiasState::default(),
+    }
+}
+
 pub(crate) fn parse_buffer_usage(usage: &str) -> Result<wgpu::BufferUsages, String> {
     match usage {
         "vertex" => Ok(belfast::BufferUsage::vertex()),
@@ -85,6 +113,34 @@ pub(crate) fn parse_buffer_usage(usage: &str) -> Result<wgpu::BufferUsages, Stri
         "vertexStorage" => Ok(belfast::BufferUsage::vertex_storage()),
         _ => Err(format!("unsupported buffer usage \"{usage}\"")),
     }
+}
+
+pub(crate) fn parse_index_format(format: &str) -> Result<belfast::MeshIndexFormat, String> {
+    match format {
+        "uint16" => Ok(belfast::MeshIndexFormat::Uint16),
+        "uint32" => Ok(belfast::MeshIndexFormat::Uint32),
+        _ => Err(format!("unsupported index format \"{format}\"")),
+    }
+}
+
+pub(crate) fn parse_cull_mode(cull_mode: &str) -> Result<Option<wgpu::Face>, String> {
+    match cull_mode {
+        "none" => Ok(None),
+        "front" => Ok(Some(wgpu::Face::Front)),
+        "back" => Ok(Some(wgpu::Face::Back)),
+        _ => Err(format!("unsupported cull mode \"{cull_mode}\"")),
+    }
+}
+
+#[cfg_attr(not(any(target_arch = "wasm32", test)), allow(dead_code))]
+pub(crate) fn parse_instance_count(value: Option<f64>) -> Result<u32, String> {
+    let Some(value) = value else {
+        return Ok(1);
+    };
+    if !value.is_finite() || value.fract() != 0.0 || value < 0.0 || value > f64::from(u32::MAX) {
+        return Err("instanceCount must be a finite integer between 0 and 4294967295".into());
+    }
+    Ok(value as u32)
 }
 
 fn parse_vertex_format(format: &str) -> Result<(wgpu::VertexFormat, u64), String> {
@@ -142,6 +198,51 @@ mod tests {
             parse_buffer_usage("index").unwrap_err(),
             "unsupported buffer usage \"index\""
         );
+    }
+
+    #[test]
+    fn parses_index_formats() {
+        assert_eq!(
+            parse_index_format("uint16").unwrap(),
+            belfast::MeshIndexFormat::Uint16
+        );
+        assert_eq!(
+            parse_index_format("uint32").unwrap(),
+            belfast::MeshIndexFormat::Uint32
+        );
+        assert_eq!(
+            parse_index_format("uint8").unwrap_err(),
+            "unsupported index format \"uint8\""
+        );
+    }
+
+    #[test]
+    fn parses_cull_modes() {
+        assert_eq!(parse_cull_mode("none").unwrap(), None);
+        assert_eq!(parse_cull_mode("back").unwrap(), Some(wgpu::Face::Back));
+        assert_eq!(
+            parse_cull_mode("sideways").unwrap_err(),
+            "unsupported cull mode \"sideways\""
+        );
+    }
+
+    #[test]
+    fn parses_instance_count() {
+        assert_eq!(parse_instance_count(None).unwrap(), 1);
+        assert_eq!(parse_instance_count(Some(0.0)).unwrap(), 0);
+        assert_eq!(parse_instance_count(Some(512.0)).unwrap(), 512);
+        assert_eq!(
+            parse_instance_count(Some(1.5)).unwrap_err(),
+            "instanceCount must be a finite integer between 0 and 4294967295"
+        );
+    }
+
+    #[test]
+    fn builds_fixed_depth_state() {
+        let state = default_depth_state();
+        assert_eq!(state.format, DEPTH_FORMAT);
+        assert_eq!(state.depth_write_enabled, Some(true));
+        assert_eq!(state.depth_compare, Some(wgpu::CompareFunction::Less));
     }
 
     #[test]
