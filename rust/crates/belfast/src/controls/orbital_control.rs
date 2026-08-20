@@ -3,6 +3,7 @@ use glam::Vec3;
 use crate::{BelfastError, BelfastResult, PerspectiveCamera};
 
 const SNAP_EPSILON: f32 = 0.00001;
+const PITCH_LIMIT: f64 = std::f64::consts::FRAC_PI_2 - 0.0001;
 
 #[derive(Clone, Copy, Debug)]
 enum DragMode {
@@ -70,6 +71,7 @@ pub struct OrbitalControl {
     zoom_sensitivity: f32,
     pan_sensitivity: f32,
     damping: f32,
+    enabled: bool,
     drag_mode: Option<DragMode>,
 }
 
@@ -93,8 +95,20 @@ impl OrbitalControl {
             zoom_sensitivity: options.zoom_sensitivity,
             pan_sensitivity: options.pan_sensitivity,
             damping: options.damping,
+            enabled: true,
             drag_mode: None,
         })
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+        if !enabled {
+            self.drag_mode = None;
+        }
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enabled
     }
 
     pub fn pointer_down(
@@ -103,7 +117,7 @@ impl OrbitalControl {
         button: OrbitalPointerButton,
         pan_modifier: bool,
     ) {
-        if !position.iter().all(|value| value.is_finite()) {
+        if !self.enabled || !position.iter().all(|value| value.is_finite()) {
             return;
         }
 
@@ -128,7 +142,8 @@ impl OrbitalControl {
     }
 
     pub fn pointer_move(&mut self, position: [f32; 2], viewport: [f32; 2]) {
-        if !position.iter().all(|value| value.is_finite())
+        if !self.enabled
+            || !position.iter().all(|value| value.is_finite())
             || !viewport.iter().all(|value| value.is_finite())
             || viewport[0] <= 0.0
             || viewport[1] <= 0.0
@@ -148,10 +163,8 @@ impl OrbitalControl {
                 let sensitivity = self.rotate_sensitivity as f64;
                 self.target_yaw =
                     normalize_yaw(start_yaw as f64 - horizontal_displacement * sensitivity) as f32;
-
-                let pitch_limit = std::f64::consts::FRAC_PI_2 - 0.0001;
-                self.target_pitch = (start_pitch as f64 + vertical_displacement * sensitivity)
-                    .clamp(-pitch_limit, pitch_limit) as f32;
+                self.target_pitch =
+                    clamp_pitch(start_pitch as f64 + vertical_displacement * sensitivity);
             }
             Some(DragMode::Pan {
                 start,
@@ -187,6 +200,9 @@ impl OrbitalControl {
     }
 
     pub fn pointer_up(&mut self, button: OrbitalPointerButton) {
+        if !self.enabled {
+            return;
+        }
         if self
             .drag_mode
             .as_ref()
@@ -197,7 +213,7 @@ impl OrbitalControl {
     }
 
     pub fn scroll(&mut self, delta: f32) {
-        if !delta.is_finite() {
+        if !self.enabled || !delta.is_finite() {
             return;
         }
 
@@ -249,6 +265,69 @@ impl OrbitalControl {
 
     pub fn radius(&self) -> f32 {
         self.radius
+    }
+
+    pub fn yaw(&self) -> f32 {
+        self.yaw
+    }
+
+    pub fn pitch(&self) -> f32 {
+        self.pitch
+    }
+
+    pub fn set_yaw(&mut self, yaw: f32) {
+        if let Some(yaw) = finite_yaw(yaw) {
+            self.cancel_drag();
+            self.target_yaw = yaw;
+        }
+    }
+
+    pub fn snap_yaw(&mut self, yaw: f32) {
+        if let Some(yaw) = finite_yaw(yaw) {
+            self.cancel_drag();
+            self.yaw = yaw;
+            self.target_yaw = yaw;
+        }
+    }
+
+    pub fn set_pitch(&mut self, pitch: f32) {
+        if let Some(pitch) = finite_pitch(pitch) {
+            self.cancel_drag();
+            self.target_pitch = pitch;
+        }
+    }
+
+    pub fn snap_pitch(&mut self, pitch: f32) {
+        if let Some(pitch) = finite_pitch(pitch) {
+            self.cancel_drag();
+            self.pitch = pitch;
+            self.target_pitch = pitch;
+        }
+    }
+
+    pub fn set_radius(&mut self, radius: f32) {
+        if let Some(radius) = self.clamped_radius(radius) {
+            self.cancel_drag();
+            self.target_radius = radius;
+        }
+    }
+
+    pub fn snap_radius(&mut self, radius: f32) {
+        if let Some(radius) = self.clamped_radius(radius) {
+            self.cancel_drag();
+            self.radius = radius;
+            self.target_radius = radius;
+        }
+    }
+
+    fn cancel_drag(&mut self) {
+        self.drag_mode = None;
+    }
+
+    fn clamped_radius(&self, radius: f32) -> Option<f32> {
+        radius
+            .is_finite()
+            .then_some(radius.clamp(self.min_radius, self.max_radius))
     }
 }
 
@@ -316,6 +395,18 @@ fn response(damping: f32, delta_seconds: f32) -> f32 {
 
 fn normalize_yaw(yaw: f64) -> f64 {
     (yaw + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI
+}
+
+fn clamp_pitch(pitch: f64) -> f32 {
+    pitch.clamp(-PITCH_LIMIT, PITCH_LIMIT) as f32
+}
+
+fn finite_yaw(yaw: f32) -> Option<f32> {
+    yaw.is_finite().then_some(normalize_yaw(yaw as f64) as f32)
+}
+
+fn finite_pitch(pitch: f32) -> Option<f32> {
+    pitch.is_finite().then_some(clamp_pitch(pitch as f64))
 }
 
 fn vec3_from_f64(values: [f64; 3]) -> Option<Vec3> {

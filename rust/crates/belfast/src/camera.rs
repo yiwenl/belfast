@@ -32,6 +32,10 @@ impl CameraBase {
         self.target.to_array()
     }
 
+    fn position(&self) -> [f32; 3] {
+        self.eye.to_array()
+    }
+
     fn view_matrix(&self) -> [f32; 16] {
         self.view.to_cols_array()
     }
@@ -73,6 +77,35 @@ impl PerspectiveCamera {
         self.aspect = aspect;
         self.update_projection();
         Ok(self)
+    }
+
+    pub fn set_fovy_radians(&mut self, fovy_radians: f32) -> BelfastResult<&mut Self> {
+        if !fovy_radians.is_finite() || fovy_radians <= 0.0 {
+            return Err(BelfastError::InvalidCameraFov);
+        }
+        self.fovy_radians = fovy_radians;
+        self.update_projection();
+        Ok(self)
+    }
+
+    pub fn position(&self) -> [f32; 3] {
+        self.base.position()
+    }
+
+    pub fn fovy_radians(&self) -> f32 {
+        self.fovy_radians
+    }
+
+    pub fn aspect(&self) -> f32 {
+        self.aspect
+    }
+
+    pub fn near(&self) -> f32 {
+        self.near
+    }
+
+    pub fn far(&self) -> f32 {
+        self.far
     }
 
     pub fn view_matrix(&self) -> [f32; 16] {
@@ -127,6 +160,10 @@ impl OrthographicCamera {
     pub fn look_at(&mut self, eye: [f32; 3], target: [f32; 3]) -> &mut Self {
         self.base.look_at(eye, target);
         self
+    }
+
+    pub fn position(&self) -> [f32; 3] {
+        self.base.position()
     }
 
     pub fn view_matrix(&self) -> [f32; 16] {

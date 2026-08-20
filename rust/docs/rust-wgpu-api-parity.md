@@ -19,32 +19,31 @@ Status legend:
 | `Texture`            | Done              | Partial     | Pending          | Rust uploads validated RGBA8 pixel data and exposes its view, sampler, dimensions, and format. Browser image loading is pending.                                                         |
 | `RenderTarget`       | Done              | Partial     | Pending          | Rust supports color/depth render targets, resize, sampler, and render-pass helpers. Copy-to-screen and wasm facade are pending.                                                          |
 | `UniformBlock`       | Done              | Done        | Partial          | Rust matches runtime schema packing, offsets, f32/u32 writes, and WGSL alignment tests. Wasm exposes a scene-uniform constructor and typed-array writes.                                 |
-| `PerspectiveCamera`  | Done              | Done        | Done             | Rust and wasm expose perspective setup, `lookAt`, aspect update, target, and view-projection output.                                                                                     |
-| `OrthographicCamera` | Done              | Done        | Done             | Rust and wasm expose orthographic setup, `lookAt`, target, and view-projection output.                                                                                                   |
-| `OrbitalControl`     | Done              | Done        | Pending          | Rust accepts platform-neutral pointer and scroll input; the caller owns and updates the camera.                                                                                          |
+| `PerspectiveCamera`  | Done              | Done        | Done             | Rust and wasm expose perspective setup, `lookAt`, aspect/FOV updates, position, target, and separate view, projection, and view-projection matrices.                                     |
+| `OrthographicCamera` | Done              | Done        | Done             | Rust and wasm expose orthographic setup, `lookAt`, position, target, and separate view, projection, and view-projection matrices.                                                        |
+| `OrbitalControl`     | Done              | Done        | Done             | Rust accepts platform-neutral pointer and scroll input; wasm binds `listenerTarget` pointer/wheel events. Callers own the camera and must call `update(dt, camera)` each frame.          |
 | `AxisHelper`         | Done              | Done        | Pending          | Rust renders RGB axes with a caller-owned camera layout and bind group.                                                                                                                  |
 | `Geom.plane`         | Done              | Done        | Pending          | Rust has `Geom::plane` with positions, uvs, and indices. Wasm geometry facade is pending.                                                                                                |
 
 ## First milestone verification
 
-| Check                         | Status | Command                                                                                                                         |
-| ----------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Rust semantic/runtime tests   | Done   | `cargo test -p belfast --tests`                                                                                                 |
-| WebAssembly compile check     | Done   | `cargo check -p belfast-wasm --target wasm32-unknown-unknown`                                                                   |
-| Rust render target tests      | Done   | `cargo test -p belfast render_target --tests`                                                                                   |
-| Native triangle examples      | Done   | `triangle` and `colored_triangle` use the shared winit harness.                                                                 |
-| Native camera uniform example | Done   | Uses `PerspectiveCamera`, `UniformBlock`, and `BindGroup`.                                                                      |
-| Native texture example        | Done   | Uploads and samples a procedural RGBA8 checkerboard.                                                                            |
-| Native render target example  | Done   | Renders offscreen and samples the target in a second pass.                                                                      |
-| WebAssembly browser smoke app | Done   | `Device.create(canvas)`, vertex `Buffer.fromData`, chained `Mesh.addVertexBuffer`, `Draw`, resize, render, submit, and present. |
+| Check                            | Status | Command                                                                                                                         |
+| -------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Rust semantic/runtime tests      | Done   | `cargo test -p belfast --tests`                                                                                                 |
+| WebAssembly compile check        | Done   | `cargo check -p belfast-wasm --target wasm32-unknown-unknown`                                                                   |
+| Rust render target tests         | Done   | `cargo test -p belfast render_target --tests`                                                                                   |
+| Native triangle examples         | Done   | `triangle` and `colored_triangle` use the shared winit harness.                                                                 |
+| Native camera uniform example    | Done   | Uses `PerspectiveCamera`, `UniformBlock`, and `BindGroup`.                                                                      |
+| Native texture example           | Done   | Uploads and samples a procedural RGBA8 checkerboard.                                                                            |
+| Native render target example     | Done   | Renders offscreen and samples the target in a second pass.                                                                      |
+| WebAssembly browser smoke app    | Done   | `Device.create(canvas)`, vertex `Buffer.fromData`, chained `Mesh.addVertexBuffer`, `Draw`, resize, render, submit, and present. |
+| WebAssembly camera-orbit example | Done   | `PerspectiveCamera`, `OrbitalControl({ listenerTarget })`, and separate view/projection uniforms.                               |
 
-The implemented browser slice is limited to the smoke app above. Browser texture support, camera rendering, and render-to-texture support remain pending.
+The implemented browser slice includes the smoke app above plus camera rendering through `PerspectiveCamera`, `OrbitalControl`, and uniform bind groups. Browser render-to-texture support remains pending.
 
 ## Next parity targets
 
-1. Add `BindGroup` parity so browser camera examples can use `UniformBlock` data in WGSL.
-2. Add browser texture upload and sampling support.
-3. Add browser camera rendering support.
-4. Add browser render-to-texture support.
-5. Add `CopyHelper` parity when repeated render-target presentation needs a reusable helper.
-6. Expand wasm `Buffer`, `Mesh`, `Draw`, `Texture`, and `RenderTarget` beyond the browser smoke slice.
+1. Add browser render-to-texture support.
+2. Add `CopyHelper` parity when repeated render-target presentation needs a reusable helper.
+3. Expand wasm `Buffer`, `Mesh`, `Draw`, `Texture`, and `RenderTarget` beyond the browser smoke slice.
+4. Add `AxisHelper` and `Geom.plane` wasm facades.

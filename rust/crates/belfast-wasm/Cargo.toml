@@ -16,5 +16,16 @@ serde.workspace = true
 serde-wasm-bindgen.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
-web-sys = { workspace = true, features = ["HtmlCanvasElement", "ImageBitmap", "Window"] }
+web-sys = { workspace = true, features = [
+    "AddEventListenerOptions",
+    "Element",
+    "Event",
+    "EventTarget",
+    "HtmlCanvasElement",
+    "HtmlElement",
+    "ImageBitmap",
+    "PointerEvent",
+    "WheelEvent",
+    "Window",
+] }
 wgpu.workspace = true

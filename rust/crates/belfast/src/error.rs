@@ -82,6 +82,8 @@ pub enum BelfastError {
     },
     #[error("camera aspect must be greater than 0")]
     InvalidCameraAspect,
+    #[error("camera field of view must be greater than 0")]
+    InvalidCameraFov,
     #[error("orbital control option `{0}` is invalid")]
     InvalidOrbitalControlOption(&'static str),
     #[error("axis length must be finite and greater than 0")]

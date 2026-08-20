@@ -424,3 +424,83 @@ fn damping_uses_shortest_path_across_yaw_wrap() {
         "small seam-crossing drag must not take the long path: {eye:?}"
     );
 }
+
+#[test]
+fn set_yaw_animates_toward_target_with_damping() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions::default()).unwrap();
+    let mut camera = camera();
+    control.set_yaw(std::f32::consts::FRAC_PI_2);
+    for _ in 0..180 {
+        control.update(1.0 / 60.0, &mut camera);
+    }
+
+    assert_approx_eq(control.yaw(), std::f32::consts::FRAC_PI_2);
+    assert!(control.eye()[0] > 9.0);
+    assert_eq!(camera.position(), control.eye());
+}
+
+#[test]
+fn disabled_control_ignores_pointer_drag() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions {
+        damping: 0.0,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut camera = camera();
+    control.update(0.0, &mut camera);
+    let initial_eye = control.eye();
+
+    control.set_enabled(false);
+    control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, false);
+    control.pointer_move([100.0, 0.0], [800.0, 600.0]);
+    control.scroll(20.0);
+    control.update(1.0 / 60.0, &mut camera);
+
+    assert!(!control.enabled());
+    assert_eq!(control.eye(), initial_eye);
+}
+
+#[test]
+fn disabled_control_still_accepts_programmatic_yaw() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions::default()).unwrap();
+    let mut camera = camera();
+    control.set_enabled(false);
+    control.set_yaw(std::f32::consts::FRAC_PI_2);
+    for _ in 0..180 {
+        control.update(1.0 / 60.0, &mut camera);
+    }
+
+    assert_approx_eq(control.yaw(), std::f32::consts::FRAC_PI_2);
+}
+
+#[test]
+fn snap_pitch_applies_immediately_and_clamps() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions {
+        damping: 0.0,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut camera = camera();
+    control.snap_pitch(100.0);
+    control.update(0.0, &mut camera);
+
+    assert!(control.pitch() > 1.57);
+    assert!(control.pitch() < std::f32::consts::FRAC_PI_2);
+    assert!(control.eye()[1] > 0.99 * control.radius());
+}
+
+#[test]
+fn programmatic_yaw_cancels_active_drag() {
+    let mut control = OrbitalControl::new(OrbitalControlOptions {
+        damping: 0.0,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut camera = camera();
+    control.pointer_down([0.0, 0.0], OrbitalPointerButton::Primary, false);
+    control.set_yaw(std::f32::consts::FRAC_PI_2);
+    control.pointer_move([100.0, 0.0], [800.0, 600.0]);
+    control.update(1.0 / 60.0, &mut camera);
+
+    assert_approx_eq(control.yaw(), std::f32::consts::FRAC_PI_2);
+}

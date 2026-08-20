@@ -1,5 +1,6 @@
 import init from "belfast-wasm";
 
+import { cameraOrbit } from "./examples/camera-orbit";
 import { coloredTriangle } from "./examples/colored-triangle";
 import { textureExample } from "./examples/texture";
 import "./style.css";
@@ -12,6 +13,7 @@ export type WebExample = (
 ) => Promise<() => void>;
 
 const examples: Record<string, WebExample> = {
+  "camera-orbit": cameraOrbit,
   "colored-triangle": coloredTriangle,
   texture: textureExample,
 };
