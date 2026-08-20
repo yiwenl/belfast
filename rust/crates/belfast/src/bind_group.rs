@@ -27,6 +27,10 @@ impl BindGroup {
         pass.set_bind_group(index, &self.gpu, &[]);
     }
 
+    pub fn bind_compute<'a>(&'a self, pass: &mut wgpu::ComputePass<'a>, index: u32) {
+        pass.set_bind_group(index, &self.gpu, &[]);
+    }
+
     pub fn gpu(&self) -> &wgpu::BindGroup {
         &self.gpu
     }

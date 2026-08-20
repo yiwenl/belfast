@@ -1,7 +1,7 @@
+use std::collections::HashMap;
 #[cfg(target_arch = "wasm32")]
 use std::{
     cell::{Ref, RefCell},
-    collections::HashMap,
     rc::Rc,
 };
 
@@ -11,9 +11,10 @@ use wasm_bindgen::{convert::TryFromJsValue, prelude::*, JsCast};
 #[cfg(target_arch = "wasm32")]
 use crate::{
     bind_group::BindGroupState,
+    compute::{parse_workgroups, ComputeState},
     device::{CanvasTarget, PendingGpuErrors, SurfaceLeaseGuard},
     draw::{DrawState, ShaderResourceLayout},
-    to_js_error, WasmBindGroup, WasmDraw, WasmRenderTarget,
+    to_js_error, WasmBindGroup, WasmCompute, WasmDraw, WasmRenderTarget,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -73,6 +74,9 @@ struct DeviceKey(u64);
 struct DrawKey(u64);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+struct ComputeKey(u64);
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 struct BindGroupKey(u64);
 
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
@@ -90,9 +94,17 @@ struct DrawValidation {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ComputeValidation {
+    key: ComputeKey,
+    device: DeviceKey,
+    requires_bind_group: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct BindGroupValidation {
     key: BindGroupKey,
-    draw: DrawKey,
+    draw: Option<DrawKey>,
+    compute: Option<ComputeKey>,
     device: DeviceKey,
 }
 
@@ -116,16 +128,36 @@ fn validate_render_command(
         (false, Some(_)) => Err("draw does not accept a bind group".into()),
         (false, None) => Ok(()),
         (true, Some(bind_group)) => {
-            let BindGroupValidation {
-                key: _,
-                draw: bind_group_draw,
-                device: bind_group_device,
-            } = bind_group;
-            if bind_group_device != frame_device {
+            if bind_group.device != frame_device {
                 return Err("bind group was created by a different device".into());
             }
-            if bind_group_draw != draw.key {
+            if bind_group.draw != Some(draw.key) {
                 return Err("bind group was created for a different draw".into());
+            }
+            Ok(())
+        }
+    }
+}
+
+fn validate_dispatch_command(
+    frame_device: DeviceKey,
+    compute: ComputeValidation,
+    bind_group: Option<BindGroupValidation>,
+) -> Result<(), String> {
+    if compute.device != frame_device {
+        return Err("compute was created by a different device".into());
+    }
+
+    match (compute.requires_bind_group, bind_group) {
+        (true, None) => Err("compute requires a bind group".into()),
+        (false, Some(_)) => Err("compute does not accept a bind group".into()),
+        (false, None) => Ok(()),
+        (true, Some(bind_group)) => {
+            if bind_group.device != frame_device {
+                return Err("bind group was created by a different device".into());
+            }
+            if bind_group.compute != Some(compute.key) {
+                return Err("bind group was created for a different compute".into());
             }
             Ok(())
         }
@@ -185,6 +217,12 @@ fn validate_registered_wrapper_pointer(
     Ok(current)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PlannedLoadOp {
+    Clear,
+    Load,
+}
+
 #[derive(Debug, PartialEq)]
 struct PlannedRenderCommand {
     draw: DrawKey,
@@ -192,60 +230,152 @@ struct PlannedRenderCommand {
 }
 
 #[derive(Debug, PartialEq)]
-struct PlannedLogicalPass {
+struct PlannedRenderPass {
     target: TargetKey,
+    load_op: PlannedLoadOp,
     clear_color: wgpu::Color,
     commands: Vec<PlannedRenderCommand>,
 }
 
+#[derive(Debug, PartialEq)]
+enum PlannedOp {
+    Compute {
+        compute: ComputeKey,
+        bind_group: Option<BindGroupKey>,
+        workgroups: [u32; 3],
+    },
+    RenderPass(PlannedRenderPass),
+}
+
+#[derive(Debug, PartialEq)]
+enum RecordedCommand {
+    BindTarget {
+        target: TargetKey,
+        clear_color: wgpu::Color,
+    },
+    Render {
+        draw: DrawKey,
+        bind_group: Option<BindGroupKey>,
+    },
+    Dispatch {
+        compute: ComputeKey,
+        bind_group: Option<BindGroupKey>,
+        workgroups: [u32; 3],
+    },
+}
+
 struct FramePlan {
-    passes: Vec<PlannedLogicalPass>,
-    current: Option<PlannedLogicalPass>,
+    commands: Vec<RecordedCommand>,
 }
 
 impl FramePlan {
     fn new() -> Self {
         Self {
-            passes: Vec::new(),
-            current: None,
+            commands: Vec::new(),
         }
     }
 
     fn bind_target(&mut self, target: TargetKey, clear_color: wgpu::Color) {
-        if let Some(current) = self.current.take() {
-            if !current.commands.is_empty() {
-                self.passes.push(current);
-            }
-        }
-        self.current = Some(PlannedLogicalPass {
+        self.commands.push(RecordedCommand::BindTarget {
             target,
             clear_color,
-            commands: Vec::new(),
         });
     }
 
     fn render(&mut self, draw: DrawKey, bind_group: Option<BindGroupKey>) -> Result<(), String> {
-        if self.current.is_none() {
-            self.bind_target(TargetKey::Canvas, default_clear_color());
-        }
-        self.current
-            .as_mut()
-            .expect("frame plan has a current pass")
-            .commands
-            .push(PlannedRenderCommand { draw, bind_group });
+        self.commands
+            .push(RecordedCommand::Render { draw, bind_group });
         Ok(())
     }
 
-    fn finish(mut self) -> Result<Vec<PlannedLogicalPass>, String> {
-        if let Some(current) = self.current.take() {
-            if !current.commands.is_empty() {
-                self.passes.push(current);
+    fn dispatch(
+        &mut self,
+        compute: ComputeKey,
+        bind_group: Option<BindGroupKey>,
+        workgroups: [u32; 3],
+    ) -> Result<(), String> {
+        self.commands.push(RecordedCommand::Dispatch {
+            compute,
+            bind_group,
+            workgroups,
+        });
+        Ok(())
+    }
+
+    fn finish(self) -> Result<Vec<PlannedOp>, String> {
+        let mut ops = Vec::new();
+        let mut current_pass: Option<PlannedRenderPass> = None;
+        let mut bound_target: Option<(TargetKey, wgpu::Color)> = None;
+        let mut next_load = HashMap::new();
+
+        let flush_pass =
+            |current_pass: &mut Option<PlannedRenderPass>,
+             ops: &mut Vec<PlannedOp>,
+             next_load: &mut HashMap<TargetKey, PlannedLoadOp>| {
+                if let Some(pass) = current_pass.take() {
+                    if !pass.commands.is_empty() {
+                        next_load.insert(pass.target, PlannedLoadOp::Load);
+                        ops.push(PlannedOp::RenderPass(pass));
+                    }
+                }
+            };
+
+        for command in self.commands {
+            match command {
+                RecordedCommand::BindTarget {
+                    target,
+                    clear_color,
+                } => {
+                    flush_pass(&mut current_pass, &mut ops, &mut next_load);
+                    bound_target = Some((target, clear_color));
+                    next_load.insert(target, PlannedLoadOp::Clear);
+                }
+                RecordedCommand::Render { draw, bind_group } => {
+                    let (target, clear_color) =
+                        bound_target.unwrap_or_else(|| (TargetKey::Canvas, default_clear_color()));
+                    if bound_target.is_none() {
+                        bound_target = Some((target, clear_color));
+                    }
+                    let needs_new_pass = current_pass
+                        .as_ref()
+                        .is_none_or(|pass| pass.target != target);
+                    if needs_new_pass {
+                        flush_pass(&mut current_pass, &mut ops, &mut next_load);
+                        current_pass = Some(PlannedRenderPass {
+                            target,
+                            load_op: next_load
+                                .get(&target)
+                                .copied()
+                                .unwrap_or(PlannedLoadOp::Clear),
+                            clear_color,
+                            commands: Vec::new(),
+                        });
+                    }
+                    current_pass
+                        .as_mut()
+                        .expect("frame plan has a current pass")
+                        .commands
+                        .push(PlannedRenderCommand { draw, bind_group });
+                }
+                RecordedCommand::Dispatch {
+                    compute,
+                    bind_group,
+                    workgroups,
+                } => {
+                    flush_pass(&mut current_pass, &mut ops, &mut next_load);
+                    ops.push(PlannedOp::Compute {
+                        compute,
+                        bind_group,
+                        workgroups,
+                    });
+                }
             }
         }
-        if self.passes.is_empty() {
-            return Err("frame contains no draw commands".into());
+        flush_pass(&mut current_pass, &mut ops, &mut next_load);
+        if ops.is_empty() {
+            return Err("frame contains no commands".into());
         }
-        Ok(self.passes)
+        Ok(ops)
     }
 }
 
@@ -406,6 +536,13 @@ pub(crate) fn register_bind_group_wrapper(value: &JsValue) -> Result<(), JsValue
 }
 
 #[cfg(target_arch = "wasm32")]
+pub(crate) fn clone_live_wasm_class(value: &JsValue, error: &str) -> Result<JsValue, JsValue> {
+    let (_object, pointer) = wrapper_object_and_pointer(value, error)?;
+    validate_live_wrapper_pointer(pointer).map_err(|_| to_js_error(error))?;
+    Ok(borrow_wasm_class(value))
+}
+
+#[cfg(target_arch = "wasm32")]
 enum FrameTarget {
     Canvas,
     RenderTarget(Rc<RefCell<belfast::RenderTarget>>),
@@ -418,10 +555,24 @@ struct RenderCommand {
 }
 
 #[cfg(target_arch = "wasm32")]
+struct ComputeCommand {
+    compute: Rc<ComputeState>,
+    bind_group: Option<Rc<BindGroupState>>,
+    workgroups: [u32; 3],
+}
+
+#[cfg(target_arch = "wasm32")]
 struct LogicalPass {
     target: FrameTarget,
+    load_op: PlannedLoadOp,
     clear_color: wgpu::Color,
     commands: Vec<RenderCommand>,
+}
+
+#[cfg(target_arch = "wasm32")]
+enum LogicalOp {
+    Compute(ComputeCommand),
+    Render(LogicalPass),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -437,6 +588,7 @@ pub struct WasmFrame {
     plan: FramePlan,
     render_targets: HashMap<TargetKey, Rc<RefCell<belfast::RenderTarget>>>,
     draws: HashMap<DrawKey, Rc<DrawState>>,
+    computes: HashMap<ComputeKey, Rc<ComputeState>>,
     bind_groups: HashMap<BindGroupKey, Rc<BindGroupState>>,
 }
 
@@ -464,6 +616,7 @@ impl WasmFrame {
             plan: FramePlan::new(),
             render_targets: HashMap::new(),
             draws: HashMap::new(),
+            computes: HashMap::new(),
             bind_groups: HashMap::new(),
         }
     }
@@ -522,11 +675,7 @@ impl WasmFrame {
         let bind_group_handle = optional_bind_group(bind_group)?;
         let bind_group = bind_group_handle.as_ref();
         let draw_key = DrawKey(rc_key(&draw.state));
-        let bind_group_validation = bind_group.map(|bind_group| BindGroupValidation {
-            key: BindGroupKey(rc_key(&bind_group.state)),
-            draw: DrawKey(rc_key(bind_group.state.draw())),
-            device: device_key(bind_group.state.bind_group().device()),
-        });
+        let bind_group_validation = bind_group.map(bind_group_validation);
         validate_render_command(
             device_key(&self.device),
             DrawValidation {
@@ -558,13 +707,68 @@ impl WasmFrame {
             .map_err(to_js_error)
     }
 
+    pub fn dispatch(
+        &mut self,
+        compute: &WasmCompute,
+        #[wasm_bindgen(
+            js_name = bindGroup,
+            unchecked_optional_param_type = "BindGroup | null"
+        )]
+        bind_group: JsValue,
+        #[wasm_bindgen(unchecked_optional_param_type = "WorkgroupCount")] workgroups: JsValue,
+    ) -> Result<(), JsValue> {
+        let bind_group_handle = optional_bind_group(bind_group)?;
+        let bind_group = bind_group_handle.as_ref();
+        let compute_key = ComputeKey(rc_key(&compute.state));
+        let bind_group_validation = bind_group.map(bind_group_validation);
+        let workgroups = parse_workgroups(
+            &workgroups,
+            self.device
+                .gpu()
+                .limits()
+                .max_compute_workgroups_per_dimension,
+        )
+        .map_err(to_js_error)?;
+        validate_dispatch_command(
+            device_key(&self.device),
+            ComputeValidation {
+                key: compute_key,
+                device: device_key(compute.state.compute().device()),
+                requires_bind_group: compute.state.requires_bind_group(),
+            },
+            bind_group_validation,
+        )
+        .map_err(to_js_error)?;
+        compute
+            .state
+            .compute()
+            .validate_for_dispatch(&self.device)
+            .map_err(to_js_error)?;
+
+        self.computes.insert(compute_key, compute.state.clone());
+        if let Some(bind_group) = bind_group {
+            self.bind_groups.insert(
+                BindGroupKey(rc_key(&bind_group.state)),
+                bind_group.state.clone(),
+            );
+        }
+        self.plan
+            .dispatch(
+                compute_key,
+                bind_group_validation.map(|binding| binding.key),
+                workgroups,
+            )
+            .map_err(to_js_error)
+    }
+
     pub fn submit(mut self) -> Result<(), JsValue> {
         let plan = std::mem::replace(&mut self.plan, FramePlan::new());
-        let planned_passes = plan.finish().map_err(to_js_error)?;
-        let logical_passes = materialize_passes(
-            planned_passes,
+        let planned_ops = plan.finish().map_err(to_js_error)?;
+        let logical_ops = materialize_ops(
+            planned_ops,
             &self.render_targets,
             &self.draws,
+            &self.computes,
             &self.bind_groups,
         )
         .map_err(to_js_error)?;
@@ -575,8 +779,8 @@ impl WasmFrame {
                     label: Some("BelfastFrameEncoder"),
                 });
 
-        for logical_pass in logical_passes {
-            encode_logical_pass(&mut encoder, &self.canvas_view, logical_pass);
+        for logical_op in logical_ops {
+            encode_logical_op(&mut encoder, &self.canvas_view, logical_op);
         }
 
         self.device.queue().submit([encoder.finish()]);
@@ -597,52 +801,127 @@ impl WasmFrame {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn materialize_passes(
-    planned_passes: Vec<PlannedLogicalPass>,
+fn bind_group_validation(bind_group: &WasmBindGroup) -> BindGroupValidation {
+    BindGroupValidation {
+        key: BindGroupKey(rc_key(&bind_group.state)),
+        draw: bind_group.state.draw().map(|draw| DrawKey(rc_key(draw))),
+        compute: bind_group
+            .state
+            .compute()
+            .map(|compute| ComputeKey(rc_key(compute))),
+        device: device_key(bind_group.state.bind_group().device()),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn color_load_op(load_op: PlannedLoadOp, clear_color: wgpu::Color) -> wgpu::LoadOp<wgpu::Color> {
+    match load_op {
+        PlannedLoadOp::Clear => wgpu::LoadOp::Clear(clear_color),
+        PlannedLoadOp::Load => wgpu::LoadOp::Load,
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn materialize_ops(
+    planned_ops: Vec<PlannedOp>,
     render_targets: &HashMap<TargetKey, Rc<RefCell<belfast::RenderTarget>>>,
     draws: &HashMap<DrawKey, Rc<DrawState>>,
+    computes: &HashMap<ComputeKey, Rc<ComputeState>>,
     bind_groups: &HashMap<BindGroupKey, Rc<BindGroupState>>,
-) -> Result<Vec<LogicalPass>, String> {
-    planned_passes
+) -> Result<Vec<LogicalOp>, String> {
+    planned_ops
         .into_iter()
-        .map(|planned_pass| {
-            let target = match planned_pass.target {
-                TargetKey::Canvas => FrameTarget::Canvas,
-                key @ TargetKey::Offscreen(_) => FrameTarget::RenderTarget(
-                    render_targets
-                        .get(&key)
-                        .cloned()
-                        .ok_or_else(|| "frame render target is unavailable".to_owned())?,
-                ),
-            };
-            let commands = planned_pass
-                .commands
-                .into_iter()
-                .map(|command| {
-                    Ok(RenderCommand {
-                        draw: draws
-                            .get(&command.draw)
+        .map(|planned_op| match planned_op {
+            PlannedOp::Compute {
+                compute,
+                bind_group,
+                workgroups,
+            } => Ok(LogicalOp::Compute(ComputeCommand {
+                compute: computes
+                    .get(&compute)
+                    .cloned()
+                    .ok_or_else(|| "frame compute is unavailable".to_owned())?,
+                bind_group: bind_group
+                    .map(|key| {
+                        bind_groups
+                            .get(&key)
                             .cloned()
-                            .ok_or_else(|| "frame draw is unavailable".to_owned())?,
-                        bind_group: command
-                            .bind_group
-                            .map(|key| {
-                                bind_groups
-                                    .get(&key)
-                                    .cloned()
-                                    .ok_or_else(|| "frame bind group is unavailable".to_owned())
-                            })
-                            .transpose()?,
+                            .ok_or_else(|| "frame bind group is unavailable".to_owned())
                     })
-                })
-                .collect::<Result<Vec<_>, String>>()?;
-            Ok(LogicalPass {
-                target,
-                clear_color: planned_pass.clear_color,
-                commands,
-            })
+                    .transpose()?,
+                workgroups,
+            })),
+            PlannedOp::RenderPass(planned_pass) => {
+                let target = match planned_pass.target {
+                    TargetKey::Canvas => FrameTarget::Canvas,
+                    key @ TargetKey::Offscreen(_) => FrameTarget::RenderTarget(
+                        render_targets
+                            .get(&key)
+                            .cloned()
+                            .ok_or_else(|| "frame render target is unavailable".to_owned())?,
+                    ),
+                };
+                let commands = planned_pass
+                    .commands
+                    .into_iter()
+                    .map(|command| {
+                        Ok(RenderCommand {
+                            draw: draws
+                                .get(&command.draw)
+                                .cloned()
+                                .ok_or_else(|| "frame draw is unavailable".to_owned())?,
+                            bind_group: command
+                                .bind_group
+                                .map(|key| {
+                                    bind_groups
+                                        .get(&key)
+                                        .cloned()
+                                        .ok_or_else(|| "frame bind group is unavailable".to_owned())
+                                })
+                                .transpose()?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, String>>()?;
+                Ok(LogicalOp::Render(LogicalPass {
+                    target,
+                    load_op: planned_pass.load_op,
+                    clear_color: planned_pass.clear_color,
+                    commands,
+                }))
+            }
         })
         .collect()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn encode_logical_op(
+    encoder: &mut wgpu::CommandEncoder,
+    canvas_view: &wgpu::TextureView,
+    logical_op: LogicalOp,
+) {
+    match logical_op {
+        LogicalOp::Compute(command) => encode_compute_command(encoder, command),
+        LogicalOp::Render(logical_pass) => {
+            encode_logical_pass(encoder, canvas_view, logical_pass);
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn encode_compute_command(encoder: &mut wgpu::CommandEncoder, command: ComputeCommand) {
+    let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+        label: Some("BelfastComputePass"),
+        timestamp_writes: None,
+    });
+    if let Some(bind_group) = command.bind_group.as_ref() {
+        bind_group
+            .bind_group()
+            .bind_compute(&mut pass, bind_group.group_index());
+    }
+    command
+        .compute
+        .compute()
+        .dispatch(&mut pass, command.workgroups);
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -653,9 +932,11 @@ fn encode_logical_pass(
 ) {
     let LogicalPass {
         target,
+        load_op,
         clear_color,
         commands,
     } = logical_pass;
+    let color_load = color_load_op(load_op, clear_color);
     let meshes: Vec<_> = commands.iter().map(|command| command.draw.mesh()).collect();
 
     match target {
@@ -665,7 +946,7 @@ fn encode_logical_pass(
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(clear_color),
+                    load: color_load,
                     store: wgpu::StoreOp::Store,
                 },
             })];
@@ -685,7 +966,11 @@ fn encode_logical_pass(
                 encoder,
                 belfast::RenderPassOptions {
                     clear_color,
-                    load_op: wgpu::LoadOp::Clear(clear_color),
+                    load_op: color_load,
+                    depth_load_op: match load_op {
+                        PlannedLoadOp::Clear => wgpu::LoadOp::Clear(1.0),
+                        PlannedLoadOp::Load => wgpu::LoadOp::Load,
+                    },
                     ..Default::default()
                 },
             );
@@ -742,8 +1027,33 @@ mod tests {
     fn bind_group(key: u64, draw: u64, device: u64) -> BindGroupValidation {
         BindGroupValidation {
             key: BindGroupKey(key),
-            draw: DrawKey(draw),
+            draw: Some(DrawKey(draw)),
+            compute: None,
             device: DeviceKey(device),
+        }
+    }
+
+    fn compute_bind_group(key: u64, compute: u64, device: u64) -> BindGroupValidation {
+        BindGroupValidation {
+            key: BindGroupKey(key),
+            draw: None,
+            compute: Some(ComputeKey(compute)),
+            device: DeviceKey(device),
+        }
+    }
+
+    fn compute(key: u64, device: u64, requires_bind_group: bool) -> ComputeValidation {
+        ComputeValidation {
+            key: ComputeKey(key),
+            device: DeviceKey(device),
+            requires_bind_group,
+        }
+    }
+
+    fn render_pass(op: &PlannedOp) -> &PlannedRenderPass {
+        match op {
+            PlannedOp::RenderPass(pass) => pass,
+            PlannedOp::Compute { .. } => panic!("expected render pass"),
         }
     }
 
@@ -755,25 +1065,82 @@ mod tests {
         plan.bind_target(TargetKey::Canvas, clear(0.0));
         plan.render(DrawKey(2), Some(BindGroupKey(3))).unwrap();
 
-        let passes = plan.finish().unwrap();
-        assert_eq!(passes.len(), 2);
-        assert_eq!(passes[0].target, TargetKey::Offscreen(7));
-        assert_eq!(passes[1].target, TargetKey::Canvas);
+        let ops = plan.finish().unwrap();
+        assert_eq!(ops.len(), 2);
+        assert_eq!(render_pass(&ops[0]).target, TargetKey::Offscreen(7));
+        assert_eq!(render_pass(&ops[0]).load_op, PlannedLoadOp::Clear);
+        assert_eq!(render_pass(&ops[1]).target, TargetKey::Canvas);
+        assert_eq!(render_pass(&ops[1]).load_op, PlannedLoadOp::Clear);
     }
 
     #[test]
     fn render_without_bind_defaults_to_canvas() {
         let mut plan = FramePlan::new();
         plan.render(DrawKey(1), None).unwrap();
-        assert_eq!(plan.finish().unwrap()[0].target, TargetKey::Canvas);
+        assert_eq!(
+            render_pass(&plan.finish().unwrap()[0]).target,
+            TargetKey::Canvas
+        );
     }
 
     #[test]
     fn empty_frame_is_rejected() {
         assert_eq!(
             FramePlan::new().finish(),
-            Err("frame contains no draw commands".into())
+            Err("frame contains no commands".into())
         );
+    }
+
+    #[test]
+    fn compute_only_frame_is_valid() {
+        let mut plan = FramePlan::new();
+        plan.dispatch(ComputeKey(1), None, [1, 1, 1]).unwrap();
+        assert_eq!(
+            plan.finish().unwrap(),
+            vec![PlannedOp::Compute {
+                compute: ComputeKey(1),
+                bind_group: None,
+                workgroups: [1, 1, 1],
+            }]
+        );
+    }
+
+    #[test]
+    fn compute_splits_render_pass_and_reopens_with_load() {
+        let mut plan = FramePlan::new();
+        plan.bind_target(TargetKey::Canvas, clear(0.2));
+        plan.render(DrawKey(1), None).unwrap();
+        plan.dispatch(ComputeKey(7), Some(BindGroupKey(8)), [4, 1, 1])
+            .unwrap();
+        plan.render(DrawKey(2), None).unwrap();
+
+        let ops = plan.finish().unwrap();
+        assert_eq!(ops.len(), 3);
+        assert_eq!(render_pass(&ops[0]).load_op, PlannedLoadOp::Clear);
+        assert_eq!(
+            ops[1],
+            PlannedOp::Compute {
+                compute: ComputeKey(7),
+                bind_group: Some(BindGroupKey(8)),
+                workgroups: [4, 1, 1],
+            }
+        );
+        assert_eq!(render_pass(&ops[2]).load_op, PlannedLoadOp::Load);
+        assert_eq!(render_pass(&ops[2]).target, TargetKey::Canvas);
+    }
+
+    #[test]
+    fn bind_target_after_compute_clears_again() {
+        let mut plan = FramePlan::new();
+        plan.bind_target(TargetKey::Canvas, clear(0.2));
+        plan.render(DrawKey(1), None).unwrap();
+        plan.dispatch(ComputeKey(7), None, [1, 1, 1]).unwrap();
+        plan.bind_target(TargetKey::Canvas, clear(0.9));
+        plan.render(DrawKey(2), None).unwrap();
+
+        let ops = plan.finish().unwrap();
+        assert_eq!(render_pass(&ops[2]).load_op, PlannedLoadOp::Clear);
+        assert_eq!(render_pass(&ops[2]).clear_color, clear(0.9));
     }
 
     #[test]
@@ -781,6 +1148,10 @@ mod tests {
         assert_eq!(
             validate_render_command(DeviceKey(1), draw(2, 1, true), None),
             Err("draw requires a bind group".into())
+        );
+        assert_eq!(
+            validate_dispatch_command(DeviceKey(1), compute(2, 1, true), None),
+            Err("compute requires a bind group".into())
         );
     }
 
@@ -790,6 +1161,14 @@ mod tests {
             validate_render_command(DeviceKey(1), draw(2, 1, false), Some(bind_group(3, 2, 1)),),
             Err("draw does not accept a bind group".into())
         );
+        assert_eq!(
+            validate_dispatch_command(
+                DeviceKey(1),
+                compute(2, 1, false),
+                Some(compute_bind_group(3, 2, 1)),
+            ),
+            Err("compute does not accept a bind group".into())
+        );
     }
 
     #[test]
@@ -797,6 +1176,14 @@ mod tests {
         assert_eq!(
             validate_render_command(DeviceKey(1), draw(2, 1, true), Some(bind_group(3, 4, 1)),),
             Err("bind group was created for a different draw".into())
+        );
+        assert_eq!(
+            validate_dispatch_command(
+                DeviceKey(1),
+                compute(2, 1, true),
+                Some(compute_bind_group(3, 4, 1)),
+            ),
+            Err("bind group was created for a different compute".into())
         );
     }
 
@@ -808,6 +1195,18 @@ mod tests {
         );
         assert_eq!(
             validate_render_command(DeviceKey(1), draw(2, 1, true), Some(bind_group(3, 2, 9)),),
+            Err("bind group was created by a different device".into())
+        );
+        assert_eq!(
+            validate_dispatch_command(DeviceKey(1), compute(2, 9, false), None),
+            Err("compute was created by a different device".into())
+        );
+        assert_eq!(
+            validate_dispatch_command(
+                DeviceKey(1),
+                compute(2, 1, true),
+                Some(compute_bind_group(3, 2, 9)),
+            ),
             Err("bind group was created by a different device".into())
         );
         assert_eq!(

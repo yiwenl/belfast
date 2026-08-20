@@ -81,14 +81,17 @@ pub(crate) fn parse_buffer_usage(usage: &str) -> Result<wgpu::BufferUsages, Stri
     match usage {
         "vertex" => Ok(belfast::BufferUsage::vertex()),
         "uniform" => Ok(belfast::BufferUsage::uniform()),
+        "storage" => Ok(belfast::BufferUsage::storage()),
+        "vertexStorage" => Ok(belfast::BufferUsage::vertex_storage()),
         _ => Err(format!("unsupported buffer usage \"{usage}\"")),
     }
 }
 
 fn parse_vertex_format(format: &str) -> Result<(wgpu::VertexFormat, u64), String> {
     match format {
-        "float32x2" => Ok((wgpu::VertexFormat::Float32x2, 8)),
-        "float32x3" => Ok((wgpu::VertexFormat::Float32x3, 12)),
+        "vec2" | "float32x2" => Ok((wgpu::VertexFormat::Float32x2, 8)),
+        "vec3" | "float32x3" => Ok((wgpu::VertexFormat::Float32x3, 12)),
+        "vec4" | "float32x4" => Ok((wgpu::VertexFormat::Float32x4, 16)),
         _ => Err(format!("unsupported vertex format \"{format}\"")),
     }
 }
@@ -122,10 +125,22 @@ mod tests {
     }
 
     #[test]
+    fn parses_storage_buffer_usage() {
+        assert_eq!(
+            parse_buffer_usage("storage").unwrap(),
+            belfast::BufferUsage::storage()
+        );
+        assert_eq!(
+            parse_buffer_usage("vertexStorage").unwrap(),
+            belfast::BufferUsage::vertex_storage()
+        );
+    }
+
+    #[test]
     fn rejects_unknown_buffer_usage() {
         assert_eq!(
-            parse_buffer_usage("storage").unwrap_err(),
-            "unsupported buffer usage \"storage\""
+            parse_buffer_usage("index").unwrap_err(),
+            "unsupported buffer usage \"index\""
         );
     }
 
@@ -135,7 +150,7 @@ mod tests {
             array_stride: 8,
             attributes: vec![VertexAttributeInput {
                 shader_location: 0,
-                format: "float32x2".into(),
+                format: "vec2".into(),
                 offset: 0,
             }],
             slot: Some(0),
@@ -152,12 +167,32 @@ mod tests {
     }
 
     #[test]
+    fn parses_gl_matrix_formats_and_webgpu_aliases() {
+        assert_eq!(
+            parse_vertex_format("vec2").unwrap(),
+            (wgpu::VertexFormat::Float32x2, 8)
+        );
+        assert_eq!(
+            parse_vertex_format("vec3").unwrap(),
+            (wgpu::VertexFormat::Float32x3, 12)
+        );
+        assert_eq!(
+            parse_vertex_format("vec4").unwrap(),
+            (wgpu::VertexFormat::Float32x4, 16)
+        );
+        assert_eq!(
+            parse_vertex_format("float32x4").unwrap(),
+            (wgpu::VertexFormat::Float32x4, 16)
+        );
+    }
+
+    #[test]
     fn rejects_attribute_past_array_stride() {
         let descriptor = VertexBufferDescriptorInput {
             array_stride: 8,
             attributes: vec![VertexAttributeInput {
                 shader_location: 0,
-                format: "float32x3".into(),
+                format: "vec3".into(),
                 offset: 0,
             }],
             slot: Some(0),
@@ -176,7 +211,7 @@ mod tests {
             array_stride: 0,
             attributes: vec![VertexAttributeInput {
                 shader_location: 0,
-                format: "float32x2".into(),
+                format: "vec2".into(),
                 offset: 0,
             }],
             slot: None,
@@ -230,12 +265,12 @@ mod tests {
             attributes: vec![
                 VertexAttributeInput {
                     shader_location: 0,
-                    format: "float32x2".into(),
+                    format: "vec2".into(),
                     offset: 0,
                 },
                 VertexAttributeInput {
                     shader_location: 0,
-                    format: "float32x2".into(),
+                    format: "vec2".into(),
                     offset: 8,
                 },
             ],
@@ -255,7 +290,7 @@ mod tests {
             array_stride: 8,
             attributes: vec![VertexAttributeInput {
                 shader_location: 0,
-                format: "float32x2".into(),
+                format: "vec2".into(),
                 offset: 0,
             }],
             slot: None,

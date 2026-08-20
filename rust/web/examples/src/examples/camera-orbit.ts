@@ -7,6 +7,7 @@ import {
   Mesh,
   OrbitalControl,
   PerspectiveCamera,
+  UniformBlock,
 } from "belfast-wasm";
 
 import type { WebExample } from "../main";
@@ -14,11 +15,16 @@ import shaderCode from "../shaders/camera-orbit.wgsl?raw";
 
 const positions = new Float32Array([0.0, 0.7, 0.0, -0.65, -0.55, 0.0, 0.65, -0.55, 0.0]);
 const colors = new Float32Array([1.0, 0.25, 0.2, 0.15, 0.9, 0.4, 0.2, 0.45, 1.0]);
-const CAMERA_FLOAT_COUNT = 32;
 
 export const cameraOrbit: WebExample = async (canvas, reportError) => {
   const device = await Device.create(canvas);
-  const cameraData = new Float32Array(CAMERA_FLOAT_COUNT);
+  const cameraUniforms = UniformBlock.create(
+    {
+      view: "mat4",
+      projection: "mat4",
+    },
+    "CameraOrbitUniforms",
+  );
   const positionBuffer = Buffer.fromData(
     device,
     positions,
@@ -28,19 +34,19 @@ export const cameraOrbit: WebExample = async (canvas, reportError) => {
   const colorBuffer = Buffer.fromData(device, colors, BufferUsage.vertex, "CameraOrbitColors");
   const uniformBuffer = Buffer.create(
     device,
-    cameraData.byteLength,
+    cameraUniforms.byteSize,
     BufferUsage.uniform,
     "CameraOrbitUniforms",
   );
   const mesh = new Mesh(3)
     .addVertexBuffer(positionBuffer, {
       arrayStride: 12,
-      attributes: [{ shaderLocation: 0, format: "float32x3", offset: 0 }],
+      attributes: [{ shaderLocation: 0, format: "vec3", offset: 0 }],
       slot: 0,
     })
     .addVertexBuffer(colorBuffer, {
       arrayStride: 12,
-      attributes: [{ shaderLocation: 1, format: "float32x3", offset: 0 }],
+      attributes: [{ shaderLocation: 1, format: "vec3", offset: 0 }],
       slot: 1,
     });
   const draw = new Draw(device, shaderCode, mesh, { label: "CameraOrbit" });
@@ -72,9 +78,9 @@ export const cameraOrbit: WebExample = async (canvas, reportError) => {
   let yawFront = true;
 
   const writeCamera = () => {
-    cameraData.set(camera.getViewMatrix(), 0);
-    cameraData.set(camera.getProjectionMatrix(), 16);
-    uniformBuffer.writeData(device, cameraData);
+    cameraUniforms.set("view", camera.getViewMatrix());
+    cameraUniforms.set("projection", camera.getProjectionMatrix());
+    uniformBuffer.write(device, cameraUniforms);
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -146,6 +152,7 @@ export const cameraOrbit: WebExample = async (canvas, reportError) => {
     bindGroup.free();
     draw.free();
     uniformBuffer.free();
+    cameraUniforms.free();
     positionBuffer.free();
     colorBuffer.free();
     camera.free();

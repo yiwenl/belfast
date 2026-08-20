@@ -2,6 +2,7 @@ import init from "belfast-wasm";
 
 import { cameraOrbit } from "./examples/camera-orbit";
 import { coloredTriangle } from "./examples/colored-triangle";
+import { computeTriangle } from "./examples/compute-triangle";
 import { textureExample } from "./examples/texture";
 import "./style.css";
 
@@ -15,6 +16,7 @@ export type WebExample = (
 const examples: Record<string, WebExample> = {
   "camera-orbit": cameraOrbit,
   "colored-triangle": coloredTriangle,
+  "compute-triangle": computeTriangle,
   texture: textureExample,
 };
 

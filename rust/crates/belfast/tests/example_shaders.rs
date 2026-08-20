@@ -31,6 +31,7 @@ fn native_example_shaders_pass_wgpu_validation() {
             "axis_helper",
             include_str!("../src/helpers/axis_helper.wgsl"),
         ),
+        ("compute", include_str!("../examples/shaders/compute.wgsl")),
     ];
 
     for (label, source) in shaders {

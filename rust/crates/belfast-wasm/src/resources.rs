@@ -2,6 +2,24 @@ use wasm_bindgen::prelude::*;
 
 use crate::{bindings, to_js_error, WasmDevice, WasmUniformBlock};
 
+#[wasm_bindgen(typescript_custom_section)]
+const MESH_DESCRIPTOR_TYPES: &str = r#"
+export type VertexFormat = "vec2" | "vec3" | "vec4";
+
+export interface VertexAttributeDescriptor {
+  shaderLocation: number;
+  format: VertexFormat;
+  offset?: number;
+}
+
+export interface VertexBufferDescriptor {
+  arrayStride: number;
+  attributes: VertexAttributeDescriptor[];
+  slot?: number;
+  stepMode?: "vertex" | "instance";
+}
+"#;
+
 #[wasm_bindgen(js_name = BufferUsage)]
 pub struct WasmBufferUsage;
 
@@ -17,6 +35,18 @@ impl WasmBufferUsage {
     #[wasm_bindgen(getter, static_method_of = WasmBufferUsage)]
     pub fn uniform() -> String {
         "uniform".into()
+    }
+
+    #[allow(unused_variables)]
+    #[wasm_bindgen(getter, static_method_of = WasmBufferUsage)]
+    pub fn storage() -> String {
+        "storage".into()
+    }
+
+    #[allow(unused_variables)]
+    #[wasm_bindgen(getter, js_name = vertexStorage, static_method_of = WasmBufferUsage)]
+    pub fn vertex_storage() -> String {
+        "vertexStorage".into()
     }
 }
 
@@ -104,6 +134,13 @@ impl WasmBuffer {
     pub fn size(&self) -> usize {
         self.inner.size() as usize
     }
+
+    #[wasm_bindgen(js_name = __frameHandle, skip_typescript)]
+    pub fn frame_handle(&self) -> WasmBuffer {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
 }
 
 #[wasm_bindgen(js_name = Mesh)]
@@ -135,7 +172,7 @@ impl WasmMesh {
     pub fn add_vertex_buffer(
         self,
         buffer: &WasmBuffer,
-        descriptor: JsValue,
+        #[wasm_bindgen(unchecked_param_type = "VertexBufferDescriptor")] descriptor: JsValue,
     ) -> Result<WasmMesh, JsValue> {
         let descriptor: bindings::VertexBufferDescriptorInput =
             serde_wasm_bindgen::from_value(descriptor).map_err(to_js_error)?;

@@ -510,9 +510,17 @@ fn collect_bound_vertex_input(
                     width: 4,
                 },
         } => wgpu::VertexFormat::Float32x3,
+        naga::TypeInner::Vector {
+            size: naga::VectorSize::Quad,
+            scalar:
+                naga::Scalar {
+                    kind: naga::ScalarKind::Float,
+                    width: 4,
+                },
+        } => wgpu::VertexFormat::Float32x4,
         _ => {
             return Err(format!(
-                "unsupported shader vertex input @location({location}) type; expected vec2<f32> or vec3<f32>"
+                "unsupported shader vertex input @location({location}) type; expected vec2<f32>, vec3<f32>, or vec4<f32>"
             ));
         }
     };
@@ -963,7 +971,7 @@ fn vs_main() -> @builtin(position) vec4f {
     }
 
     #[test]
-    fn rejects_unsupported_vertex_input_type() {
+    fn accepts_vec4_vertex_input() {
         let shader = r#"
 @vertex
 fn vs_main(@location(0) position: vec4f) -> @builtin(position) vec4f {
@@ -977,10 +985,30 @@ fn fs_main() -> @location(0) vec4f {
 "#;
 
         assert_eq!(
-            validate_draw_interface(shader, &[(0, wgpu::VertexFormat::Float32x2)]),
+            validate_draw_interface(shader, &[(0, wgpu::VertexFormat::Float32x4)]),
+            Ok(ShaderResourceLayout::None)
+        );
+    }
+
+    #[test]
+    fn rejects_unsupported_vertex_input_type() {
+        let shader = r#"
+@vertex
+fn vs_main(@location(0) position: f32) -> @builtin(position) vec4f {
+    return vec4f(position, 0.0, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return vec4f(1.0);
+}
+"#;
+
+        assert_eq!(
+            validate_draw_interface(shader, &[(0, wgpu::VertexFormat::Float32)]),
             Err(
-                "unsupported shader vertex input @location(0) type; expected vec2<f32> or vec3<f32>"
-                    .into()
+                "unsupported shader vertex input @location(0) type; expected vec2<f32>, vec3<f32>, or vec4<f32>"
+                    .into(),
             )
         );
     }

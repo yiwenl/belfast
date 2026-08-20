@@ -186,7 +186,7 @@ impl WasmDevice {
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("BelfastDevice"),
                 required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                required_limits: wgpu::Limits::downlevel_defaults(),
                 ..Default::default()
             })
             .await

@@ -51,6 +51,6 @@ pnpm install
 pnpm --filter @belfast/rust-wasm-examples dev
 ```
 
-The gallery's colored triangle is available at `/?example=colored-triangle` (for example, `http://127.0.0.1:5173/?example=colored-triangle` when Vite uses its default port).
+The gallery's colored triangle is available at `/?example=colored-triangle` (for example, `http://127.0.0.1:5173/?example=colored-triangle` when Vite uses its default port). The compute triangle is available at `/?example=compute-triangle`.
 
 Add browser example modules in `rust/web/examples/src/examples` and their WGSL shaders in `rust/web/examples/src/shaders`.

@@ -1,4 +1,4 @@
-import { BindGroup, Buffer, BufferUsage, Device, Draw, Mesh } from "belfast-wasm";
+import { BindGroup, Buffer, BufferUsage, Device, Draw, Mesh, UniformBlock } from "belfast-wasm";
 import { mat4, vec3 } from "gl-matrix";
 
 import type { WebExample } from "../main";
@@ -11,12 +11,16 @@ const colors = new Float32Array([1.0, 0.2, 0.15, 0.15, 0.95, 0.35, 0.2, 0.4, 1.0
 const PITCH_LIMIT = Math.PI / 2 - 0.01;
 const MIN_RADIUS = 0.5;
 const MAX_RADIUS = 20;
-/** mat4 viewProj (16) + time (1) + WGSL struct padding to 16-byte size. */
-const SCENE_FLOAT_COUNT = 20;
 
 export const coloredTriangle: WebExample = async (canvas, reportError) => {
   const device = await Device.create(canvas);
-  const sceneData = new Float32Array(SCENE_FLOAT_COUNT);
+  const scene = UniformBlock.create(
+    {
+      viewProj: "mat4",
+      time: "f32",
+    },
+    "ColoredTriangleScene",
+  );
   const positionBuffer = Buffer.fromData(
     device,
     positions,
@@ -26,19 +30,19 @@ export const coloredTriangle: WebExample = async (canvas, reportError) => {
   const colorBuffer = Buffer.fromData(device, colors, BufferUsage.vertex, "ColoredTriangleColors");
   const uniformBuffer = Buffer.create(
     device,
-    sceneData.byteLength,
+    scene.byteSize,
     BufferUsage.uniform,
     "ColoredTriangleScene",
   );
   const mesh = new Mesh(3)
     .addVertexBuffer(positionBuffer, {
       arrayStride: 12,
-      attributes: [{ shaderLocation: 0, format: "float32x3", offset: 0 }],
+      attributes: [{ shaderLocation: 0, format: "vec3", offset: 0 }],
       slot: 0,
     })
     .addVertexBuffer(colorBuffer, {
       arrayStride: 12,
-      attributes: [{ shaderLocation: 1, format: "float32x3", offset: 0 }],
+      attributes: [{ shaderLocation: 1, format: "vec3", offset: 0 }],
       slot: 1,
     });
   const draw = new Draw(device, shaderCode, mesh, { label: "ColoredTriangle" });
@@ -75,9 +79,9 @@ export const coloredTriangle: WebExample = async (canvas, reportError) => {
     eye[2] = Math.cos(yaw) * horizontal + center[2];
     mat4.lookAt(view, eye, center, up);
     mat4.multiply(viewProj, projection, view);
-    sceneData.set(viewProj as unknown as Float32Array, 0);
-    sceneData[16] = (performance.now() - startedAt) * 0.001;
-    uniformBuffer.writeData(device, sceneData);
+    scene.set("viewProj", viewProj);
+    scene.set("time", (performance.now() - startedAt) * 0.001);
+    uniformBuffer.write(device, scene);
   };
 
   const onPointerDown = (event: PointerEvent) => {
@@ -166,6 +170,7 @@ export const coloredTriangle: WebExample = async (canvas, reportError) => {
     bindGroup.free();
     draw.free();
     uniformBuffer.free();
+    scene.free();
     positionBuffer.free();
     colorBuffer.free();
     device.free();

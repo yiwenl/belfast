@@ -58,6 +58,8 @@ pub enum BelfastError {
     VertexBufferExtentOverflow(u32),
     #[error("draw was created by a different device")]
     DrawDeviceMismatch,
+    #[error("compute was created by a different device")]
+    ComputeDeviceMismatch,
     #[error("mesh contains resources created by a different device")]
     MeshDeviceMismatch,
     #[error("mesh layout is incompatible with this draw")]

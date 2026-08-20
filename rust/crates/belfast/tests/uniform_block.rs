@@ -19,6 +19,44 @@ fn packs_uniform_fields_with_wgsl_alignment() {
 }
 
 #[test]
+fn accepts_dynamic_schema_and_pads_uniform_struct_size() {
+    let schema = vec![
+        ("viewProj".to_string(), UniformFieldType::Mat4x4F),
+        ("time".to_string(), UniformFieldType::F32),
+    ];
+    let block = UniformBlock::create(schema).expect("dynamic schema is valid");
+
+    assert_eq!(block.byte_size(), 80);
+    assert_eq!(block.float_count(), 20);
+    assert_eq!(block.get_offset("viewProj").unwrap(), 0);
+    assert_eq!(block.get_offset("time").unwrap(), 16);
+    assert_eq!(
+        block.field_type("viewProj").unwrap(),
+        UniformFieldType::Mat4x4F
+    );
+    assert_eq!(block.field_type("time").unwrap(), UniformFieldType::F32);
+}
+
+#[test]
+fn packs_mat3_columns_with_wgsl_padding() {
+    let mut block = UniformBlock::create([("normal", UniformFieldType::Mat3x3F)]).unwrap();
+
+    block
+        .set_f32_slice("normal", &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
+        .unwrap();
+
+    assert_eq!(block.byte_size(), 48);
+    assert_eq!(block.float_count(), 12);
+    assert_eq!(
+        block.f32_data(),
+        &[1.0, 2.0, 3.0, 0.0, 4.0, 5.0, 6.0, 0.0, 7.0, 8.0, 9.0, 0.0]
+    );
+    assert!(block
+        .set_f32_slice("normal", &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+        .is_err());
+}
+
+#[test]
 fn writes_float_vector_matrix_and_u32_values_by_name() {
     let mut block = UniformBlock::create([
         ("mode", UniformFieldType::U32),

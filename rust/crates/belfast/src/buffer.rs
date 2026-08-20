@@ -61,6 +61,10 @@ impl Buffer {
         self.size
     }
 
+    pub fn usage(&self) -> wgpu::BufferUsages {
+        self.gpu.usage()
+    }
+
     pub fn device(&self) -> &Device {
         &self.device
     }

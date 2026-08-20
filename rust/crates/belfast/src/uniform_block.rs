@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::{BelfastError, BelfastResult};
 
+const UNIFORM_STRUCT_ALIGNMENT: usize = 16;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UniformFieldType {
     F32,
@@ -9,6 +11,7 @@ pub enum UniformFieldType {
     Vec2F,
     Vec3F,
     Vec4F,
+    Mat3x3F,
     Mat4x4F,
 }
 
@@ -37,15 +40,20 @@ pub struct UniformBlock {
 }
 
 impl UniformBlock {
-    pub fn create<const N: usize>(schema: [(&str, UniformFieldType); N]) -> BelfastResult<Self> {
+    pub fn create<I, S>(schema: I) -> BelfastResult<Self>
+    where
+        I: IntoIterator<Item = (S, UniformFieldType)>,
+        S: Into<String>,
+    {
         let mut byte_offset = 0;
         let mut fields = BTreeMap::new();
 
         for (name, field_type) in schema {
+            let name = name.into();
             let spec = type_spec(field_type);
             byte_offset = align_to(byte_offset, spec.alignment);
             fields.insert(
-                name.to_string(),
+                name,
                 UniformFieldMeta {
                     field_type,
                     float_offset: byte_offset / 4,
@@ -55,6 +63,7 @@ impl UniformBlock {
             byte_offset += spec.storage_byte_size;
         }
 
+        byte_offset = align_to(byte_offset, UNIFORM_STRUCT_ALIGNMENT);
         let float_count = byte_offset / 4;
         Ok(Self {
             byte_size: byte_offset,
@@ -87,6 +96,10 @@ impl UniformBlock {
 
     pub fn get_offset(&self, name: &str) -> BelfastResult<usize> {
         Ok(self.field(name)?.float_offset)
+    }
+
+    pub fn field_type(&self, name: &str) -> BelfastResult<UniformFieldType> {
+        Ok(self.field(name)?.field_type)
     }
 
     pub fn set_f32(&mut self, name: &str, value: f32) -> BelfastResult<&mut Self> {
@@ -125,6 +138,19 @@ impl UniformBlock {
         }
 
         let offset = field.float_offset;
+        if field.field_type == UniformFieldType::Mat3x3F {
+            for column in 0..3 {
+                for row in 0..3 {
+                    let value_index = column * 3 + row;
+                    let storage_index = offset + column * 4 + row;
+                    self.data[storage_index] = value[value_index];
+                    self.uint_data[storage_index] = value[value_index].to_bits();
+                }
+                self.data[offset + column * 4 + 3] = 0.0;
+                self.uint_data[offset + column * 4 + 3] = 0;
+            }
+            return Ok(self);
+        }
         for (index, item) in value.iter().take(field.value_float_count).enumerate() {
             self.data[offset + index] = *item;
             self.uint_data[offset + index] = item.to_bits();
@@ -184,11 +210,17 @@ fn type_spec(field_type: UniformFieldType) -> TypeSpec {
             value_float_count: 4,
             name: "vec4f",
         },
+        UniformFieldType::Mat3x3F => TypeSpec {
+            alignment: 16,
+            storage_byte_size: 48,
+            value_float_count: 9,
+            name: "mat3",
+        },
         UniformFieldType::Mat4x4F => TypeSpec {
             alignment: 16,
             storage_byte_size: 64,
             value_float_count: 16,
-            name: "mat4x4f",
+            name: "mat4",
         },
     }
 }

@@ -58,12 +58,12 @@ function createAspectFitMesh(
     return new Mesh(6)
       .addVertexBuffer(positionBuffer, {
         arrayStride: 8,
-        attributes: [{ shaderLocation: 0, format: "float32x2", offset: 0 }],
+        attributes: [{ shaderLocation: 0, format: "vec2", offset: 0 }],
         slot: 0,
       })
       .addVertexBuffer(uvBuffer, {
         arrayStride: 8,
-        attributes: [{ shaderLocation: 1, format: "float32x2", offset: 0 }],
+        attributes: [{ shaderLocation: 1, format: "vec2", offset: 0 }],
         slot: 1,
       });
   } finally {
