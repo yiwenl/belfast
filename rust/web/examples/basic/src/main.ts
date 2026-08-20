@@ -4,7 +4,7 @@ import { cameraOrbit } from "./examples/camera-orbit";
 import { coloredTriangle } from "./examples/colored-triangle";
 import { computeTriangle } from "./examples/compute-triangle";
 import { textureExample } from "./examples/texture";
-import "./style.css";
+import "../../src/style.css";
 
 export type ReportError = (error: unknown) => void;
 

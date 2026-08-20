@@ -1,5 +1,6 @@
 //! WebAssembly facade for the Rust Belfast runtime.
 
+mod axis_helper;
 mod bind_group;
 mod bindings;
 mod camera;
@@ -16,6 +17,7 @@ mod resources;
 mod texture;
 mod uniform_block;
 
+pub use axis_helper::WasmAxisHelper;
 #[cfg(target_arch = "wasm32")]
 pub use bind_group::WasmBindGroup;
 pub use camera::{WasmOrthographicCamera, WasmPerspectiveCamera};

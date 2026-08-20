@@ -83,6 +83,14 @@ impl AxisHelper {
         camera_bind_group.bind(pass, 0);
         self.draw.draw(pass, &self.mesh, 1);
     }
+
+    pub fn device(&self) -> &Device {
+        self.draw.device()
+    }
+
+    pub fn get_bind_group_layout(&self, index: u32) -> wgpu::BindGroupLayout {
+        self.draw.get_bind_group_layout(index)
+    }
 }
 
 fn validate_length(length: f32) -> BelfastResult<()> {

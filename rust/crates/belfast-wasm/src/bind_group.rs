@@ -10,6 +10,7 @@ use crate::compute::{ComputeBindingLayout, ComputeBufferType};
 use crate::draw::ShaderResourceLayout;
 #[cfg(target_arch = "wasm32")]
 use crate::{
+    axis_helper::{AxisHelperState, WasmAxisHelper},
     compute::{ComputeState, WasmCompute},
     draw::DrawState,
     texture::TextureState,
@@ -352,6 +353,7 @@ fn parse_u64(value: &JsValue, name: &str) -> Result<u64, String> {
 enum BindGroupOwner {
     Draw(Rc<DrawState>),
     Compute(Rc<ComputeState>),
+    AxisHelper(Rc<AxisHelperState>),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -372,14 +374,21 @@ impl BindGroupState {
     pub(crate) fn draw(&self) -> Option<&Rc<DrawState>> {
         match &self.owner {
             BindGroupOwner::Draw(draw) => Some(draw),
-            BindGroupOwner::Compute(_) => None,
+            BindGroupOwner::Compute(_) | BindGroupOwner::AxisHelper(_) => None,
         }
     }
 
     pub(crate) fn compute(&self) -> Option<&Rc<ComputeState>> {
         match &self.owner {
             BindGroupOwner::Compute(compute) => Some(compute),
-            BindGroupOwner::Draw(_) => None,
+            BindGroupOwner::Draw(_) | BindGroupOwner::AxisHelper(_) => None,
+        }
+    }
+
+    pub(crate) fn axis_helper(&self) -> Option<&Rc<AxisHelperState>> {
+        match &self.owner {
+            BindGroupOwner::AxisHelper(axis) => Some(axis),
+            BindGroupOwner::Draw(_) | BindGroupOwner::Compute(_) => None,
         }
     }
 
@@ -529,47 +538,18 @@ impl WasmBindGroup {
     #[wasm_bindgen(js_name = fromBuffer, unchecked_return_type = "BindGroup")]
     pub fn from_buffer(
         device: &WasmDevice,
-        draw: &WasmDraw,
+        #[wasm_bindgen(unchecked_param_type = "Draw | AxisHelper")] pipeline: JsValue,
         buffer: &WasmBuffer,
         options: Option<JsValue>,
     ) -> Result<JsValue, JsValue> {
-        let options: UniformBindGroupOptionsInput = options
-            .map(serde_wasm_bindgen::from_value)
-            .transpose()
-            .map_err(to_js_error)?
-            .unwrap_or_default();
-        let options = options.resolve();
-        validate_uniform_bindings(&draw.state.resources, options.group_index, options.binding)
-            .map_err(to_js_error)?;
-
-        if !draw.state.draw().device().is_same(&device.inner) {
-            return Err(to_js_error("draw was created by a different device"));
+        match crate::frame::parse_draw_or_axis_helper(&pipeline)? {
+            crate::frame::DrawOrAxisHelper::Draw(draw) => {
+                from_draw_buffer(device, &draw, buffer, options)
+            }
+            crate::frame::DrawOrAxisHelper::Axis(axes) => {
+                from_axis_buffer(device, &axes, buffer, options)
+            }
         }
-        if !buffer.inner().device().is_same(&device.inner) {
-            return Err(to_js_error("buffer was created by a different device"));
-        }
-
-        let layout = draw.state.draw().get_bind_group_layout(options.group_index);
-        let bind_group = belfast::BindGroup::create(
-            &device.inner,
-            &layout,
-            &[wgpu::BindGroupEntry {
-                binding: options.binding,
-                resource: buffer.inner().gpu().as_entire_binding(),
-            }],
-            &options.label,
-        );
-
-        let wrapper = JsValue::from(Self {
-            state: Rc::new(BindGroupState {
-                bind_group,
-                owner: BindGroupOwner::Draw(draw.state.clone()),
-                group_index: options.group_index,
-                source: BindGroupSource::Buffer(buffer.inner().clone()),
-            }),
-        });
-        crate::frame::register_bind_group_wrapper(&wrapper)?;
-        Ok(wrapper)
     }
 
     #[wasm_bindgen(js_name = fromBuffers, unchecked_return_type = "BindGroup")]
@@ -652,6 +632,104 @@ impl WasmBindGroup {
             state: self.state.clone(),
         }
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn from_draw_buffer(
+    device: &WasmDevice,
+    draw: &WasmDraw,
+    buffer: &WasmBuffer,
+    options: Option<JsValue>,
+) -> Result<JsValue, JsValue> {
+    let options: UniformBindGroupOptionsInput = options
+        .map(serde_wasm_bindgen::from_value)
+        .transpose()
+        .map_err(to_js_error)?
+        .unwrap_or_default();
+    let options = options.resolve();
+    validate_uniform_bindings(&draw.state.resources, options.group_index, options.binding)
+        .map_err(to_js_error)?;
+
+    if !draw.state.draw().device().is_same(&device.inner) {
+        return Err(to_js_error("draw was created by a different device"));
+    }
+    if !buffer.inner().device().is_same(&device.inner) {
+        return Err(to_js_error("buffer was created by a different device"));
+    }
+
+    let layout = draw.state.draw().get_bind_group_layout(options.group_index);
+    let bind_group = belfast::BindGroup::create(
+        &device.inner,
+        &layout,
+        &[wgpu::BindGroupEntry {
+            binding: options.binding,
+            resource: buffer.inner().gpu().as_entire_binding(),
+        }],
+        &options.label,
+    );
+
+    let wrapper = JsValue::from(WasmBindGroup {
+        state: Rc::new(BindGroupState {
+            bind_group,
+            owner: BindGroupOwner::Draw(draw.state.clone()),
+            group_index: options.group_index,
+            source: BindGroupSource::Buffer(buffer.inner().clone()),
+        }),
+    });
+    crate::frame::register_bind_group_wrapper(&wrapper)?;
+    Ok(wrapper)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn from_axis_buffer(
+    device: &WasmDevice,
+    axes: &WasmAxisHelper,
+    buffer: &WasmBuffer,
+    options: Option<JsValue>,
+) -> Result<JsValue, JsValue> {
+    let options: UniformBindGroupOptionsInput = options
+        .map(serde_wasm_bindgen::from_value)
+        .transpose()
+        .map_err(to_js_error)?
+        .unwrap_or_default();
+    let options = options.resolve();
+    if options.group_index != 0 || options.binding != 0 {
+        return Err(to_js_error(
+            "bind group bindings must match axis helper layout @group(0) uniform @binding(0)",
+        ));
+    }
+
+    if !axes.state.helper().device().is_same(&device.inner) {
+        return Err(to_js_error("axis helper was created by a different device"));
+    }
+    if !buffer.inner().device().is_same(&device.inner) {
+        return Err(to_js_error("buffer was created by a different device"));
+    }
+
+    let layout = axes
+        .state
+        .helper()
+        .get_bind_group_layout(options.group_index);
+    let bind_group = belfast::BindGroup::create(
+        &device.inner,
+        &layout,
+        &[wgpu::BindGroupEntry {
+            binding: options.binding,
+            resource: buffer.inner().gpu().as_entire_binding(),
+        }],
+        &options.label,
+    );
+
+    let wrapper = JsValue::from(WasmBindGroup {
+        state: Rc::new(BindGroupState {
+            bind_group,
+            owner: BindGroupOwner::AxisHelper(axes.state.clone()),
+            group_index: options.group_index,
+            source: BindGroupSource::Buffer(buffer.inner().clone()),
+        }),
+    });
+    crate::frame::register_bind_group_wrapper(&wrapper)?;
+    Ok(wrapper)
 }
 
 #[cfg(test)]

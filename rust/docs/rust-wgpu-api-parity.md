@@ -23,7 +23,7 @@ Status legend:
 | `PerspectiveCamera`  | Done              | Done        | Done             | Rust and wasm expose perspective setup, `lookAt`, aspect/FOV updates, position, target, and separate view, projection, and view-projection matrices.                            |
 | `OrthographicCamera` | Done              | Done        | Done             | Rust and wasm expose orthographic setup, `lookAt`, position, target, and separate view, projection, and view-projection matrices.                                               |
 | `OrbitalControl`     | Done              | Done        | Done             | Rust accepts platform-neutral pointer and scroll input; wasm binds `listenerTarget` pointer/wheel events. Callers own the camera and must call `update(dt, camera)` each frame. |
-| `AxisHelper`         | Done              | Done        | Pending          | Rust renders RGB axes with a caller-owned camera layout and bind group.                                                                                                         |
+| `AxisHelper`         | Done              | Done        | Done             | Rust renders RGB axes with a caller-owned camera layout and bind group. Wasm creates an internal scene-uniform layout; shared `pipelineLayout` is not exposed yet.              |
 | `Geom.plane`         | Done              | Done        | Pending          | Rust has `Geom::plane` with positions, uvs, and indices. Wasm geometry facade is pending.                                                                                       |
 
 ## First milestone verification
@@ -40,12 +40,13 @@ Status legend:
 | WebAssembly browser smoke app        | Done   | `Device.create(canvas)`, vertex `Buffer.fromData`, chained `Mesh.addVertexBuffer`, `Draw`, resize, render, submit, and present. |
 | WebAssembly camera-orbit example     | Done   | `PerspectiveCamera`, `OrbitalControl({ listenerTarget })`, and separate view/projection uniforms.                               |
 | WebAssembly compute-triangle example | Done   | `Compute` with JS layout/storage buffers, `Frame.dispatch`, then `Draw` of compute-written vertices.                            |
+| WebAssembly template example         | Done   | `PerspectiveCamera`, `OrbitalControl({ listenerTarget })`, and `AxisHelper` with a view-projection uniform.                     |
 
-The implemented browser slice includes the smoke app above plus camera rendering through `PerspectiveCamera`, `OrbitalControl`, and uniform bind groups. Browser compute dispatch is available for `@group(0)` buffer layouts. Browser render-to-texture support remains pending.
+The implemented browser slice includes the smoke app above plus camera rendering through `PerspectiveCamera`, `OrbitalControl`, `AxisHelper`, and uniform bind groups. Browser compute dispatch is available for `@group(0)` buffer layouts. Browser render-to-texture support remains pending.
 
 ## Next parity targets
 
 1. Add browser render-to-texture support.
 2. Add `CopyHelper` parity when repeated render-target presentation needs a reusable helper.
 3. Expand wasm `Buffer`, `Mesh`, `Draw`, `Texture`, and `RenderTarget` beyond the browser smoke slice.
-4. Add `AxisHelper` and `Geom.plane` wasm facades.
+4. Add `Geom.plane` wasm facade.

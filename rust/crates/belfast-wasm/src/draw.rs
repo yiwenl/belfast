@@ -614,6 +614,13 @@ impl WasmDraw {
         self.state.mesh.replace(mesh);
         Ok(())
     }
+
+    #[wasm_bindgen(js_name = __frameHandle, skip_typescript)]
+    pub fn frame_handle(&self) -> WasmDraw {
+        Self {
+            state: self.state.clone(),
+        }
+    }
 }
 
 #[cfg(test)]

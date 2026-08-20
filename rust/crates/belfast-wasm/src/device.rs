@@ -368,7 +368,7 @@ impl WasmDevice {
         else {
             return Ok(());
         };
-        frame.render(draw, JsValue::UNDEFINED)?;
+        frame.render_draw(draw, JsValue::UNDEFINED)?;
         frame.submit()
     }
 

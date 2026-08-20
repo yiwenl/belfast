@@ -10,6 +10,7 @@ use wasm_bindgen::{convert::TryFromJsValue, prelude::*, JsCast};
 
 #[cfg(target_arch = "wasm32")]
 use crate::{
+    axis_helper::{AxisHelperState, WasmAxisHelper},
     bind_group::BindGroupState,
     compute::{parse_workgroups, ComputeState},
     device::{CanvasTarget, PendingGpuErrors, SurfaceLeaseGuard},
@@ -74,6 +75,9 @@ struct DeviceKey(u64);
 struct DrawKey(u64);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+struct AxisKey(u64);
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 struct ComputeKey(u64);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -94,6 +98,12 @@ struct DrawValidation {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AxisValidation {
+    key: AxisKey,
+    device: DeviceKey,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct ComputeValidation {
     key: ComputeKey,
     device: DeviceKey,
@@ -105,6 +115,7 @@ struct BindGroupValidation {
     key: BindGroupKey,
     draw: Option<DrawKey>,
     compute: Option<ComputeKey>,
+    axis: Option<AxisKey>,
     device: DeviceKey,
 }
 
@@ -137,6 +148,27 @@ fn validate_render_command(
             Ok(())
         }
     }
+}
+
+fn validate_axis_render_command(
+    frame_device: DeviceKey,
+    axis: AxisValidation,
+    bind_group: Option<BindGroupValidation>,
+) -> Result<(), String> {
+    if axis.device != frame_device {
+        return Err("axis helper was created by a different device".into());
+    }
+
+    let Some(bind_group) = bind_group else {
+        return Err("axis helper requires a bind group".into());
+    };
+    if bind_group.device != frame_device {
+        return Err("bind group was created by a different device".into());
+    }
+    if bind_group.axis != Some(axis.key) {
+        return Err("bind group was created for a different axis helper".into());
+    }
+    Ok(())
 }
 
 fn validate_dispatch_command(
@@ -223,9 +255,15 @@ enum PlannedLoadOp {
     Load,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PlannedDrawable {
+    Draw(DrawKey),
+    Axis(AxisKey),
+}
+
 #[derive(Debug, PartialEq)]
 struct PlannedRenderCommand {
-    draw: DrawKey,
+    drawable: PlannedDrawable,
     bind_group: Option<BindGroupKey>,
 }
 
@@ -254,7 +292,7 @@ enum RecordedCommand {
         clear_color: wgpu::Color,
     },
     Render {
-        draw: DrawKey,
+        drawable: PlannedDrawable,
         bind_group: Option<BindGroupKey>,
     },
     Dispatch {
@@ -283,8 +321,18 @@ impl FramePlan {
     }
 
     fn render(&mut self, draw: DrawKey, bind_group: Option<BindGroupKey>) -> Result<(), String> {
-        self.commands
-            .push(RecordedCommand::Render { draw, bind_group });
+        self.commands.push(RecordedCommand::Render {
+            drawable: PlannedDrawable::Draw(draw),
+            bind_group,
+        });
+        Ok(())
+    }
+
+    fn render_axis(&mut self, axis: AxisKey, bind_group: BindGroupKey) -> Result<(), String> {
+        self.commands.push(RecordedCommand::Render {
+            drawable: PlannedDrawable::Axis(axis),
+            bind_group: Some(bind_group),
+        });
         Ok(())
     }
 
@@ -330,7 +378,10 @@ impl FramePlan {
                     bound_target = Some((target, clear_color));
                     next_load.insert(target, PlannedLoadOp::Clear);
                 }
-                RecordedCommand::Render { draw, bind_group } => {
+                RecordedCommand::Render {
+                    drawable,
+                    bind_group,
+                } => {
                     let (target, clear_color) =
                         bound_target.unwrap_or_else(|| (TargetKey::Canvas, default_clear_color()));
                     if bound_target.is_none() {
@@ -355,7 +406,10 @@ impl FramePlan {
                         .as_mut()
                         .expect("frame plan has a current pass")
                         .commands
-                        .push(PlannedRenderCommand { draw, bind_group });
+                        .push(PlannedRenderCommand {
+                            drawable,
+                            bind_group,
+                        });
                 }
                 RecordedCommand::Dispatch {
                     compute,
@@ -543,15 +597,40 @@ pub(crate) fn clone_live_wasm_class(value: &JsValue, error: &str) -> Result<JsVa
 }
 
 #[cfg(target_arch = "wasm32")]
+pub(crate) enum DrawOrAxisHelper {
+    Draw(WasmDraw),
+    Axis(WasmAxisHelper),
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn parse_draw_or_axis_helper(value: &JsValue) -> Result<DrawOrAxisHelper, JsValue> {
+    const ERROR: &str = "value must be a live Draw or AxisHelper";
+    let draw_handle = clone_live_wasm_class(value, ERROR)?;
+    if let Ok(draw) = WasmDraw::try_from_js_value(draw_handle) {
+        return Ok(DrawOrAxisHelper::Draw(draw));
+    }
+    let axis_handle = clone_live_wasm_class(value, ERROR)?;
+    WasmAxisHelper::try_from_js_value(axis_handle)
+        .map(DrawOrAxisHelper::Axis)
+        .map_err(|_| to_js_error(ERROR))
+}
+
+#[cfg(target_arch = "wasm32")]
 enum FrameTarget {
     Canvas,
     RenderTarget(Rc<RefCell<belfast::RenderTarget>>),
 }
 
 #[cfg(target_arch = "wasm32")]
-struct RenderCommand {
-    draw: Rc<DrawState>,
-    bind_group: Option<Rc<BindGroupState>>,
+enum RenderCommand {
+    Draw {
+        draw: Rc<DrawState>,
+        bind_group: Option<Rc<BindGroupState>>,
+    },
+    Axis {
+        axis: Rc<AxisHelperState>,
+        bind_group: Rc<BindGroupState>,
+    },
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -588,6 +667,7 @@ pub struct WasmFrame {
     plan: FramePlan,
     render_targets: HashMap<TargetKey, Rc<RefCell<belfast::RenderTarget>>>,
     draws: HashMap<DrawKey, Rc<DrawState>>,
+    axes: HashMap<AxisKey, Rc<AxisHelperState>>,
     computes: HashMap<ComputeKey, Rc<ComputeState>>,
     bind_groups: HashMap<BindGroupKey, Rc<BindGroupState>>,
 }
@@ -616,9 +696,77 @@ impl WasmFrame {
             plan: FramePlan::new(),
             render_targets: HashMap::new(),
             draws: HashMap::new(),
+            axes: HashMap::new(),
             computes: HashMap::new(),
             bind_groups: HashMap::new(),
         }
+    }
+
+    pub(crate) fn render_draw(
+        &mut self,
+        draw: &WasmDraw,
+        bind_group: JsValue,
+    ) -> Result<(), JsValue> {
+        let bind_group_handle = optional_bind_group(bind_group)?;
+        let bind_group = bind_group_handle.as_ref();
+        let draw_key = DrawKey(rc_key(&draw.state));
+        let bind_group_validation = bind_group.map(bind_group_validation);
+        validate_render_command(
+            device_key(&self.device),
+            DrawValidation {
+                key: draw_key,
+                device: device_key(draw.state.draw().device()),
+                requires_bind_group: !matches!(&draw.state.resources, ShaderResourceLayout::None),
+            },
+            bind_group_validation,
+        )
+        .map_err(to_js_error)?;
+
+        {
+            let mesh = draw.state.mesh();
+            draw.state
+                .draw()
+                .validate_for_render(&self.device, &mesh)
+                .map_err(to_js_error)?;
+        }
+
+        self.draws.insert(draw_key, draw.state.clone());
+        if let Some(bind_group) = bind_group {
+            self.bind_groups.insert(
+                BindGroupKey(rc_key(&bind_group.state)),
+                bind_group.state.clone(),
+            );
+        }
+        self.plan
+            .render(draw_key, bind_group_validation.map(|binding| binding.key))
+            .map_err(to_js_error)
+    }
+
+    fn render_axis(&mut self, axes: &WasmAxisHelper, bind_group: JsValue) -> Result<(), JsValue> {
+        let bind_group_handle = optional_bind_group(bind_group)?;
+        let bind_group = bind_group_handle.as_ref();
+        let axis_key = AxisKey(rc_key(&axes.state));
+        let bind_group_validation = bind_group.map(bind_group_validation);
+        validate_axis_render_command(
+            device_key(&self.device),
+            AxisValidation {
+                key: axis_key,
+                device: device_key(axes.state.helper().device()),
+            },
+            bind_group_validation,
+        )
+        .map_err(to_js_error)?;
+
+        self.axes.insert(axis_key, axes.state.clone());
+        let bind_group =
+            bind_group.ok_or_else(|| to_js_error("axis helper requires a bind group"))?;
+        self.bind_groups.insert(
+            BindGroupKey(rc_key(&bind_group.state)),
+            bind_group.state.clone(),
+        );
+        self.plan
+            .render_axis(axis_key, BindGroupKey(rc_key(&bind_group.state)))
+            .map_err(to_js_error)
     }
 }
 
@@ -665,46 +813,17 @@ impl WasmFrame {
 
     pub fn render(
         &mut self,
-        draw: &WasmDraw,
+        #[wasm_bindgen(unchecked_param_type = "Draw | AxisHelper")] drawable: JsValue,
         #[wasm_bindgen(
             js_name = bindGroup,
             unchecked_optional_param_type = "BindGroup | null"
         )]
         bind_group: JsValue,
     ) -> Result<(), JsValue> {
-        let bind_group_handle = optional_bind_group(bind_group)?;
-        let bind_group = bind_group_handle.as_ref();
-        let draw_key = DrawKey(rc_key(&draw.state));
-        let bind_group_validation = bind_group.map(bind_group_validation);
-        validate_render_command(
-            device_key(&self.device),
-            DrawValidation {
-                key: draw_key,
-                device: device_key(draw.state.draw().device()),
-                requires_bind_group: !matches!(&draw.state.resources, ShaderResourceLayout::None),
-            },
-            bind_group_validation,
-        )
-        .map_err(to_js_error)?;
-
-        {
-            let mesh = draw.state.mesh();
-            draw.state
-                .draw()
-                .validate_for_render(&self.device, &mesh)
-                .map_err(to_js_error)?;
+        match parse_draw_or_axis_helper(&drawable)? {
+            DrawOrAxisHelper::Draw(draw) => self.render_draw(&draw, bind_group),
+            DrawOrAxisHelper::Axis(axes) => self.render_axis(&axes, bind_group),
         }
-
-        self.draws.insert(draw_key, draw.state.clone());
-        if let Some(bind_group) = bind_group {
-            self.bind_groups.insert(
-                BindGroupKey(rc_key(&bind_group.state)),
-                bind_group.state.clone(),
-            );
-        }
-        self.plan
-            .render(draw_key, bind_group_validation.map(|binding| binding.key))
-            .map_err(to_js_error)
     }
 
     pub fn dispatch(
@@ -768,6 +887,7 @@ impl WasmFrame {
             planned_ops,
             &self.render_targets,
             &self.draws,
+            &self.axes,
             &self.computes,
             &self.bind_groups,
         )
@@ -809,6 +929,10 @@ fn bind_group_validation(bind_group: &WasmBindGroup) -> BindGroupValidation {
             .state
             .compute()
             .map(|compute| ComputeKey(rc_key(compute))),
+        axis: bind_group
+            .state
+            .axis_helper()
+            .map(|axis| AxisKey(rc_key(axis))),
         device: device_key(bind_group.state.bind_group().device()),
     }
 }
@@ -826,6 +950,7 @@ fn materialize_ops(
     planned_ops: Vec<PlannedOp>,
     render_targets: &HashMap<TargetKey, Rc<RefCell<belfast::RenderTarget>>>,
     draws: &HashMap<DrawKey, Rc<DrawState>>,
+    axes: &HashMap<AxisKey, Rc<AxisHelperState>>,
     computes: &HashMap<ComputeKey, Rc<ComputeState>>,
     bind_groups: &HashMap<BindGroupKey, Rc<BindGroupState>>,
 ) -> Result<Vec<LogicalOp>, String> {
@@ -865,21 +990,33 @@ fn materialize_ops(
                     .commands
                     .into_iter()
                     .map(|command| {
-                        Ok(RenderCommand {
-                            draw: draws
-                                .get(&command.draw)
-                                .cloned()
-                                .ok_or_else(|| "frame draw is unavailable".to_owned())?,
-                            bind_group: command
-                                .bind_group
-                                .map(|key| {
-                                    bind_groups
-                                        .get(&key)
-                                        .cloned()
-                                        .ok_or_else(|| "frame bind group is unavailable".to_owned())
-                                })
-                                .transpose()?,
-                        })
+                        let bind_group = command
+                            .bind_group
+                            .map(|key| {
+                                bind_groups
+                                    .get(&key)
+                                    .cloned()
+                                    .ok_or_else(|| "frame bind group is unavailable".to_owned())
+                            })
+                            .transpose()?;
+                        match command.drawable {
+                            PlannedDrawable::Draw(draw) => Ok(RenderCommand::Draw {
+                                draw: draws
+                                    .get(&draw)
+                                    .cloned()
+                                    .ok_or_else(|| "frame draw is unavailable".to_owned())?,
+                                bind_group,
+                            }),
+                            PlannedDrawable::Axis(axis) => Ok(RenderCommand::Axis {
+                                axis: axes
+                                    .get(&axis)
+                                    .cloned()
+                                    .ok_or_else(|| "frame axis helper is unavailable".to_owned())?,
+                                bind_group: bind_group.ok_or_else(|| {
+                                    "axis helper requires a bind group".to_owned()
+                                })?,
+                            }),
+                        }
                     })
                     .collect::<Result<Vec<_>, String>>()?;
                 Ok(LogicalOp::Render(LogicalPass {
@@ -937,7 +1074,13 @@ fn encode_logical_pass(
         commands,
     } = logical_pass;
     let color_load = color_load_op(load_op, clear_color);
-    let meshes: Vec<_> = commands.iter().map(|command| command.draw.mesh()).collect();
+    let draw_meshes: Vec<_> = commands
+        .iter()
+        .map(|command| match command {
+            RenderCommand::Draw { draw, .. } => Some(draw.mesh()),
+            RenderCommand::Axis { .. } => None,
+        })
+        .collect();
 
     match target {
         FrameTarget::Canvas => {
@@ -958,7 +1101,7 @@ fn encode_logical_pass(
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            encode_render_commands(&mut pass, &commands, &meshes);
+            encode_render_commands(&mut pass, &commands, &draw_meshes);
         }
         FrameTarget::RenderTarget(target) => {
             let target = target.borrow();
@@ -974,7 +1117,7 @@ fn encode_logical_pass(
                     ..Default::default()
                 },
             );
-            encode_render_commands(&mut pass, &commands, &meshes);
+            encode_render_commands(&mut pass, &commands, &draw_meshes);
         }
     }
 }
@@ -983,13 +1126,24 @@ fn encode_logical_pass(
 fn encode_render_commands<'pass>(
     pass: &mut wgpu::RenderPass<'pass>,
     commands: &'pass [RenderCommand],
-    meshes: &'pass [Ref<'pass, belfast::Mesh>],
+    draw_meshes: &'pass [Option<Ref<'pass, belfast::Mesh>>],
 ) {
-    for (command, mesh) in commands.iter().zip(meshes) {
-        if let Some(bind_group) = command.bind_group.as_ref() {
-            bind_group.bind_group().bind(pass, bind_group.group_index());
+    for (command, mesh) in commands.iter().zip(draw_meshes) {
+        match command {
+            RenderCommand::Draw { draw, bind_group } => {
+                if let Some(bind_group) = bind_group.as_ref() {
+                    bind_group.bind_group().bind(pass, bind_group.group_index());
+                }
+                draw.draw().draw(
+                    pass,
+                    mesh.as_ref().expect("draw command requires a mesh"),
+                    1,
+                );
+            }
+            RenderCommand::Axis { axis, bind_group } => {
+                axis.helper().draw(pass, bind_group.bind_group());
+            }
         }
-        command.draw.draw().draw(pass, mesh, 1);
     }
 }
 
@@ -1029,6 +1183,7 @@ mod tests {
             key: BindGroupKey(key),
             draw: Some(DrawKey(draw)),
             compute: None,
+            axis: None,
             device: DeviceKey(device),
         }
     }
@@ -1038,6 +1193,24 @@ mod tests {
             key: BindGroupKey(key),
             draw: None,
             compute: Some(ComputeKey(compute)),
+            axis: None,
+            device: DeviceKey(device),
+        }
+    }
+
+    fn axis_bind_group(key: u64, axis: u64, device: u64) -> BindGroupValidation {
+        BindGroupValidation {
+            key: BindGroupKey(key),
+            draw: None,
+            compute: None,
+            axis: Some(AxisKey(axis)),
+            device: DeviceKey(device),
+        }
+    }
+
+    fn axis(key: u64, device: u64) -> AxisValidation {
+        AxisValidation {
+            key: AxisKey(key),
             device: DeviceKey(device),
         }
     }
@@ -1184,6 +1357,41 @@ mod tests {
                 Some(compute_bind_group(3, 4, 1)),
             ),
             Err("bind group was created for a different compute".into())
+        );
+    }
+
+    #[test]
+    fn axis_helper_joins_the_current_render_pass() {
+        let mut plan = FramePlan::new();
+        plan.bind_target(TargetKey::Canvas, clear(0.2));
+        plan.render(DrawKey(1), None).unwrap();
+        plan.render_axis(AxisKey(2), BindGroupKey(3)).unwrap();
+
+        let ops = plan.finish().unwrap();
+        let commands = &render_pass(&ops[0]).commands;
+        assert_eq!(commands.len(), 2);
+        assert_eq!(
+            commands[1],
+            PlannedRenderCommand {
+                drawable: PlannedDrawable::Axis(AxisKey(2)),
+                bind_group: Some(BindGroupKey(3)),
+            }
+        );
+    }
+
+    #[test]
+    fn axis_helper_requires_its_own_bind_group() {
+        assert_eq!(
+            validate_axis_render_command(DeviceKey(1), axis(2, 1), None),
+            Err("axis helper requires a bind group".into())
+        );
+        assert_eq!(
+            validate_axis_render_command(DeviceKey(1), axis(2, 1), Some(axis_bind_group(3, 4, 1))),
+            Err("bind group was created for a different axis helper".into())
+        );
+        assert_eq!(
+            validate_axis_render_command(DeviceKey(1), axis(2, 9), Some(axis_bind_group(3, 2, 1))),
+            Err("axis helper was created by a different device".into())
         );
     }
 
