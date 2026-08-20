@@ -14,6 +14,10 @@ struct DrawOptionsInput {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ShaderResourceLayout {
     None,
+    Uniform {
+        group: u32,
+        binding: u32,
+    },
     TextureSampler {
         group: u32,
         texture_binding: u32,
@@ -153,6 +157,7 @@ fn validate_module_draw_interface(
 fn validate_shader_resource_layout(module: &naga::Module) -> Result<ShaderResourceLayout, String> {
     let mut texture = None;
     let mut sampler = None;
+    let mut uniform = None;
 
     for (_, variable) in module.global_variables.iter() {
         let Some(binding) = variable.binding else {
@@ -162,52 +167,67 @@ fn validate_shader_resource_layout(module: &naga::Module) -> Result<ShaderResour
             return Err(unsupported_shader_resource(binding));
         }
 
-        match &module.types[variable.ty].inner {
-            naga::TypeInner::Image {
-                dim: naga::ImageDimension::D2,
-                arrayed: false,
-                class:
-                    naga::ImageClass::Sampled {
-                        kind: naga::ScalarKind::Float,
-                        multi: false,
-                    },
-            } => {
-                if texture.replace(binding).is_some() {
+        match variable.space {
+            naga::AddressSpace::Uniform => {
+                if uniform.replace(binding).is_some() {
                     return Err(unsupported_shader_resource(binding));
                 }
             }
-            naga::TypeInner::Sampler { comparison: false } => {
-                if sampler.replace(binding).is_some() {
-                    return Err(unsupported_shader_resource(binding));
+            naga::AddressSpace::Handle => match &module.types[variable.ty].inner {
+                naga::TypeInner::Image {
+                    dim: naga::ImageDimension::D2,
+                    arrayed: false,
+                    class:
+                        naga::ImageClass::Sampled {
+                            kind: naga::ScalarKind::Float,
+                            multi: false,
+                        },
+                } => {
+                    if texture.replace(binding).is_some() {
+                        return Err(unsupported_shader_resource(binding));
+                    }
                 }
-            }
-            naga::TypeInner::Sampler { comparison: true } => {
-                return Err(format!(
-                    "shader resource @group({}) @binding({}) must be a filtering sampler",
-                    binding.group, binding.binding
-                ));
-            }
+                naga::TypeInner::Sampler { comparison: false } => {
+                    if sampler.replace(binding).is_some() {
+                        return Err(unsupported_shader_resource(binding));
+                    }
+                }
+                naga::TypeInner::Sampler { comparison: true } => {
+                    return Err(format!(
+                        "shader resource @group({}) @binding({}) must be a filtering sampler",
+                        binding.group, binding.binding
+                    ));
+                }
+                _ => return Err(unsupported_shader_resource(binding)),
+            },
             _ => return Err(unsupported_shader_resource(binding)),
         }
     }
 
-    match (texture, sampler) {
-        (None, None) => Ok(ShaderResourceLayout::None),
-        (Some(texture), Some(sampler)) if texture.group == sampler.group => {
+    match (texture, sampler, uniform) {
+        (None, None, None) => Ok(ShaderResourceLayout::None),
+        (None, None, Some(uniform)) => Ok(ShaderResourceLayout::Uniform {
+            group: uniform.group,
+            binding: uniform.binding,
+        }),
+        (Some(texture), Some(sampler), None) if texture.group == sampler.group => {
             Ok(ShaderResourceLayout::TextureSampler {
                 group: texture.group,
                 texture_binding: texture.binding,
                 sampler_binding: sampler.binding,
             })
         }
-        (Some(_), None) => {
+        (Some(_), None, None) => {
             Err("sampled texture requires one filtering sampler in the same bind group".into())
         }
-        (None, Some(_)) => {
+        (None, Some(_), None) => {
             Err("filtering sampler requires one sampled texture in the same bind group".into())
         }
-        (Some(_), Some(_)) => {
+        (Some(_), Some(_), None) => {
             Err("sampled texture and filtering sampler must use the same bind group".into())
+        }
+        (_, _, Some(_)) => {
+            Err("uniform buffers cannot be combined with sampled textures or samplers".into())
         }
     }
 }
@@ -656,6 +676,101 @@ fn fs_main() -> @location(0) vec4f {
 }
 "#;
 
+    const UNIFORM_SHADER: &str = r#"
+struct SceneUniforms {
+    viewProj: mat4x4<f32>,
+}
+
+@group(0) @binding(0) var<uniform> scene: SceneUniforms;
+
+@vertex
+fn vs_main(@location(0) position: vec3f) -> @builtin(position) vec4f {
+    return scene.viewProj * vec4f(position, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return vec4f(1.0);
+}
+"#;
+
+    const UNIFORM_VEC4_SHADER: &str = r#"
+@group(0) @binding(0) var<uniform> tint: vec4f;
+
+@vertex
+fn vs_main(@location(0) position: vec2f) -> @builtin(position) vec4f {
+    return vec4f(position, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return tint;
+}
+"#;
+
+    const GROUP1_UNIFORM_SHADER: &str = r#"
+@group(1) @binding(0) var<uniform> tint: vec4f;
+
+@vertex
+fn vs_main(@location(0) position: vec2f) -> @builtin(position) vec4f {
+    return vec4f(position, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return tint;
+}
+"#;
+
+    const TWO_UNIFORM_SHADER: &str = r#"
+@group(0) @binding(0) var<uniform> tint: vec4f;
+@group(0) @binding(1) var<uniform> extra: vec4f;
+
+@vertex
+fn vs_main(@location(0) position: vec2f) -> @builtin(position) vec4f {
+    return vec4f(position, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return tint + extra;
+}
+"#;
+
+    const STORAGE_BUFFER_SHADER: &str = r#"
+@group(0) @binding(0) var<storage, read> tint: vec4f;
+
+@vertex
+fn vs_main(@location(0) position: vec2f) -> @builtin(position) vec4f {
+    return vec4f(position, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return tint;
+}
+"#;
+
+    const UNIFORM_AND_TEXTURE_SHADER: &str = r#"
+struct SceneUniforms {
+    viewProj: mat4x4<f32>,
+}
+
+@group(0) @binding(0) var<uniform> scene: SceneUniforms;
+@group(0) @binding(1) var image: texture_2d<f32>;
+@group(0) @binding(2) var image_sampler: sampler;
+
+@vertex
+fn vs_main(@location(0) position: vec2f) -> @builtin(position) vec4f {
+    return scene.viewProj * vec4f(position, 0.0, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return textureSample(image, image_sampler, vec2f(0.5));
+}
+"#;
+
     const STORAGE_TEXTURE_SHADER: &str = r#"
 @group(0) @binding(0) var image: texture_storage_2d<rgba8unorm, write>;
 
@@ -871,24 +986,43 @@ fn fs_main() -> @location(0) vec4f {
     }
 
     #[test]
-    fn rejects_unsupported_uniform_resource() {
-        let shader = r#"
-@group(0) @binding(2) var<uniform> tint: vec4f;
-
-@vertex
-fn vs_main(@location(0) position: vec2f) -> @builtin(position) vec4f {
-    return vec4f(position, 0.0, 1.0);
-}
-
-@fragment
-fn fs_main() -> @location(0) vec4f {
-    return tint;
-}
-"#;
-
+    fn accepts_group0_uniform_buffer() {
         assert_eq!(
-            validate_draw_interface(shader, &[(0, wgpu::VertexFormat::Float32x2)]),
-            Err("unsupported shader resource @group(0) @binding(2)".into())
+            validate_draw_interface(UNIFORM_SHADER, &[(0, wgpu::VertexFormat::Float32x3)]),
+            Ok(ShaderResourceLayout::Uniform {
+                group: 0,
+                binding: 0,
+            })
+        );
+        assert_eq!(
+            validate_draw_interface(UNIFORM_VEC4_SHADER, &[(0, wgpu::VertexFormat::Float32x2)]),
+            Ok(ShaderResourceLayout::Uniform {
+                group: 0,
+                binding: 0,
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_non_group0_second_and_storage_uniforms() {
+        assert_eq!(
+            validate_draw_interface(GROUP1_UNIFORM_SHADER, &[(0, wgpu::VertexFormat::Float32x2)]),
+            Err("unsupported shader resource @group(1) @binding(0)".into())
+        );
+        assert_eq!(
+            validate_draw_interface(TWO_UNIFORM_SHADER, &[(0, wgpu::VertexFormat::Float32x2)]),
+            Err("unsupported shader resource @group(0) @binding(1)".into())
+        );
+        assert_eq!(
+            validate_draw_interface(STORAGE_BUFFER_SHADER, &[(0, wgpu::VertexFormat::Float32x2)]),
+            Err("unsupported shader resource @group(0) @binding(0)".into())
+        );
+        assert_eq!(
+            validate_draw_interface(
+                UNIFORM_AND_TEXTURE_SHADER,
+                &[(0, wgpu::VertexFormat::Float32x2)]
+            ),
+            Err("uniform buffers cannot be combined with sampled textures or samplers".into())
         );
     }
 

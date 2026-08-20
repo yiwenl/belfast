@@ -80,6 +80,7 @@ impl VertexBufferDescriptorInput {
 pub(crate) fn parse_buffer_usage(usage: &str) -> Result<wgpu::BufferUsages, String> {
     match usage {
         "vertex" => Ok(belfast::BufferUsage::vertex()),
+        "uniform" => Ok(belfast::BufferUsage::uniform()),
         _ => Err(format!("unsupported buffer usage \"{usage}\"")),
     }
 }
@@ -109,6 +110,14 @@ mod tests {
         assert_eq!(
             parse_buffer_usage("vertex").unwrap(),
             belfast::BufferUsage::vertex()
+        );
+    }
+
+    #[test]
+    fn parses_uniform_buffer_usage() {
+        assert_eq!(
+            parse_buffer_usage("uniform").unwrap(),
+            belfast::BufferUsage::uniform()
         );
     }
 

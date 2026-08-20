@@ -131,9 +131,17 @@ export const textureExample: WebExample = async (canvas, reportError) => {
 
         const frame = device.beginFrame();
         if (frame) {
-          frame.bindTarget(null);
-          frame.render(draw, bindGroup);
-          frame.submit();
+          let frameConsumed = false;
+          try {
+            frame.bindTarget(null);
+            frame.render(draw, bindGroup);
+            frameConsumed = true;
+            frame.submit();
+          } finally {
+            if (!frameConsumed) {
+              frame.free();
+            }
+          }
         }
       }
     } catch (error) {

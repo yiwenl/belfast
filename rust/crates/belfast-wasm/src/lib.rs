@@ -30,6 +30,12 @@ pub struct WasmUniformBlock {
     inner: belfast::UniformBlock,
 }
 
+impl WasmUniformBlock {
+    pub(crate) fn inner(&self) -> &belfast::UniformBlock {
+        &self.inner
+    }
+}
+
 #[wasm_bindgen(js_class = UniformBlock)]
 impl WasmUniformBlock {
     #[wasm_bindgen(js_name = scene)]

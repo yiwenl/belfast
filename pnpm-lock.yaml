@@ -291,6 +291,9 @@ importers:
       belfast-wasm:
         specifier: link:../../pkg/belfast-wasm
         version: link:../../pkg/belfast-wasm
+      gl-matrix:
+        specifier: ^3.4.4
+        version: 3.4.4
     devDependencies:
       typescript:
         specifier: ^5.7.2
