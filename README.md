@@ -1,54 +1,85 @@
 # Belfast
 
-WebGPU utility library with the legacy WebGL library (`alfrid`) kept in-repo as reference source.
+Rust/`wgpu` rendering library with a WebAssembly package for the browser.
+
+The TypeScript WebGPU library is frozen under [`archive/`](archive/).
 
 ## Quick start
 
+Native:
+
 ```bash
-pnpm install   # also sets up git hooks (Prettier on staged files)
-pnpm dev:all
+cargo run -p belfast --example triangle
 ```
 
-Opens the triangle example with the library in watch mode.
+Web:
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Install the published WebAssembly package in another project with:
+
+```bash
+npm install @belfast/wasm
+```
+
+```ts
+import init, { Device, Draw } from "@belfast/wasm";
+
+await init();
+const device = await Device.create(canvas);
+```
 
 ## Repo layout
 
 ```
-dist/          Built belfast library (ESM, CJS, types)
-packages/
-  belfast/     WebGPU library source (TypeScript + Vite)
-  alfrid/      WebGL reference source (not built or published)
-examples/
-  triangle/    Hello triangle — first WebGPU example
-rust/          Rust workspace (`belfast` + `belfast-wasm` crates)
-docs/          Library API reference and guides
-notes/         Planning docs
+crates/belfast          Native wgpu engine
+crates/belfast-wasm     wasm-bindgen facade
+packages/belfast-wasm   npm package (@belfast/wasm)
+web/examples            Vite gallery
+docs/                   Rust PRD and API parity
+archive/                Frozen TypeScript WebGPU library
 ```
 
 ## Commands
 
 ```bash
-pnpm build                        # build belfast library
-pnpm dev                          # watch-build belfast
-pnpm dev:example                  # run default example (triangle)
-pnpm dev:example textured-quad    # run a specific example
-pnpm dev:all                      # library watch + default example
-pnpm dev:all textured-quad        # library watch + specific example
-pnpm examples                     # list available examples
-pnpm typecheck
-pnpm format                       # format all files
-pnpm format:check                 # check formatting (CI)
+cargo test --workspace --all-targets
+cargo clippy --workspace --all-targets -- -D warnings
+cargo check -p belfast-wasm --target wasm32-unknown-unknown
+
+cargo run -p belfast --example triangle
+cargo run -p belfast --example colored_triangle
+cargo run -p belfast --example camera_uniform
+cargo run -p belfast --example texture
+cargo run -p belfast --example render_to_texture
+cargo run -p belfast --example template
+
+pnpm build:wasm                         # wasm-pack → packages/belfast-wasm/dist
+pnpm --filter @belfast/web-examples dev
+pnpm pack:check                         # npm pack --dry-run for @belfast/wasm
+pnpm format
+pnpm format:check
 ```
 
-Pre-commit runs `lint-staged` (Prettier `--write` on staged files). CI still runs `format:check` on the full tree.
+Start a native experiment from the template:
+
+```bash
+cp crates/belfast/examples/template.rs crates/belfast/examples/my_experiment.rs
+cargo run -p belfast --example my_experiment
+```
+
+The web gallery is at `/`. Basic examples use query strings such as `/basic/?example=colored-triangle`. Standalone pages live at `/template/` and `/instancing/`.
+
+Add basic gallery modules in `web/examples/basic/src/examples` and their WGSL shaders in `web/examples/basic/src/shaders`.
 
 ## WebGPU browser support
 
 Requires Chrome 113+, Edge 113+, or Safari 18+.
 
-## Next steps
+## Docs
 
-Build incrementally from the triangle example: textured quad, buffers, then port ideas from `packages/alfrid/src/` as needed.
-
-- [Library docs](docs/README.md) — API reference and overview
-- [Restructure plan](notes/webgpu-restructure-plan.md) — repo and tooling notes
+- [Rust engine docs](docs/README.md)
+- [Archived TypeScript API](archive/docs/README.md)

@@ -7,7 +7,7 @@ node_modules
 dist
 lib
 target
-rust/pkg/
+packages/belfast-wasm/dist/
 *.tsbuildinfo
 cinder/xcode/build
 *.scssc
@@ -48,10 +48,6 @@ Desktop.ini
 compass.txt
 note.txt
 
-# Belfast review MCP bridge
-mcp/.bridge/
-mcp/.venv/
-
 # HDR / EXR environment maps (local assets for hdr-display example)
-examples/hdr-display/public/*.hdr
-examples/hdr-display/public/*.exr
+archive/examples/hdr-display/public/*.hdr
+archive/examples/hdr-display/public/*.exr

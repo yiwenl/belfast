@@ -1,6 +1,5 @@
 packages:
-  - "packages/belfast"
-  - "examples/*"
-  - "rust/web/examples"
+  - "packages/belfast-wasm"
+  - "web/examples"
 allowBuilds:
   esbuild: true

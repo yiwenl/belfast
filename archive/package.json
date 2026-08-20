@@ -1,0 +1,28 @@
+{
+  "name": "belfast-ts-archive",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Frozen TypeScript WebGPU library (not the main line)",
+  "scripts": {
+    "build": "pnpm --filter belfast build",
+    "dev": "pnpm --filter belfast dev",
+    "dev:example": "node scripts/dev-example.mjs",
+    "dev:all": "node scripts/dev-example.mjs --all",
+    "examples": "node scripts/list-examples.mjs",
+    "typecheck": "pnpm --filter belfast typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yiwenl/belfast.git"
+  },
+  "license": "ISC",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "devDependencies": {
+    "prettier": "^3.5.3"
+  }
+}
