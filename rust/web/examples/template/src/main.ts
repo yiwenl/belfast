@@ -11,13 +11,11 @@ import init, {
 
 import "../../src/style.css";
 
-const canvas = document.querySelector<HTMLCanvasElement>("canvas");
-
-if (!canvas) {
+const foundCanvas = document.querySelector("canvas");
+if (!foundCanvas) {
   throw new Error("Example canvas is missing");
 }
-
-const exampleCanvas = canvas;
+const canvas = foundCanvas;
 
 const reportError = (error: unknown) => {
   const output = document.querySelector<HTMLPreElement>("pre") ?? document.createElement("pre");
@@ -29,7 +27,7 @@ async function start() {
   try {
     await init();
 
-    const device = await Device.create(exampleCanvas);
+    const device = await Device.create(canvas);
     const cameraUniforms = UniformBlock.create({ viewProj: "mat4" }, "TemplateCamera");
     const uniformBuffer = Buffer.create(
       device,
@@ -37,21 +35,24 @@ async function start() {
       BufferUsage.uniform,
       "TemplateCamera",
     );
-    const axes = new AxisHelper(device, { length: 1.5 });
+    const axes = new AxisHelper(device, { length: 1000 });
     const bindGroup = BindGroup.fromBuffer(device, axes, uniformBuffer, {
       label: "TemplateCameraBindGroup",
     });
+    const RAD = Math.PI / 180;
     const camera = new PerspectiveCamera(
-      Math.PI / 4,
-      exampleCanvas.width / Math.max(exampleCanvas.height, 1),
+      45 * RAD,
+      canvas.width / Math.max(canvas.height, 1),
       0.1,
       100,
     );
     const control = new OrbitalControl(camera, {
-      listenerTarget: exampleCanvas,
+      listenerTarget: canvas,
       radius: 4,
       center: [0, 0, 0],
     });
+    control.setYaw(40 * RAD);
+    control.setPitch(30 * RAD);
 
     const writeCamera = () => {
       cameraUniforms.set("viewProj", camera.getViewProjectionMatrix());
@@ -63,7 +64,7 @@ async function start() {
     let lastTime = performance.now();
 
     device.resize();
-    camera.setAspect(exampleCanvas.width / Math.max(exampleCanvas.height, 1));
+    camera.setAspect(canvas.width / Math.max(canvas.height, 1));
     writeCamera();
 
     const render = () => {
@@ -78,13 +79,15 @@ async function start() {
         control.update(deltaSeconds, camera);
 
         if (device.resize()) {
-          camera.setAspect(exampleCanvas.width / Math.max(exampleCanvas.height, 1));
+          camera.setAspect(canvas.width / Math.max(canvas.height, 1));
           writeCamera();
           const frame = device.beginFrame();
           if (frame) {
             let frameConsumed = false;
             try {
-              frame.bindTarget(null);
+              frame.bindTarget(null, {
+                clearColor: { r: 0.1, g: 0.099, b: 0.098, a: 1 },
+              });
               frame.render(axes, bindGroup);
               frameConsumed = true;
               frame.submit();

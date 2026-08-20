@@ -104,8 +104,8 @@ fn validate_length(length: f32) -> BelfastResult<()> {
 fn axis_geometry(length: f32) -> ([f32; 18], [f32; 18]) {
     (
         [
-            0.0, 0.0, 0.0, length, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, length, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, length,
+            -length, 0.0, 0.0, length, 0.0, 0.0, 0.0, -length, 0.0, 0.0, length, 0.0, 0.0, 0.0,
+            -length, 0.0, 0.0, length,
         ],
         [
             1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
@@ -119,11 +119,11 @@ mod tests {
     use super::{axis_geometry, validate_length};
 
     #[test]
-    fn geometry_contains_three_colored_positive_axes() {
+    fn geometry_contains_three_colored_bipolar_axes() {
         let (positions, colors) = axis_geometry(2.0);
-        assert_eq!(&positions[3..6], &[2.0, 0.0, 0.0]);
-        assert_eq!(&positions[9..12], &[0.0, 2.0, 0.0]);
-        assert_eq!(&positions[15..18], &[0.0, 0.0, 2.0]);
+        assert_eq!(&positions[0..6], &[-2.0, 0.0, 0.0, 2.0, 0.0, 0.0]);
+        assert_eq!(&positions[6..12], &[0.0, -2.0, 0.0, 0.0, 2.0, 0.0]);
+        assert_eq!(&positions[12..18], &[0.0, 0.0, -2.0, 0.0, 0.0, 2.0]);
         assert_eq!(&colors[0..6], &[1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
         assert_eq!(&colors[12..18], &[0.0, 0.0, 1.0, 0.0, 0.0, 1.0]);
     }
