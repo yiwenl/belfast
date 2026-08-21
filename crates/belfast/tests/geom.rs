@@ -30,12 +30,12 @@ fn creates_cube_geometry_with_six_faces_and_unit_normals() {
         .iter()
         .all(|&index| index < vertex_count as u32));
 
-    for chunk in cube.positions.chunks_exact(3) {
+    for chunk in cube.positions.as_chunks::<3>().0 {
         assert!(chunk.iter().all(|value| value.abs() <= 1.0));
         assert!(chunk.iter().any(|value| value.abs() == 1.0));
     }
 
-    for chunk in cube.normals.chunks_exact(3) {
+    for chunk in cube.normals.as_chunks::<3>().0 {
         let length = (chunk[0] * chunk[0] + chunk[1] * chunk[1] + chunk[2] * chunk[2]).sqrt();
         assert!((length - 1.0).abs() < 1e-6);
         assert_eq!(chunk.iter().filter(|value| value.abs() > 0.0).count(), 1);
