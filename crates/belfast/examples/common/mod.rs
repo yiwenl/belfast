@@ -42,8 +42,17 @@ pub fn run<E: Example>(title: &'static str) {
 
     let event_loop = EventLoop::new().expect("create event loop");
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = ExampleApplication::<E>::new(title);
-    event_loop.run_app(&mut app).expect("run example");
+    let app = ExampleApplication::<E>::new(title);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let mut app = app;
+        event_loop.run_app(&mut app).expect("run example");
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        use winit::platform::web::EventLoopExtWebSys;
+        event_loop.spawn_app(app);
+    }
 }
 
 pub fn begin_render_pass<'a>(
@@ -79,10 +88,26 @@ fn log_error(message: &str) {
 fn create_window(event_loop: &ActiveEventLoop, title: &'static str) -> Arc<Window> {
     #[cfg(target_arch = "wasm32")]
     let attributes = {
+        use winit::dpi::LogicalSize;
         use winit::platform::web::WindowAttributesExtWebSys;
-        Window::default_attributes()
+        let mut attributes = Window::default_attributes()
             .with_title(title)
             .with_append(true)
+            .with_prevent_default(false);
+        if let Some(web_window) = web_sys::window() {
+            let width = web_window
+                .inner_width()
+                .ok()
+                .and_then(|value| value.as_f64())
+                .unwrap_or(1.0);
+            let height = web_window
+                .inner_height()
+                .ok()
+                .and_then(|value| value.as_f64())
+                .unwrap_or(1.0);
+            attributes = attributes.with_inner_size(LogicalSize::new(width, height));
+        }
+        attributes
     };
     #[cfg(not(target_arch = "wasm32"))]
     let attributes = Window::default_attributes().with_title(title);
@@ -113,7 +138,11 @@ impl<E: Example> ExampleApplication<E> {
     #[cfg(target_arch = "wasm32")]
     fn take_pending_state(&mut self) {
         if self.state.is_none() {
-            self.state = self.pending.borrow_mut().take();
+            if let Some(mut state) = self.pending.borrow_mut().take() {
+                let size = state.window.inner_size();
+                state.resize(size);
+                self.state = Some(state);
+            }
         }
     }
 }
@@ -245,7 +274,6 @@ impl<E: Example> ExampleState<E> {
         instance: wgpu::Instance,
         surface: wgpu::Surface<'static>,
     ) -> Self {
-        let size = window.inner_size();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -283,6 +311,8 @@ impl<E: Example> ExampleState<E> {
             .copied()
             .find(wgpu::TextureFormat::is_srgb)
             .unwrap_or(capabilities.formats[0]);
+        // After await: winit-web starts at 0×0 and only updates via ResizeObserver.
+        let size = window.inner_size();
         let width = size.width.max(1);
         let height = size.height.max(1);
         let config = wgpu::SurfaceConfiguration {

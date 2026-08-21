@@ -65,6 +65,7 @@ cargo run -p belfast --example render_to_texture
 cargo run -p belfast --example template
 ./scripts/wasm-example.sh triangle
 ./scripts/wasm-example.sh template
+./scripts/build-example-wasm.sh triangle   # dist/examples/triangle/
 
 pnpm build:wasm                         # wasm-pack → packages/belfast-wasm/dist
 pnpm --filter @belfast/web-examples dev
@@ -72,6 +73,8 @@ pnpm pack:check                         # npm pack --dry-run for @belfast/wasm
 pnpm format
 pnpm format:check
 ```
+
+Example run/build notes: [`crates/belfast/examples/README.md`](crates/belfast/examples/README.md).
 
 Start an experiment from the template:
 
