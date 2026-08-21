@@ -36,6 +36,14 @@ fn native_example_shaders_pass_wgpu_validation() {
             include_str!("../src/helpers/axis_helper.wgsl"),
         ),
         ("compute", include_str!("../examples/shaders/compute.wgsl")),
+        (
+            "compute_triangle",
+            include_str!("../examples/shaders/compute_triangle.wgsl"),
+        ),
+        (
+            "compute_triangle_draw",
+            include_str!("../examples/shaders/compute_triangle_draw.wgsl"),
+        ),
     ];
 
     for (label, source) in shaders {

@@ -316,7 +316,7 @@ impl<E: Example> ExampleState<E> {
             .await
             .expect("request surface-compatible adapter");
         let required_limits = if cfg!(target_arch = "wasm32") {
-            wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits())
+            wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits())
         } else {
             wgpu::Limits::default()
         };

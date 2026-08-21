@@ -35,6 +35,7 @@ Status legend:
 | WebAssembly compile check            | Done   | `cargo check -p belfast-wasm --target wasm32-unknown-unknown`                                                                   |
 | Rust render target tests             | Done   | `cargo test -p belfast render_target --tests`                                                                                   |
 | Native HDR display example           | Done   | `hdr_display` opts into an HDR swapchain and draws a linear 0–8 luminance ramp (`1.0` = SDR white).                             |
+| Native compute example               | Done   | `compute` dispatches a compute shader into a `vertexStorage` buffer, then draws the triangle.                                   |
 | Native camera uniform example        | Done   | Uses `PerspectiveCamera`, `UniformBlock`, and `BindGroup`.                                                                      |
 | Native texture example               | Done   | Uploads and samples a procedural RGBA8 checkerboard.                                                                            |
 | Native render target example         | Done   | Renders offscreen and samples the target in a second pass.                                                                      |
