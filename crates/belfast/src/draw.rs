@@ -43,7 +43,7 @@ impl Draw {
                 label: Some(&format!("{}Shader", options.label)),
                 source: wgpu::ShaderSource::Wgsl(shader_code.into()),
             });
-        let layouts: Vec<_> = mesh.vertex_layouts().into_iter().flatten().collect();
+        let layouts = mesh.vertex_layouts();
         let pipeline = device
             .gpu()
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {

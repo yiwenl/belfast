@@ -28,9 +28,10 @@ fn wraps_an_existing_wgpu_device_and_format() {
         pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))
             .expect("request device");
 
-    let device = Device::from_wgpu(gpu, queue, wgpu::TextureFormat::Rgba8UnormSrgb);
+    let device = Device::from_wgpu(gpu, queue, wgpu::TextureFormat::Rgba8UnormSrgb, None);
 
     assert_eq!(device.format(), wgpu::TextureFormat::Rgba8UnormSrgb);
+    assert!(!device.hdr());
 }
 
 #[test]
@@ -48,9 +49,13 @@ fn draw_tracks_creator_device_and_mesh_layout() {
     let (other_gpu, other_queue) =
         pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))
             .expect("request second device");
-    let device = Device::from_wgpu(gpu, queue, wgpu::TextureFormat::Rgba8UnormSrgb);
-    let other_device =
-        Device::from_wgpu(other_gpu, other_queue, wgpu::TextureFormat::Rgba8UnormSrgb);
+    let device = Device::from_wgpu(gpu, queue, wgpu::TextureFormat::Rgba8UnormSrgb, None);
+    let other_device = Device::from_wgpu(
+        other_gpu,
+        other_queue,
+        wgpu::TextureFormat::Rgba8UnormSrgb,
+        None,
+    );
     let cloned_device = device.clone();
     assert!(device.is_same(&cloned_device));
     assert!(!device.is_same(&other_device));

@@ -18,6 +18,9 @@ cargo run -p belfast --example triangle
 | `texture`           | Sampled RGBA8 plane                                |
 | `render_to_texture` | Offscreen pass, then present                       |
 | `template`          | Orbit camera, axis helper — copy this to start new |
+| `hdr_display`       | Linear luminance ramp on an HDR swapchain          |
+
+`hdr_display` asks for `rgba16float` plus an extended color space (`ExtendedSrgbLinear` on native, `ExtendedSrgb` on the web). It needs an HDR display (macOS: System Settings → Displays → High Dynamic Range). A red tick marks SDR white (`1.0`); the right side of the ramp is brighter-than-white when HDR presentation is active. On an SDR display the right side clips — that is the fallback.
 
 ## Run in the browser
 

@@ -8,7 +8,7 @@ mod input;
 pub use input::InputEvent;
 pub use web_time::Instant;
 
-use belfast::Device;
+use belfast::{pick_surface_color, Device};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -20,8 +20,17 @@ use winit::{
 pub struct ExampleContext {
     pub device: Device,
     pub format: wgpu::TextureFormat,
+    #[allow(dead_code)]
+    pub color_space: wgpu::SurfaceColorSpace,
+    #[allow(dead_code)]
+    pub hdr: bool,
     pub width: u32,
     pub height: u32,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ExampleRunOptions {
+    pub hdr: bool,
 }
 
 pub trait Example: 'static {
@@ -36,13 +45,19 @@ pub trait Example: 'static {
     fn render(&mut self, context: &ExampleContext, surface_view: &wgpu::TextureView);
 }
 
+#[allow(dead_code)]
 pub fn run<E: Example>(title: &'static str) {
+    run_with::<E>(title, ExampleRunOptions { hdr: false });
+}
+
+#[allow(dead_code)]
+pub fn run_with<E: Example>(title: &'static str, options: ExampleRunOptions) {
     #[cfg(target_arch = "wasm32")]
     console_error_panic_hook::set_once();
 
     let event_loop = EventLoop::new().expect("create event loop");
     event_loop.set_control_flow(ControlFlow::Poll);
-    let app = ExampleApplication::<E>::new(title);
+    let app = ExampleApplication::<E>::new(title, options);
     #[cfg(not(target_arch = "wasm32"))]
     {
         let mut app = app;
@@ -85,6 +100,13 @@ fn log_error(message: &str) {
     eprintln!("{message}");
 }
 
+fn log_info(message: &str) {
+    #[cfg(target_arch = "wasm32")]
+    web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(message));
+    #[cfg(not(target_arch = "wasm32"))]
+    eprintln!("{message}");
+}
+
 fn create_window(event_loop: &ActiveEventLoop, title: &'static str) -> Arc<Window> {
     #[cfg(target_arch = "wasm32")]
     let attributes = {
@@ -116,6 +138,7 @@ fn create_window(event_loop: &ActiveEventLoop, title: &'static str) -> Arc<Windo
 
 struct ExampleApplication<E: Example> {
     title: &'static str,
+    options: ExampleRunOptions,
     state: Option<ExampleState<E>>,
     #[cfg(target_arch = "wasm32")]
     pending: Rc<RefCell<Option<ExampleState<E>>>>,
@@ -124,9 +147,10 @@ struct ExampleApplication<E: Example> {
 }
 
 impl<E: Example> ExampleApplication<E> {
-    fn new(title: &'static str) -> Self {
+    fn new(title: &'static str, options: ExampleRunOptions) -> Self {
         Self {
             title,
+            options,
             state: None,
             #[cfg(target_arch = "wasm32")]
             pending: Rc::new(RefCell::new(None)),
@@ -171,14 +195,20 @@ impl<E: Example> ApplicationHandler for ExampleApplication<E> {
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.state = Some(pollster::block_on(ExampleState::new(
-                window, instance, surface,
+                window,
+                instance,
+                surface,
+                self.title,
+                self.options,
             )));
         }
         #[cfg(target_arch = "wasm32")]
         {
             let pending = Rc::clone(&self.pending);
+            let title = self.title;
+            let options = self.options;
             wasm_bindgen_futures::spawn_local(async move {
-                let state = ExampleState::new(window, instance, surface).await;
+                let state = ExampleState::new(window, instance, surface, title, options).await;
                 let window = state.window.clone();
                 *pending.borrow_mut() = Some(state);
                 window.request_redraw();
@@ -273,12 +303,15 @@ impl<E: Example> ExampleState<E> {
         window: Arc<Window>,
         instance: wgpu::Instance,
         surface: wgpu::Surface<'static>,
+        title: &'static str,
+        options: ExampleRunOptions,
     ) -> Self {
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
+                ..Default::default()
             })
             .await
             .expect("request surface-compatible adapter");
@@ -305,12 +338,19 @@ impl<E: Example> ExampleState<E> {
         });
 
         let capabilities = surface.get_capabilities(&adapter);
-        let format = capabilities
-            .formats
-            .iter()
-            .copied()
-            .find(wgpu::TextureFormat::is_srgb)
-            .unwrap_or(capabilities.formats[0]);
+        let choice = pick_surface_color(&capabilities, options.hdr);
+        let format = choice.format;
+        let hdr_info = surface.display_hdr_info(&adapter);
+        log_info(&format!(
+            "{title}: format={format:?} color_space={:?} hdr={} headroom={:?}",
+            choice.color_space,
+            choice.hdr,
+            hdr_info.tone_map_headroom()
+        ));
+        window.set_title(&format!(
+            "{title} [{format:?} {:?} hdr={}]",
+            choice.color_space, choice.hdr
+        ));
         // After await: winit-web starts at 0×0 and only updates via ResizeObserver.
         let size = window.inner_size();
         let width = size.width.max(1);
@@ -318,6 +358,7 @@ impl<E: Example> ExampleState<E> {
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
+            color_space: choice.color_space,
             width,
             height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -328,8 +369,10 @@ impl<E: Example> ExampleState<E> {
         surface.configure(&gpu, &config);
 
         let context = ExampleContext {
-            device: Device::from_wgpu(gpu, queue, format),
+            device: Device::from_wgpu(gpu, queue, format, Some(choice.hdr)),
             format,
+            color_space: choice.color_space,
+            hdr: choice.hdr,
             width,
             height,
         };
@@ -412,7 +455,7 @@ impl<E: Example> ExampleState<E> {
             .create_view(&wgpu::TextureViewDescriptor::default());
         self.example.update(&self.context, delta_seconds);
         self.example.render(&self.context, &view);
-        frame.present();
+        self.context.device.queue().present(frame);
         if reconfigure_after_present {
             self.surface
                 .configure(self.context.device.gpu(), &self.config);

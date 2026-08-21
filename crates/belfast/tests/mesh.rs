@@ -14,11 +14,17 @@ fn create_test_devices() -> Option<(Device, Device)> {
         pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).ok()?;
 
     Some((
-        Device::from_wgpu(first_gpu, first_queue, wgpu::TextureFormat::Rgba8UnormSrgb),
+        Device::from_wgpu(
+            first_gpu,
+            first_queue,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            None,
+        ),
         Device::from_wgpu(
             second_gpu,
             second_queue,
             wgpu::TextureFormat::Rgba8UnormSrgb,
+            None,
         ),
     ))
 }

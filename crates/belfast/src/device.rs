@@ -26,6 +26,7 @@ struct DeviceInner {
     device: wgpu::Device,
     queue: wgpu::Queue,
     format: wgpu::TextureFormat,
+    hdr: bool,
 }
 
 impl Device {
@@ -40,6 +41,7 @@ impl Device {
                 power_preference: options.power_preference,
                 compatible_surface: None,
                 force_fallback_adapter: false,
+                ..Default::default()
             })
             .await
             .map_err(|_| BelfastError::AdapterUnavailable)?;
@@ -53,19 +55,21 @@ impl Device {
             })
             .await?;
 
-        Ok(Self::from_wgpu(device, queue, options.format))
+        Ok(Self::from_wgpu(device, queue, options.format, None))
     }
 
     pub fn from_wgpu(
         device: wgpu::Device,
         queue: wgpu::Queue,
         format: wgpu::TextureFormat,
+        hdr: Option<bool>,
     ) -> Self {
         Self {
             inner: Arc::new(DeviceInner {
                 device,
                 queue,
                 format,
+                hdr: hdr.unwrap_or(false),
             }),
         }
     }
@@ -80,6 +84,10 @@ impl Device {
 
     pub fn format(&self) -> wgpu::TextureFormat {
         self.inner.format
+    }
+
+    pub fn hdr(&self) -> bool {
+        self.inner.hdr
     }
 
     pub fn is_same(&self, other: &Self) -> bool {

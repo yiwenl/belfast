@@ -984,7 +984,7 @@ impl WasmFrame {
             .surface_texture
             .take()
             .ok_or_else(|| to_js_error("frame surface texture is unavailable"))?;
-        surface_texture.present();
+        self.device.queue().present(surface_texture);
         self.surface_lease.release();
         if self.reconfigure_after_present {
             self.canvas_target.borrow().configure(self.device.gpu());

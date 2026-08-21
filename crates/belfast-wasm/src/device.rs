@@ -224,7 +224,15 @@ pub struct WasmDevice {
 impl WasmDevice {
     #[cfg(target_arch = "wasm32")]
     #[wasm_bindgen(js_name = create)]
-    pub async fn create(canvas: web_sys::HtmlCanvasElement) -> Result<WasmDevice, JsValue> {
+    pub async fn create(
+        canvas: web_sys::HtmlCanvasElement,
+        options: Option<JsValue>,
+    ) -> Result<WasmDevice, JsValue> {
+        let want_hdr = options
+            .as_ref()
+            .and_then(|value| js_sys::Reflect::get(value, &JsValue::from_str("hdr")).ok())
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let surface = instance
             .create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone()))
@@ -234,6 +242,7 @@ impl WasmDevice {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
+                ..Default::default()
             })
             .await
             .map_err(|_| to_js_error("WebGPU adapter unavailable"))?;
@@ -248,19 +257,17 @@ impl WasmDevice {
             .map_err(to_js_error)?;
 
         let capabilities = surface.get_capabilities(&adapter);
-        let format = capabilities
-            .formats
-            .iter()
-            .copied()
-            .find(wgpu::TextureFormat::is_srgb)
-            .or_else(|| capabilities.formats.first().copied())
-            .ok_or_else(|| to_js_error("canvas surface has no supported formats"))?;
+        if capabilities.formats.is_empty() && capabilities.format_capabilities.is_empty() {
+            return Err(to_js_error("canvas surface has no supported formats"));
+        }
+        let choice = belfast::pick_surface_color(&capabilities, want_hdr);
+        let format = choice.format;
         let alpha_mode = capabilities
             .alpha_modes
             .first()
             .copied()
             .ok_or_else(|| to_js_error("canvas surface has no supported alpha modes"))?;
-        let inner = belfast::Device::from_wgpu(gpu, queue, format);
+        let inner = belfast::Device::from_wgpu(gpu, queue, format, Some(choice.hdr));
         let pending_gpu_errors = PendingGpuErrors::default();
         install_gpu_error_handlers(inner.gpu(), &pending_gpu_errors);
         let max_texture_dimension_2d = inner.gpu().limits().max_texture_dimension_2d;
@@ -276,6 +283,7 @@ impl WasmDevice {
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
+            color_space: choice.color_space,
             width,
             height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -432,6 +440,11 @@ impl WasmDevice {
 
     pub fn format(&self) -> String {
         format!("{:?}", self.inner.format())
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn hdr(&self) -> bool {
+        self.inner.hdr()
     }
 }
 

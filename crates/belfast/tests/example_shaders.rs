@@ -11,6 +11,10 @@ fn native_example_shaders_pass_wgpu_validation() {
             include_str!("../examples/shaders/triangle.wgsl"),
         ),
         (
+            "hdr_display",
+            include_str!("../examples/shaders/hdr_display.wgsl"),
+        ),
+        (
             "colored_triangle",
             include_str!("../examples/shaders/colored_triangle.wgsl"),
         ),
