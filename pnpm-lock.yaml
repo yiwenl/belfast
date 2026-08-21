@@ -20,11 +20,11 @@ importers:
 
   packages/belfast-wasm: {}
 
-  web/examples:
+  web:
     dependencies:
       '@belfast/wasm':
         specifier: workspace:*
-        version: link:../../packages/belfast-wasm
+        version: link:../packages/belfast-wasm
       gl-matrix:
         specifier: ^3.4.4
         version: 3.4.4

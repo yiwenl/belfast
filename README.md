@@ -38,7 +38,7 @@ const device = await Device.create(canvas);
 crates/belfast          Native wgpu engine
 crates/belfast-wasm     wasm-bindgen facade
 packages/belfast-wasm   npm package (@belfast/wasm)
-web/examples            Vite gallery
+web/                    Vite gallery
 docs/                   Rust PRD and API parity
 archive/                Frozen TypeScript WebGPU library
 ```
@@ -73,7 +73,7 @@ cargo run -p belfast --example my_experiment
 
 The web gallery is at `/`. Basic examples use query strings such as `/basic/?example=colored-triangle`. Standalone pages live at `/template/` and `/instancing/`.
 
-Add basic gallery modules in `web/examples/basic/src/examples` and their WGSL shaders in `web/examples/basic/src/shaders`.
+Add basic gallery modules in `web/basic/src/examples` and their WGSL shaders in `web/basic/src/shaders`.
 
 ## WebGPU browser support
 
