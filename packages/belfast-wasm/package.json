@@ -1,0 +1,34 @@
+{
+  "name": "@belfast/wasm",
+  "version": "0.1.0",
+  "description": "WebAssembly bindings for the Belfast wgpu renderer",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "wasm-pack build ../../crates/belfast-wasm --target web --out-dir ../../packages/belfast-wasm/dist --out-name index && rm -f dist/.gitignore dist/package.json dist/README.md",
+    "prepack": "pnpm build",
+    "pack:check": "npm pack --dry-run --ignore-scripts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": [
+    "./dist/index.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yiwenl/belfast.git",
+    "directory": "packages/belfast-wasm"
+  },
+  "license": "ISC"
+}

@@ -1,0 +1,27 @@
+{
+  "slug": "orbital-control",
+  "status": "ACKNOWLEDGED",
+  "title": "Orbital control and EaseNumber",
+  "summary": "Adds EaseNumber and OrbitalControl using scheduling enterframe updates (alfrid-style). OrbitalControl orbits a Camera with drag/wheel; destroy() cleans up Scheduler and DOM listeners. New camera-orbit example with PerspectiveCamera and 3D triangle.",
+  "submitted_at": "2026-05-24T17:13:32Z",
+  "submitted_by": "cursor",
+  "implementation_paths": [
+    "packages/belfast/src/utils/EaseNumber.ts",
+    "packages/belfast/src/controls/OrbitalControl.ts",
+    "packages/belfast/package.json",
+    "packages/belfast/vite.config.ts",
+    "packages/belfast/src/index.ts",
+    "examples/camera-orbit/src/main.ts",
+    "examples/camera-orbit/src/shaders/triangle.wgsl"
+  ],
+  "doc_paths": [
+    "docs/api/EaseNumber.md",
+    "docs/api/OrbitalControl.md",
+    "docs/api/README.md",
+    "docs/overview.md",
+    "docs/reviews/queue/orbital-control-implementation.md"
+  ],
+  "feedback_path": "docs/reviews/orbital-control-antigravity.md",
+  "handoff_message": "Antigravity review complete for \"orbital-control\". In Cursor, ask the agent to use get_feedback_for_cursor for \"orbital-control\".",
+  "cursor_notes": "Applied suggestions: deltaMode wheel + zoomSpeed, pan via middle-mouse/Shift+drag, EaseNumber.setTo/add immediate limit clamp, MutVec3 type."
+}

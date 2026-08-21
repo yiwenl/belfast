@@ -3,6 +3,12 @@
 .project
 _notes
 node_modules
+.pnpm-store/
+dist
+lib
+target
+packages/belfast-wasm/dist/
+*.tsbuildinfo
 cinder/xcode/build
 *.scssc
 npm-debug.log
@@ -41,3 +47,7 @@ Desktop.ini
 .sass-cache
 compass.txt
 note.txt
+
+# HDR / EXR environment maps (local assets for hdr-display example)
+archive/examples/hdr-display/public/*.hdr
+archive/examples/hdr-display/public/*.exr

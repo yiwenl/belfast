@@ -1,0 +1,13 @@
+{
+  "slug": "your-feature-slug",
+  "status": "PENDING_REVIEW",
+  "title": "Short feature title",
+  "summary": "What was built and why, in 2-4 sentences.",
+  "submitted_at": "2026-05-24T00:00:00Z",
+  "submitted_by": "cursor",
+  "implementation_paths": ["packages/belfast/src/example/Feature.ts"],
+  "doc_paths": ["docs/api/Feature.md"],
+  "feedback_path": "docs/reviews/your-feature-slug-antigravity.md",
+  "handoff_message": null,
+  "cursor_notes": null
+}

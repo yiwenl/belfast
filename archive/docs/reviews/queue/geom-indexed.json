@@ -1,0 +1,30 @@
+{
+  "slug": "geom-indexed",
+  "status": "FEEDBACK_READY",
+  "title": "Geom utility and indexed rendering support",
+  "summary": "Adds indexed rendering support to Belfast core via BufferUsage.index, Mesh.setIndexBuffer, and automatic Draw.drawIndexed behavior. Introduces Geom.plane/sphere/cube generators that return positions, uvs, normals, and indices. Includes a new geom-indexed example and API/docs updates to document indexed workflows.",
+  "submitted_at": "2026-05-28T07:35:31Z",
+  "submitted_by": "cursor",
+  "implementation_paths": [
+    "packages/belfast/src/core/Buffer.ts",
+    "packages/belfast/src/core/Mesh.ts",
+    "packages/belfast/src/helper/Draw.ts",
+    "packages/belfast/src/helper/Geom.ts",
+    "packages/belfast/src/index.ts",
+    "examples/geom-indexed/src/main.ts",
+    "examples/geom-indexed/src/shaders/geom-indexed.wgsl",
+    "examples/geom-indexed/package.json"
+  ],
+  "doc_paths": [
+    "docs/api/Geom.md",
+    "docs/api/Mesh.md",
+    "docs/api/Draw.md",
+    "docs/api/Buffer.md",
+    "docs/api/README.md",
+    "docs/overview.md",
+    "docs/reviews/queue/geom-indexed-implementation.md"
+  ],
+  "feedback_path": "docs/reviews/geom-indexed-antigravity.md",
+  "handoff_message": "Antigravity review complete for \"geom-indexed\". In Cursor, ask the agent to use get_feedback_for_cursor for \"geom-indexed\".",
+  "cursor_notes": "Geom.cube is now used by the render-to-texture example to remove duplicate cube geometry generation logic."
+}

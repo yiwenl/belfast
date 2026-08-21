@@ -1,0 +1,27 @@
+{
+  "slug": "bind-groups-uniforms",
+  "status": "ACKNOWLEDGED",
+  "title": "Bind groups and uniforms",
+  "summary": "Adds BufferUsage.uniform, Buffer.uniformSize(), BindGroup wrapper, and Draw.getBindGroupLayout() / draw(..., bindGroup?). New triangle-time example animates triangle scale via a vec4 time uniform. WGSL struct uses vec4 (16 bytes) to match minBindingSize; bind group created once per pipeline, buffer updated each frame.",
+  "submitted_at": "2026-05-24T15:05:28Z",
+  "submitted_by": "cursor",
+  "implementation_paths": [
+    "packages/belfast/src/core/BindGroup.ts",
+    "packages/belfast/src/core/Buffer.ts",
+    "packages/belfast/src/helper/Draw.ts",
+    "packages/belfast/src/index.ts",
+    "examples/triangle-time/src/main.ts",
+    "examples/triangle-time/src/shaders/triangle.wgsl"
+  ],
+  "doc_paths": [
+    "docs/api/BindGroup.md",
+    "docs/api/Buffer.md",
+    "docs/api/Draw.md",
+    "docs/api/README.md",
+    "docs/overview.md",
+    "docs/reviews/queue/bind-groups-uniforms-implementation.md"
+  ],
+  "feedback_path": "docs/reviews/bind-groups-uniforms-antigravity.md",
+  "handoff_message": "Antigravity review complete for \"bind-groups-uniforms\". In Cursor, ask the agent to use get_feedback_for_cursor for \"bind-groups-uniforms\".",
+  "cursor_notes": "Applied all 3 suggestions: BindGroupResource[] overload + createFromEntries; Draw.draw(pass, mesh, bindGroup?, instanceCount?); 256-byte bind offset docs in Buffer.md and BindGroup.md. Added GPUBindGroup lifecycle note (nit)."
+}

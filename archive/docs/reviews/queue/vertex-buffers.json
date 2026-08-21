@@ -1,0 +1,26 @@
+{
+  "slug": "vertex-buffers",
+  "status": "ACKNOWLEDGED",
+  "title": "Vertex buffers (Buffer + Mesh)",
+  "summary": "Moves triangle positions into GPU vertex buffers via shareable Buffer and Mesh types. Draw now uses mesh.getVertexLayouts() at pipeline creation and draw(pass, mesh) each frame.",
+  "submitted_at": "2026-05-24T13:30:00Z",
+  "submitted_by": "cursor",
+  "implementation_paths": [
+    "packages/belfast/src/core/Buffer.ts",
+    "packages/belfast/src/core/Mesh.ts",
+    "packages/belfast/src/helper/Draw.ts",
+    "packages/belfast/src/index.ts",
+    "examples/triangle/src/main.ts",
+    "examples/triangle/src/shaders/triangle.wgsl"
+  ],
+  "doc_paths": [
+    "docs/features/vertex-buffers.md",
+    "docs/api/Buffer.md",
+    "docs/api/Mesh.md",
+    "docs/api/Draw.md",
+    "docs/reviews/queue/vertex-buffers-implementation.md"
+  ],
+  "feedback_path": "docs/reviews/vertex-buffers-antigravity.md",
+  "handoff_message": "Antigravity review complete for \"vertex-buffers\". In Cursor, ask the agent to use get_feedback_for_cursor for \"vertex-buffers\".",
+  "cursor_notes": "Breaking change: draw(pass, mesh) replaces draw(pass, vertexCount). Mesh lives in packages/belfast/src/core/Mesh.ts (not geometry/). See vertex-buffers-implementation.md."
+}

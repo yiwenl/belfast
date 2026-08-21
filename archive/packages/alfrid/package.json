@@ -1,0 +1,6 @@
+{
+  "name": "alfrid",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WebGL reference library (source only, not published)"
+}

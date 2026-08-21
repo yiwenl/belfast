@@ -1,0 +1,18 @@
+{
+  "name": "@belfast/web-examples",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@belfast/wasm": "workspace:*",
+    "gl-matrix": "^3.4.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}

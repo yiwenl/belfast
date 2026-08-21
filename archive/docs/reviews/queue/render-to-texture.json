@@ -1,0 +1,27 @@
+{
+  "slug": "render-to-texture",
+  "status": "ACKNOWLEDGED",
+  "title": "RenderTarget API, CopyHelper, and render-to-texture example",
+  "summary": "Adds public RenderTarget framebuffer-style API plus CopyHelper (fullscreen blit helper). New render-to-texture example renders a diffuse-lit cube with normals to offscreen texture, renders cube again onscreen, and overlays texture preview in bottom-left via copy pass.",
+  "submitted_at": "2026-05-28T06:59:56Z",
+  "submitted_by": "cursor",
+  "implementation_paths": [
+    "packages/belfast/src/core/RenderTarget.ts",
+    "packages/belfast/src/core/RenderPass.ts",
+    "packages/belfast/src/helper/CopyHelper.ts",
+    "packages/belfast/src/index.ts",
+    "examples/render-to-texture/src/main.ts",
+    "examples/render-to-texture/src/shaders/cube-lit.wgsl",
+    "examples/render-to-texture/package.json"
+  ],
+  "doc_paths": [
+    "docs/api/RenderTarget.md",
+    "docs/api/CopyHelper.md",
+    "docs/api/README.md",
+    "docs/overview.md",
+    "docs/reviews/queue/render-to-texture-implementation.md"
+  ],
+  "feedback_path": "docs/reviews/render-to-texture-antigravity.md",
+  "handoff_message": "Antigravity review complete for \"render-to-texture\". In Cursor, ask the agent to use get_feedback_for_cursor for \"render-to-texture\".",
+  "cursor_notes": "Cached CopyHelper bind group by textureView+sampler; no per-frame bind group allocation in steady state."
+}

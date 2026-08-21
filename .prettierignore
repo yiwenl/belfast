@@ -1,0 +1,13 @@
+node_modules
+dist
+lib
+pnpm-lock.yaml
+package-lock.json
+archive
+.superpowers
+
+# Shaders
+*.wgsl
+*.vert
+*.frag
+*.glsl

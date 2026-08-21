@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, refactor]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: cargo test --workspace --all-targets
+
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - run: cargo check -p belfast-wasm --target wasm32-unknown-unknown
+
+      - run: cargo check -p belfast --examples --target wasm32-unknown-unknown
+
+      - run: pnpm install
+
+      - run: pnpm format:check
+
+      - run: pnpm build:wasm
+
+      - run: pnpm --filter @belfast/web-examples typecheck
+
+      - run: pnpm --filter @belfast/web-examples build
+
+      - run: pnpm pack:check

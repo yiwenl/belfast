@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast — Transparency Sort</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        overflow: hidden;
+        background: #111;
+      }
+      #info {
+        position: fixed;
+        left: 12px;
+        bottom: 12px;
+        font:
+          13px/1.4 system-ui,
+          sans-serif;
+        color: #cfd2d6;
+        pointer-events: none;
+        text-shadow: 0 1px 2px #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="info">
+      1000 instanced semi-transparent planes · GPU bitonic sort (compute) · back-to-front every
+      frame · drag to orbit
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
