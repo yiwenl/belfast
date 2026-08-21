@@ -32,6 +32,8 @@ jobs:
 
       - run: cargo check -p belfast-wasm --target wasm32-unknown-unknown
 
+      - run: cargo check -p belfast --examples --target wasm32-unknown-unknown
+
       - run: pnpm install
 
       - run: pnpm format:check

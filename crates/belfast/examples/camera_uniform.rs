@@ -1,12 +1,10 @@
 mod common;
 
-use std::time::Instant;
-
 use belfast::{
     BindGroup, Buffer, BufferUsage, Draw, DrawOptions, Mesh, PerspectiveCamera, UniformBlock,
     UniformFieldType, VertexAttributeDescriptor, VertexBufferBinding,
 };
-use common::{Example, ExampleContext};
+use common::{Example, ExampleContext, Instant};
 
 struct CameraUniform {
     mesh: Mesh,

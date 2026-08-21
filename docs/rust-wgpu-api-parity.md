@@ -38,6 +38,7 @@ Status legend:
 | Native camera uniform example        | Done   | Uses `PerspectiveCamera`, `UniformBlock`, and `BindGroup`.                                                                      |
 | Native texture example               | Done   | Uploads and samples a procedural RGBA8 checkerboard.                                                                            |
 | Native render target example         | Done   | Renders offscreen and samples the target in a second pass.                                                                      |
+| Native examples on wasm              | Done   | Shared winit harness builds for `wasm32-unknown-unknown`; `./scripts/wasm-example.sh triangle` serves the same Rust example.    |
 | WebAssembly browser smoke app        | Done   | `Device.create(canvas)`, vertex `Buffer.fromData`, chained `Mesh.addVertexBuffer`, `Draw`, resize, render, submit, and present. |
 | WebAssembly camera-orbit example     | Done   | `PerspectiveCamera`, `OrbitalControl({ listenerTarget })`, and separate view/projection uniforms.                               |
 | WebAssembly compute-triangle example | Done   | `Compute` with JS layout/storage buffers, `Frame.dispatch`, then `Draw` of compute-written vertices.                            |

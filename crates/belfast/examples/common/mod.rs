@@ -1,11 +1,12 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Instant,
-};
+use std::sync::{Arc, Mutex};
+
+#[cfg(target_arch = "wasm32")]
+use std::{cell::RefCell, rc::Rc};
 
 mod input;
 
 pub use input::InputEvent;
+pub use web_time::Instant;
 
 use belfast::Device;
 use winit::{
@@ -36,6 +37,9 @@ pub trait Example: 'static {
 }
 
 pub fn run<E: Example>(title: &'static str) {
+    #[cfg(target_arch = "wasm32")]
+    console_error_panic_hook::set_once();
+
     let event_loop = EventLoop::new().expect("create event loop");
     event_loop.set_control_flow(ControlFlow::Poll);
     let mut app = ExampleApplication::<E>::new(title);
@@ -65,21 +69,91 @@ pub fn begin_render_pass<'a>(
     })
 }
 
+fn log_error(message: &str) {
+    #[cfg(target_arch = "wasm32")]
+    web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(message));
+    #[cfg(not(target_arch = "wasm32"))]
+    eprintln!("{message}");
+}
+
+fn create_window(event_loop: &ActiveEventLoop, title: &'static str) -> Arc<Window> {
+    #[cfg(target_arch = "wasm32")]
+    let attributes = {
+        use winit::platform::web::WindowAttributesExtWebSys;
+        Window::default_attributes()
+            .with_title(title)
+            .with_append(true)
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    let attributes = Window::default_attributes().with_title(title);
+    Arc::new(event_loop.create_window(attributes).expect("create window"))
+}
+
 struct ExampleApplication<E: Example> {
     title: &'static str,
     state: Option<ExampleState<E>>,
+    #[cfg(target_arch = "wasm32")]
+    pending: Rc<RefCell<Option<ExampleState<E>>>>,
+    #[cfg(target_arch = "wasm32")]
+    started: bool,
 }
 
 impl<E: Example> ExampleApplication<E> {
     fn new(title: &'static str) -> Self {
-        Self { title, state: None }
+        Self {
+            title,
+            state: None,
+            #[cfg(target_arch = "wasm32")]
+            pending: Rc::new(RefCell::new(None)),
+            #[cfg(target_arch = "wasm32")]
+            started: false,
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn take_pending_state(&mut self) {
+        if self.state.is_none() {
+            self.state = self.pending.borrow_mut().take();
+        }
     }
 }
 
 impl<E: Example> ApplicationHandler for ExampleApplication<E> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if self.state.is_none() {
-            self.state = Some(ExampleState::new(event_loop, self.title));
+        if self.state.is_some() {
+            return;
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            if self.started {
+                return;
+            }
+            self.started = true;
+        }
+
+        let window = create_window(event_loop, self.title);
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
+            Box::new(event_loop.owned_display_handle()),
+        ));
+        let surface = instance
+            .create_surface(window.clone())
+            .expect("create wgpu surface");
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.state = Some(pollster::block_on(ExampleState::new(
+                window, instance, surface,
+            )));
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let pending = Rc::clone(&self.pending);
+            wasm_bindgen_futures::spawn_local(async move {
+                let state = ExampleState::new(window, instance, surface).await;
+                let window = state.window.clone();
+                *pending.borrow_mut() = Some(state);
+                window.request_redraw();
+            });
         }
     }
 
@@ -89,6 +163,8 @@ impl<E: Example> ApplicationHandler for ExampleApplication<E> {
         window_id: WindowId,
         event: WindowEvent,
     ) {
+        #[cfg(target_arch = "wasm32")]
+        self.take_pending_state();
         let Some(state) = self.state.as_mut() else {
             return;
         };
@@ -106,6 +182,11 @@ impl<E: Example> ApplicationHandler for ExampleApplication<E> {
             WindowEvent::RedrawRequested => state.render(event_loop),
             _ => {}
         }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        self.take_pending_state();
     }
 }
 
@@ -159,29 +240,34 @@ impl PendingGpuErrors {
 }
 
 impl<E: Example> ExampleState<E> {
-    fn new(event_loop: &ActiveEventLoop, title: &'static str) -> Self {
-        let attributes = Window::default_attributes().with_title(title);
-        let window = Arc::new(event_loop.create_window(attributes).expect("create window"));
+    async fn new(
+        window: Arc<Window>,
+        instance: wgpu::Instance,
+        surface: wgpu::Surface<'static>,
+    ) -> Self {
         let size = window.inner_size();
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
-            Box::new(event_loop.owned_display_handle()),
-        ));
-        let surface = instance
-            .create_surface(window.clone())
-            .expect("create wgpu surface");
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: Some(&surface),
-            force_fallback_adapter: false,
-        }))
-        .expect("request surface-compatible adapter");
-        let (gpu, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("BelfastExampleDevice"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::default(),
-            ..Default::default()
-        }))
-        .expect("request wgpu device");
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            })
+            .await
+            .expect("request surface-compatible adapter");
+        let required_limits = if cfg!(target_arch = "wasm32") {
+            wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits())
+        } else {
+            wgpu::Limits::default()
+        };
+        let (gpu, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("BelfastExampleDevice"),
+                required_features: wgpu::Features::empty(),
+                required_limits,
+                ..Default::default()
+            })
+            .await
+            .expect("request wgpu device");
         let pending_gpu_errors = PendingGpuErrors::default();
         let uncaptured = pending_gpu_errors.clone();
         gpu.on_uncaptured_error(Arc::new(move |error| uncaptured.record(error)));
@@ -248,7 +334,7 @@ impl<E: Example> ExampleState<E> {
 
     fn render(&mut self, event_loop: &ActiveEventLoop) {
         if let Some(error) = self.pending_gpu_errors.take() {
-            eprintln!("{error}");
+            log_error(&error);
             event_loop.exit();
             return;
         }
@@ -273,7 +359,7 @@ impl<E: Example> ExampleState<E> {
             }
             wgpu::CurrentSurfaceTexture::Lost => {
                 if let Err(error) = self.recreate_surface() {
-                    eprintln!("{error}");
+                    log_error(&error);
                     event_loop.exit();
                     return;
                 }
@@ -286,7 +372,7 @@ impl<E: Example> ExampleState<E> {
                     .pending_gpu_errors
                     .take()
                     .unwrap_or_else(|| "WebGPU surface validation failed".into());
-                eprintln!("{error}");
+                log_error(&error);
                 event_loop.exit();
                 return;
             }
@@ -302,7 +388,7 @@ impl<E: Example> ExampleState<E> {
                 .configure(self.context.device.gpu(), &self.config);
         }
         if let Some(error) = self.pending_gpu_errors.take() {
-            eprintln!("{error}");
+            log_error(&error);
             event_loop.exit();
             return;
         }

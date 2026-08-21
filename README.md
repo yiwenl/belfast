@@ -12,7 +12,13 @@ Native:
 cargo run -p belfast --example triangle
 ```
 
-Web:
+Same Rust example in the browser:
+
+```bash
+./scripts/wasm-example.sh triangle
+```
+
+TypeScript gallery (`@belfast/wasm`):
 
 ```bash
 pnpm install
@@ -49,6 +55,7 @@ archive/                Frozen TypeScript WebGPU library
 cargo test --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 cargo check -p belfast-wasm --target wasm32-unknown-unknown
+cargo check -p belfast --examples --target wasm32-unknown-unknown
 
 cargo run -p belfast --example triangle
 cargo run -p belfast --example colored_triangle
@@ -56,6 +63,8 @@ cargo run -p belfast --example camera_uniform
 cargo run -p belfast --example texture
 cargo run -p belfast --example render_to_texture
 cargo run -p belfast --example template
+./scripts/wasm-example.sh triangle
+./scripts/wasm-example.sh template
 
 pnpm build:wasm                         # wasm-pack → packages/belfast-wasm/dist
 pnpm --filter @belfast/web-examples dev
@@ -64,11 +73,12 @@ pnpm format
 pnpm format:check
 ```
 
-Start a native experiment from the template:
+Start an experiment from the template:
 
 ```bash
 cp crates/belfast/examples/template.rs crates/belfast/examples/my_experiment.rs
 cargo run -p belfast --example my_experiment
+./scripts/wasm-example.sh my_experiment
 ```
 
 The web gallery is at `/`. Basic examples use query strings such as `/basic/?example=colored-triangle`. Standalone pages live at `/template/` and `/instancing/`.
