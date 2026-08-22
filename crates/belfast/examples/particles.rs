@@ -9,7 +9,7 @@ use belfast::{
 use common::{Example, ExampleContext, InputEvent};
 use rand::Rng;
 
-const PARTICLE_COUNT: u32 = 10_000;
+const PARTICLE_COUNT: u32 = 1_000_000;
 const SPAWN_RADIUS: f32 = 1.5;
 const PARTICLE_STRIDE: u64 = 48;
 const WORKGROUP_SIZE: u32 = 256;
@@ -235,7 +235,7 @@ impl Example for Experiment {
             100.0,
         );
         let mut control = OrbitalControl::new(OrbitalControlOptions {
-            radius: 4.0,
+            radius: 10.0,
             ..Default::default()
         })
         .expect("valid orbital control");
@@ -378,8 +378,8 @@ fn spawn_particles() -> Vec<Particle> {
             let theta = rng.random::<f32>() * std::f32::consts::TAU;
             let phi = (2.0 * rng.random::<f32>() - 1.0).acos();
             let r = rng.random::<f32>().sqrt() * SPAWN_RADIUS;
-            let sin_phi = phi.sin();
-            let hue = rng.random::<f32>() * std::f32::consts::TAU;
+            let sin_phi = phi.sin();            
+            let grey = rng.random_range(0.8..1.0);
             Particle {
                 pos_size: [
                     r * sin_phi * theta.cos(),
@@ -394,9 +394,9 @@ fn spawn_particles() -> Vec<Particle> {
                     rng.random::<f32>(),
                 ],
                 color: [
-                    0.5 + 0.5 * hue.cos(),
-                    0.5 + 0.5 * (hue + 2.094_395).cos(),
-                    0.5 + 0.5 * (hue + 4.188_79).cos(),
+                    grey,
+                    grey,
+                    grey,
                     rng.random::<f32>(),
                 ],
             }
