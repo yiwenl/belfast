@@ -1,9 +1,9 @@
 mod common;
 
 use belfast::{
-    AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, Draw, DrawOptions, Geom, Mesh,
-    MeshIndexFormat, OrbitalControl, OrbitalControlOptions, PerspectiveCamera, UniformBlock,
-    UniformFieldType, VertexAttributeDescriptor, VertexBufferBinding,
+    AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, Device, Draw, DrawOptions, Geom,
+    Mesh, MeshIndexFormat, OrbitalControl, OrbitalControlOptions, PerspectiveCamera, Texture,
+    TextureOptions, UniformBlock, UniformFieldType, VertexAttributeDescriptor, VertexBufferBinding,
 };
 use common::{Example, ExampleContext, InputEvent};
 use rand::Rng;
@@ -11,6 +11,7 @@ use rand::Rng;
 const PARTICLE_COUNT: u32 = 10_000;
 const SPAWN_RADIUS: f32 = 1.5;
 const PARTICLE_STRIDE: u64 = 28;
+const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -29,6 +30,7 @@ struct Experiment {
     uniform_block: UniformBlock,
     uniform_buffer: Buffer,
     uniform_bind_group: BindGroup,
+    depth: Texture,
 }
 
 impl Example for Experiment {
@@ -126,6 +128,7 @@ impl Example for Experiment {
                 });
         let mut draw_options = DrawOptions::new("Particles", context.format);
         draw_options.layout = Some(&pipeline_layout);
+        draw_options.depth_stencil = Some(depth_stencil_state());
         let draw = Draw::new(
             &context.device,
             include_str!("shaders/particles.wgsl"),
@@ -136,6 +139,7 @@ impl Example for Experiment {
             &context.device,
             AxisHelperOptions {
                 length: 1.5,
+                depth_stencil: Some(depth_stencil_state()),
                 ..AxisHelperOptions::new(context.format, &pipeline_layout)
             },
         )
@@ -185,6 +189,7 @@ impl Example for Experiment {
             uniform_block,
             uniform_buffer,
             uniform_bind_group,
+            depth: create_depth_texture(&context.device, context.width, context.height),
         }
     }
 
@@ -210,6 +215,7 @@ impl Example for Experiment {
         self.camera
             .set_aspect(context.width as f32 / context.height as f32)
             .expect("positive surface aspect");
+        self.depth = create_depth_texture(&context.device, context.width, context.height);
     }
 
     fn update(&mut self, context: &ExampleContext, delta_seconds: f32) {
@@ -237,9 +243,10 @@ impl Example for Experiment {
                     label: Some("ExperimentEncoder"),
                 });
         {
-            let mut pass = common::begin_render_pass(
+            let mut pass = common::begin_render_pass_with_depth(
                 &mut encoder,
                 surface_view,
+                self.depth.view(),
                 wgpu::Color {
                     r: 0.01,
                     g: 0.0095,
@@ -253,6 +260,31 @@ impl Example for Experiment {
             self.axis.draw(&mut pass, &self.uniform_bind_group);
         }
         context.device.queue().submit([encoder.finish()]);
+    }
+}
+
+fn create_depth_texture(device: &Device, width: u32, height: u32) -> Texture {
+    Texture::create_2d(
+        device,
+        width.max(1),
+        height.max(1),
+        TextureOptions {
+            label: "ParticleDepth".into(),
+            format: DEPTH_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            ..Default::default()
+        },
+    )
+    .expect("particle depth texture")
+}
+
+fn depth_stencil_state() -> wgpu::DepthStencilState {
+    wgpu::DepthStencilState {
+        format: DEPTH_FORMAT,
+        depth_write_enabled: Some(true),
+        depth_compare: Some(wgpu::CompareFunction::Less),
+        stencil: Default::default(),
+        bias: Default::default(),
     }
 }
 
