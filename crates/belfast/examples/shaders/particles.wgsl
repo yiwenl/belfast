@@ -15,17 +15,16 @@ struct VertexOutput {
 @vertex
 fn vs_main(
     @location(0) local: vec3<f32>,
-    @location(1) instance_pos: vec3<f32>,
-    @location(2) instance_color: vec3<f32>,
-    @location(3) instance_size: f32,
+    @location(1) instance_pos_size: vec4<f32>,
+    @location(2) instance_color: vec4<f32>,
 ) -> VertexOutput {
     var output: VertexOutput;
     let world_pos =
-        instance_pos +
-        camera.camera_right.xyz * local.x * instance_size +
-        camera.camera_up.xyz * local.y * instance_size;
+        instance_pos_size.xyz +
+        camera.camera_right.xyz * local.x * instance_pos_size.w +
+        camera.camera_up.xyz * local.y * instance_pos_size.w;
     output.position = camera.view_proj * vec4<f32>(world_pos, 1.0);
-    output.color = instance_color;
+    output.color = instance_color.xyz;
     output.local = local.xy;
     return output;
 }

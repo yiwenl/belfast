@@ -1,24 +1,26 @@
 mod common;
 
 use belfast::{
-    AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, Device, Draw, DrawOptions, Geom,
-    Mesh, MeshIndexFormat, OrbitalControl, OrbitalControlOptions, PerspectiveCamera, Texture,
-    TextureOptions, UniformBlock, UniformFieldType, VertexAttributeDescriptor, VertexBufferBinding,
+    AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device,
+    Draw, DrawOptions, Geom, Mesh, MeshIndexFormat, OrbitalControl, OrbitalControlOptions,
+    PerspectiveCamera, Texture, TextureOptions, UniformBlock, UniformFieldType,
+    VertexAttributeDescriptor, VertexBufferBinding,
 };
 use common::{Example, ExampleContext, InputEvent};
 use rand::Rng;
 
 const PARTICLE_COUNT: u32 = 10_000;
 const SPAWN_RADIUS: f32 = 1.5;
-const PARTICLE_STRIDE: u64 = 28;
+const PARTICLE_STRIDE: u64 = 48;
+const WORKGROUP_SIZE: u32 = 256;
 const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Particle {
-    position: [f32; 3],
-    color: [f32; 3],
-    size: f32,
+    pos_size: [f32; 4],
+    velocity: [f32; 4],
+    color: [f32; 4],
 }
 
 struct Experiment {
@@ -30,7 +32,12 @@ struct Experiment {
     uniform_block: UniformBlock,
     uniform_buffer: Buffer,
     uniform_bind_group: BindGroup,
+    compute: Compute,
+    sim_params: UniformBlock,
+    sim_buffer: Buffer,
+    sim_bind_group: BindGroup,
     depth: Texture,
+    time: f32,
 }
 
 impl Example for Experiment {
@@ -46,7 +53,7 @@ impl Example for Experiment {
         let instance_buffer = Buffer::from_data(
             &context.device,
             &particles,
-            BufferUsage::vertex(),
+            BufferUsage::vertex_storage(),
             "ParticleInstances",
         );
         let index_buffer = Buffer::from_data(
@@ -70,23 +77,18 @@ impl Example for Experiment {
             })
             .expect("quad positions")
             .add_vertex_buffer(VertexBufferBinding {
-                buffer: instance_buffer,
+                buffer: instance_buffer.clone(),
                 array_stride: PARTICLE_STRIDE,
                 attributes: vec![
                     VertexAttributeDescriptor {
                         shader_location: 1,
-                        format: wgpu::VertexFormat::Float32x3,
+                        format: wgpu::VertexFormat::Float32x4,
                         offset: 0,
                     },
                     VertexAttributeDescriptor {
                         shader_location: 2,
-                        format: wgpu::VertexFormat::Float32x3,
-                        offset: 12,
-                    },
-                    VertexAttributeDescriptor {
-                        shader_location: 3,
-                        format: wgpu::VertexFormat::Float32,
-                        offset: 24,
+                        format: wgpu::VertexFormat::Float32x4,
+                        offset: 32,
                     },
                 ],
                 slot: Some(1),
@@ -167,6 +169,65 @@ impl Example for Experiment {
             "ExperimentUniformBindGroup",
         );
 
+        let time = rand::rng().random_range(0.0..1000.0);
+        let mut sim_params = UniformBlock::create([
+            ("time", UniformFieldType::F32),
+            ("dt", UniformFieldType::F32),
+            ("max_radius", UniformFieldType::F32),
+            ("count", UniformFieldType::U32),
+            ("noise_scale", UniformFieldType::F32),
+            ("force_scale", UniformFieldType::F32),
+            ("damping", UniformFieldType::F32),
+            ("center_force", UniformFieldType::F32),
+        ])
+        .expect("sim params schema");
+        sim_params.set_f32("time", time).expect("init time");
+        sim_params.set_f32("dt", 0.016).expect("init dt");
+        sim_params
+            .set_f32("max_radius", 2.5)
+            .expect("init max_radius");
+        sim_params
+            .set_u32("count", PARTICLE_COUNT)
+            .expect("init count");
+        sim_params
+            .set_f32("noise_scale", 0.6)
+            .expect("init noise_scale");
+        sim_params
+            .set_f32("force_scale", 2.0)
+            .expect("init force_scale");
+        sim_params.set_f32("damping", 0.986).expect("init damping");
+        sim_params
+            .set_f32("center_force", 4.0)
+            .expect("init center_force");
+        let sim_buffer = Buffer::create(
+            &context.device,
+            sim_params.byte_size() as u64,
+            BufferUsage::uniform(),
+            "ParticleSimParams",
+        );
+        sim_buffer.write(&context.device, sim_params.bytes(), 0);
+
+        let compute = Compute::new(
+            &context.device,
+            include_str!("shaders/particles_update.wgsl"),
+            ComputeOptions::new("ParticleUpdate"),
+        );
+        let sim_bind_group = BindGroup::create(
+            &context.device,
+            &compute.get_bind_group_layout(0),
+            &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: sim_buffer.gpu().as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: instance_buffer.gpu().as_entire_binding(),
+                },
+            ],
+            "ParticleSimBindGroup",
+        );
+
         let mut camera = PerspectiveCamera::new(
             std::f32::consts::FRAC_PI_4,
             context.width as f32 / context.height as f32,
@@ -189,7 +250,12 @@ impl Example for Experiment {
             uniform_block,
             uniform_buffer,
             uniform_bind_group,
+            compute,
+            sim_params,
+            sim_buffer,
+            sim_bind_group,
             depth: create_depth_texture(&context.device, context.width, context.height),
+            time,
         }
     }
 
@@ -232,6 +298,16 @@ impl Example for Experiment {
             .expect("write camera up");
         self.uniform_buffer
             .write(&context.device, self.uniform_block.bytes(), 0);
+
+        self.time += delta_seconds;
+        self.sim_params
+            .set_f32("time", self.time)
+            .expect("write time");
+        self.sim_params
+            .set_f32("dt", delta_seconds)
+            .expect("write dt");
+        self.sim_buffer
+            .write(&context.device, self.sim_params.bytes(), 0);
     }
 
     fn render(&mut self, context: &ExampleContext, surface_view: &wgpu::TextureView) {
@@ -242,6 +318,13 @@ impl Example for Experiment {
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("ExperimentEncoder"),
                 });
+        let workgroups = PARTICLE_COUNT.div_ceil(WORKGROUP_SIZE);
+        self.compute.run(
+            &mut encoder,
+            Some(&self.sim_bind_group),
+            [workgroups, 1, 1],
+            Some("ParticleUpdate"),
+        );
         {
             let mut pass = common::begin_render_pass_with_depth(
                 &mut encoder,
@@ -298,17 +381,24 @@ fn spawn_particles() -> Vec<Particle> {
             let sin_phi = phi.sin();
             let hue = rng.random::<f32>() * std::f32::consts::TAU;
             Particle {
-                position: [
+                pos_size: [
                     r * sin_phi * theta.cos(),
                     r * sin_phi * theta.sin(),
                     r * phi.cos(),
+                    rng.random_range(0.02..0.08),
+                ],
+                velocity: [
+                    rng.random_range(-0.2..0.2),
+                    rng.random_range(-0.2..0.2),
+                    rng.random_range(-0.2..0.2),
+                    rng.random::<f32>(),
                 ],
                 color: [
                     0.5 + 0.5 * hue.cos(),
                     0.5 + 0.5 * (hue + 2.094_395).cos(),
                     0.5 + 0.5 * (hue + 4.188_79).cos(),
+                    rng.random::<f32>(),
                 ],
-                size: rng.random_range(0.02..0.08),
             }
         })
         .collect()
