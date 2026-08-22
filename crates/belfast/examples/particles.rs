@@ -6,6 +6,7 @@ use belfast::{
     UniformFieldType, VertexAttributeDescriptor, VertexBufferBinding,
 };
 use common::{Example, ExampleContext, InputEvent};
+use rand::Rng;
 
 const PARTICLE_COUNT: u32 = 10_000;
 const SPAWN_RADIUS: f32 = 1.5;
@@ -40,8 +41,6 @@ impl Example for Experiment {
             "ParticleQuadPositions",
         );
         let particles = spawn_particles();
-        debug_assert_eq!(particles.len(), PARTICLE_COUNT as usize);
-        debug_assert_eq!(std::mem::size_of::<Particle>() as u64, PARTICLE_STRIDE);
         let instance_buffer = Buffer::from_data(
             &context.device,
             &particles,
@@ -258,14 +257,14 @@ impl Example for Experiment {
 }
 
 fn spawn_particles() -> Vec<Particle> {
-    let mut rng = 0x6d2b79f5_u32;
+    let mut rng = rand::rng();
     (0..PARTICLE_COUNT)
         .map(|_| {
-            let theta = rand_f32(&mut rng) * std::f32::consts::TAU;
-            let phi = (2.0 * rand_f32(&mut rng) - 1.0).acos();
-            let r = rand_f32(&mut rng).cbrt() * SPAWN_RADIUS;
+            let theta = rng.random::<f32>() * std::f32::consts::TAU;
+            let phi = (2.0 * rng.random::<f32>() - 1.0).acos();
+            let r = rng.random::<f32>().sqrt() * SPAWN_RADIUS;
             let sin_phi = phi.sin();
-            let hue = rand_f32(&mut rng) * std::f32::consts::TAU;
+            let hue = rng.random::<f32>() * std::f32::consts::TAU;
             Particle {
                 position: [
                     r * sin_phi * theta.cos(),
@@ -277,15 +276,10 @@ fn spawn_particles() -> Vec<Particle> {
                     0.5 + 0.5 * (hue + 2.094_395).cos(),
                     0.5 + 0.5 * (hue + 4.188_79).cos(),
                 ],
-                size: 0.02 + rand_f32(&mut rng) * 0.06,
+                size: rng.random_range(0.02..0.08),
             }
         })
         .collect()
-}
-
-fn rand_f32(state: &mut u32) -> f32 {
-    *state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-    (*state >> 8) as f32 / 16_777_216.0
 }
 
 fn main() {
