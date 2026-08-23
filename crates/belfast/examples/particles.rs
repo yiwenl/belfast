@@ -1,11 +1,12 @@
 mod common;
 
 use belfast::{
-    AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, Compute, ComputeOptions,
-    DepthDraw, DepthDrawOptions, Device, Draw, DrawOptions, Geom, Mesh, MeshIndexFormat,
-    OrbitalControl, OrbitalControlOptions, OrthographicCamera, PerspectiveCamera, ShadowMap,
-    ShadowMapOptions, Texture, TextureOptions, UniformBlock, UniformFieldType,
-    VertexAttributeDescriptor, VertexBufferBinding, WGSL_SHADOW_PCF_3X3,
+    AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, CameraHelper,
+    CameraHelperOptions, Compute, ComputeOptions, DepthDraw, DepthDrawOptions, Device, Draw,
+    DrawOptions, Geom, Mesh, MeshIndexFormat, OrbitalControl, OrbitalControlOptions,
+    OrthographicCamera, PerspectiveCamera, ShadowMap, ShadowMapOptions, Texture, TextureOptions,
+    UniformBlock, UniformFieldType, VertexAttributeDescriptor, VertexBufferBinding,
+    WGSL_SHADOW_PCF_3X3,
 };
 use common::{Example, ExampleContext, InputEvent};
 use rand::Rng;
@@ -30,6 +31,7 @@ struct Experiment {
     mesh: Mesh,
     draw: Draw,
     axis: AxisHelper,
+    light_frustum: CameraHelper,
     camera: PerspectiveCamera,
     control: OrbitalControl,
     uniform_block: UniformBlock,
@@ -195,6 +197,16 @@ impl Example for Experiment {
         let mut light_camera =
             OrthographicCamera::new(-light_r, light_r, -light_r, light_r, 1.0, 16.0);
         light_camera.look_at([0.0, 8.0, 0.5], [0.0, 0.0, 0.0]);
+        let light_frustum = CameraHelper::new(
+            &context.device,
+            &light_camera.view_projection_matrix(),
+            CameraHelperOptions {
+                color: [1.0, 0.85, 0.2],
+                depth_stencil: Some(depth_stencil_state()),
+                ..CameraHelperOptions::new(context.format, &axis_pipeline_layout)
+            },
+        )
+        .expect("light camera helper");
         let light_view = light_camera.view_matrix();
         let (light_right, light_up) = view_right_up(&light_view);
 
@@ -369,6 +381,7 @@ impl Example for Experiment {
             mesh,
             draw,
             axis,
+            light_frustum,
             camera,
             control,
             uniform_block,
@@ -475,6 +488,7 @@ impl Example for Experiment {
             self.shadow_bind_group.bind(&mut pass, 1);
             self.draw.draw(&mut pass, &self.mesh, PARTICLE_COUNT);
             self.axis.draw(&mut pass, &self.uniform_bind_group);
+            self.light_frustum.draw(&mut pass, &self.uniform_bind_group);
         }
         context.device.queue().submit([encoder.finish()]);
     }

@@ -57,8 +57,16 @@ impl DepthDraw {
         Self { draw }
     }
 
+    pub fn device(&self) -> &Device {
+        self.draw.device()
+    }
+
     pub fn get_bind_group_layout(&self, index: u32) -> wgpu::BindGroupLayout {
         self.draw.get_bind_group_layout(index)
+    }
+
+    pub fn validate_for_render(&self, device: &Device, mesh: &Mesh) -> crate::BelfastResult<()> {
+        self.draw.validate_for_render(device, mesh)
     }
 
     pub fn draw<'a>(

@@ -78,6 +78,7 @@ struct VertexBufferLayoutSignature {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MeshLayoutSignature(Vec<VertexBufferLayoutSignature>);
 
+#[derive(Clone)]
 pub struct Mesh {
     vertex_count: u32,
     bindings: Vec<ResolvedVertexBufferBinding>,

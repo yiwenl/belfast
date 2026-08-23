@@ -11,6 +11,7 @@ export default defineConfig({
         basic: "basic/index.html",
         template: "template/index.html",
         instancing: "instancing/index.html",
+        particles: "particles/index.html",
       },
     },
   },

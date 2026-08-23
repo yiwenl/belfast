@@ -40,6 +40,24 @@ pub(crate) enum ShaderResourceLayout {
         texture_binding: u32,
         sampler_binding: u32,
     },
+    UniformAndShadow {
+        uniform_group: u32,
+        uniform_binding: u32,
+        shadow_group: u32,
+        texture_binding: u32,
+        sampler_binding: u32,
+    },
+}
+
+impl ShaderResourceLayout {
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub(crate) fn bind_group_count(&self) -> usize {
+        match self {
+            Self::None => 0,
+            Self::Uniform { .. } | Self::TextureSampler { .. } => 1,
+            Self::UniformAndShadow { .. } => 2,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -100,6 +118,37 @@ fn parse_and_validate_draw_shader(
         .validate(&module)
         .map_err(|error| format!("WGSL validation failed: {error}"))?;
     Ok(resources)
+}
+
+pub(crate) fn parse_and_validate_depth_shader(
+    shader_code: &str,
+    mesh_attributes: &[(u32, wgpu::VertexFormat)],
+    max_inter_stage_shader_variables: u32,
+) -> Result<ShaderResourceLayout, String> {
+    let module = naga::front::wgsl::parse_str(shader_code)
+        .map_err(|error| format!("WGSL parse failed: {error}"))?;
+    let resources = validate_module_depth_interface(
+        &module,
+        mesh_attributes,
+        max_inter_stage_shader_variables,
+    )?;
+    let mut validator = naga::valid::Validator::new(
+        naga::valid::ValidationFlags::all(),
+        naga::valid::Capabilities::empty(),
+    );
+    validator
+        .validate(&module)
+        .map_err(|error| format!("WGSL validation failed: {error}"))?;
+    Ok(resources)
+}
+
+pub(crate) fn mesh_shader_attributes(mesh: &belfast::Mesh) -> Vec<(u32, wgpu::VertexFormat)> {
+    mesh.vertex_layouts()
+        .iter()
+        .flatten()
+        .flat_map(|layout| layout.attributes)
+        .map(|attribute| (attribute.shader_location, attribute.format))
+        .collect()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -171,21 +220,77 @@ fn validate_module_draw_interface(
     Ok(resources)
 }
 
-fn validate_shader_resource_layout(module: &naga::Module) -> Result<ShaderResourceLayout, String> {
+fn validate_module_depth_interface(
+    module: &naga::Module,
+    mesh_attributes: &[(u32, wgpu::VertexFormat)],
+    max_inter_stage_shader_variables: u32,
+) -> Result<ShaderResourceLayout, String> {
+    let resources = validate_shader_resource_layout(module)?;
+    match resources {
+        ShaderResourceLayout::None | ShaderResourceLayout::Uniform { .. } => {}
+        ShaderResourceLayout::TextureSampler { .. }
+        | ShaderResourceLayout::UniformAndShadow { .. } => {
+            return Err("depth shader must use no resources or a group 0 uniform".into());
+        }
+    }
+
+    let vertex_entry = module
+        .entry_points
+        .iter()
+        .find(|entry| entry.name == "vs_main" && entry.stage == naga::ShaderStage::Vertex)
+        .ok_or_else(|| "shader is missing required vertex entry point \"vs_main\"".to_owned())?;
+    let fragment_entry = module
+        .entry_points
+        .iter()
+        .find(|entry| entry.name == "fs_main" && entry.stage == naga::ShaderStage::Fragment)
+        .ok_or_else(|| "shader is missing required fragment entry point \"fs_main\"".to_owned())?;
+
+    let required_attributes = required_vertex_attributes(module, vertex_entry)?;
+    for (location, expected_format) in required_attributes {
+        let Some((_, actual_format)) = mesh_attributes
+            .iter()
+            .find(|(mesh_location, _)| *mesh_location == location)
+        else {
+            return Err(format!(
+                "mesh is missing shader vertex input @location({location}) ({expected_format:?})"
+            ));
+        };
+        if *actual_format != expected_format {
+            return Err(format!(
+                "mesh vertex input @location({location}) has format {actual_format:?}, expected {expected_format:?}"
+            ));
+        }
+    }
+
+    let vertex_outputs = validate_vertex_outputs(module, vertex_entry)?;
+    validate_interstage_limits(&vertex_outputs, max_inter_stage_shader_variables)?;
+    validate_fragment_inputs(module, fragment_entry, &vertex_outputs)?;
+    if fragment_entry.function.result.is_some() {
+        return Err("depth fragment shader must not output color".into());
+    }
+
+    Ok(resources)
+}
+
+pub(crate) fn validate_shader_resource_layout(
+    module: &naga::Module,
+) -> Result<ShaderResourceLayout, String> {
     let mut texture = None;
     let mut sampler = None;
     let mut uniform = None;
+    let mut depth_texture = None;
+    let mut comparison_sampler = None;
 
     for (_, variable) in module.global_variables.iter() {
         let Some(binding) = variable.binding else {
             continue;
         };
-        if binding.group != 0 {
-            return Err(unsupported_shader_resource(binding));
-        }
 
         match variable.space {
             naga::AddressSpace::Uniform => {
+                if binding.group != 0 {
+                    return Err(unsupported_shader_resource(binding));
+                }
                 if uniform.replace(binding).is_some() {
                     return Err(unsupported_shader_resource(binding));
                 }
@@ -200,20 +305,40 @@ fn validate_shader_resource_layout(module: &naga::Module) -> Result<ShaderResour
                             multi: false,
                         },
                 } => {
+                    if binding.group != 0 {
+                        return Err(unsupported_shader_resource(binding));
+                    }
                     if texture.replace(binding).is_some() {
                         return Err(unsupported_shader_resource(binding));
                     }
                 }
+                naga::TypeInner::Image {
+                    dim: naga::ImageDimension::D2,
+                    arrayed: false,
+                    class: naga::ImageClass::Depth { multi: false },
+                } => {
+                    if depth_texture.replace(binding).is_some() {
+                        return Err(unsupported_shader_resource(binding));
+                    }
+                }
                 naga::TypeInner::Sampler { comparison: false } => {
+                    if binding.group != 0 {
+                        return Err(unsupported_shader_resource(binding));
+                    }
                     if sampler.replace(binding).is_some() {
                         return Err(unsupported_shader_resource(binding));
                     }
                 }
                 naga::TypeInner::Sampler { comparison: true } => {
-                    return Err(format!(
-                        "shader resource @group({}) @binding({}) must be a filtering sampler",
-                        binding.group, binding.binding
-                    ));
+                    if binding.group == 0 {
+                        return Err(format!(
+                            "shader resource @group({}) @binding({}) must be a filtering sampler",
+                            binding.group, binding.binding
+                        ));
+                    }
+                    if comparison_sampler.replace(binding).is_some() {
+                        return Err(unsupported_shader_resource(binding));
+                    }
                 }
                 _ => return Err(unsupported_shader_resource(binding)),
             },
@@ -221,30 +346,63 @@ fn validate_shader_resource_layout(module: &naga::Module) -> Result<ShaderResour
         }
     }
 
-    match (texture, sampler, uniform) {
-        (None, None, None) => Ok(ShaderResourceLayout::None),
-        (None, None, Some(uniform)) => Ok(ShaderResourceLayout::Uniform {
+    match (
+        uniform,
+        texture,
+        sampler,
+        depth_texture,
+        comparison_sampler,
+    ) {
+        (None, None, None, None, None) => Ok(ShaderResourceLayout::None),
+        (Some(uniform), None, None, None, None) => Ok(ShaderResourceLayout::Uniform {
             group: uniform.group,
             binding: uniform.binding,
         }),
-        (Some(texture), Some(sampler), None) if texture.group == sampler.group => {
+        (None, Some(texture), Some(sampler), None, None) if texture.group == sampler.group => {
             Ok(ShaderResourceLayout::TextureSampler {
                 group: texture.group,
                 texture_binding: texture.binding,
                 sampler_binding: sampler.binding,
             })
         }
-        (Some(_), None, None) => {
+        (Some(uniform), None, None, Some(depth), Some(comparison))
+            if uniform.group == 0
+                && uniform.binding == 0
+                && depth.group == 1
+                && depth.binding == 0
+                && comparison.group == 1
+                && comparison.binding == 1 =>
+        {
+            Ok(ShaderResourceLayout::UniformAndShadow {
+                uniform_group: uniform.group,
+                uniform_binding: uniform.binding,
+                shadow_group: depth.group,
+                texture_binding: depth.binding,
+                sampler_binding: comparison.binding,
+            })
+        }
+        (Some(_), None, None, Some(_), Some(_)) => Err(
+            "shadow layout must be @group(0) @binding(0) uniform, @group(1) @binding(0) depth texture, @group(1) @binding(1) comparison sampler"
+                .into(),
+        ),
+        (None, Some(_), None, None, None) => {
             Err("sampled texture requires one filtering sampler in the same bind group".into())
         }
-        (None, Some(_), None) => {
+        (None, None, Some(_), None, None) => {
             Err("filtering sampler requires one sampled texture in the same bind group".into())
         }
-        (Some(_), Some(_), None) => {
+        (None, Some(_), Some(_), None, None) => {
             Err("sampled texture and filtering sampler must use the same bind group".into())
         }
-        (_, _, Some(_)) => {
+        (_, _, _, Some(_), None) | (_, _, _, None, Some(_)) => Err(
+            "depth texture requires one comparison sampler, and comparison sampler requires one depth texture"
+                .into(),
+        ),
+        (_, _, Some(_), _, _) | (_, Some(_), _, _, _) => {
             Err("uniform buffers cannot be combined with sampled textures or samplers".into())
+        }
+        (None, None, None, _, _) => {
+            Err("unsupported shadow resources without a camera uniform".into())
         }
     }
 }
@@ -576,7 +734,7 @@ impl WasmDraw {
     pub fn new(
         device: &WasmDevice,
         shader_code: &str,
-        mesh: WasmMesh,
+        mesh: &WasmMesh,
         #[wasm_bindgen(unchecked_param_type = "DrawOptions")] options: JsValue,
     ) -> Result<WasmDraw, JsValue> {
         let options: DrawOptionsInput = if options.is_undefined() || options.is_null() {
@@ -584,17 +742,9 @@ impl WasmDraw {
         } else {
             serde_wasm_bindgen::from_value(options).map_err(to_js_error)?
         };
-        let mesh = mesh.into_inner();
+        let mesh = mesh.clone_inner();
         belfast::Draw::validate_mesh_device(&device.inner, &mesh).map_err(to_js_error)?;
-        let mesh_attributes: Vec<_> = {
-            let vertex_layouts = mesh.vertex_layouts();
-            vertex_layouts
-                .iter()
-                .flatten()
-                .flat_map(|layout| layout.attributes)
-                .map(|attribute| (attribute.shader_location, attribute.format))
-                .collect()
-        };
+        let mesh_attributes = mesh_shader_attributes(&mesh);
         let resources = parse_and_validate_draw_shader(
             shader_code,
             &mesh_attributes,
@@ -623,8 +773,8 @@ impl WasmDraw {
     }
 
     #[wasm_bindgen(js_name = setMesh)]
-    pub fn set_mesh(&self, mesh: WasmMesh) -> Result<(), JsValue> {
-        let mesh = mesh.into_inner();
+    pub fn set_mesh(&self, mesh: &WasmMesh) -> Result<(), JsValue> {
+        let mesh = mesh.clone_inner();
         self.state
             .draw
             .validate_for_render(self.state.draw.device(), &mesh)
@@ -836,6 +986,44 @@ fn fs_main() -> @location(0) vec4f {
 }
 "#;
 
+    const UNIFORM_AND_SHADOW_SHADER: &str = r#"
+struct CameraUniform {
+    view_proj: mat4x4<f32>,
+}
+
+@group(0) @binding(0) var<uniform> camera: CameraUniform;
+@group(1) @binding(0) var shadow_map: texture_depth_2d;
+@group(1) @binding(1) var shadow_sampler: sampler_comparison;
+
+@vertex
+fn vs_main(@location(0) position: vec3f) -> @builtin(position) vec4f {
+    return camera.view_proj * vec4f(position, 1.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    let visibility = textureSampleCompareLevel(shadow_map, shadow_sampler, vec2f(0.5), 0.5);
+    return vec4f(visibility);
+}
+"#;
+
+    const SHADOW_WRONG_BINDINGS_SHADER: &str = r#"
+@group(0) @binding(0) var<uniform> tint: vec4f;
+@group(1) @binding(1) var shadow_map: texture_depth_2d;
+@group(1) @binding(0) var shadow_sampler: sampler_comparison;
+
+@vertex
+fn vs_main() -> @builtin(position) vec4f {
+    return vec4f(0.0);
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    let visibility = textureSampleCompareLevel(shadow_map, shadow_sampler, vec2f(0.5), 0.5);
+    return tint * visibility;
+}
+"#;
+
     const TEXTURE_ONLY_SHADER: &str = r#"
 @group(0) @binding(0) var image: texture_2d<f32>;
 
@@ -888,6 +1076,45 @@ fn fs_main() -> @location(0) vec4f {
             validate_draw_interface_with_limit(COMPARISON_SAMPLER_SHADER, &[], 16)
                 .unwrap_err()
                 .contains("filtering sampler")
+        );
+    }
+
+    #[test]
+    fn accepts_group0_uniform_and_group1_shadow_map() {
+        assert_eq!(
+            validate_draw_interface(
+                UNIFORM_AND_SHADOW_SHADER,
+                &[(0, wgpu::VertexFormat::Float32x3)]
+            ),
+            Ok(ShaderResourceLayout::UniformAndShadow {
+                uniform_group: 0,
+                uniform_binding: 0,
+                shadow_group: 1,
+                texture_binding: 0,
+                sampler_binding: 1,
+            })
+        );
+        assert_eq!(
+            ShaderResourceLayout::UniformAndShadow {
+                uniform_group: 0,
+                uniform_binding: 0,
+                shadow_group: 1,
+                texture_binding: 0,
+                sampler_binding: 1,
+            }
+            .bind_group_count(),
+            2
+        );
+    }
+
+    #[test]
+    fn rejects_shadow_layout_with_swapped_bindings() {
+        assert_eq!(
+            validate_draw_interface(SHADOW_WRONG_BINDINGS_SHADER, &[]),
+            Err(
+                "shadow layout must be @group(0) @binding(0) uniform, @group(1) @binding(0) depth texture, @group(1) @binding(1) comparison sampler"
+                    .into()
+            )
         );
     }
 

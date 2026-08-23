@@ -65,7 +65,7 @@ pnpm format:check
 
 Rust examples: [`crates/belfast/examples/README.md`](crates/belfast/examples/README.md).
 
-The TypeScript gallery (`pnpm dev`) is at `/`. Basic examples use `/basic/?example=colored-triangle`; standalone pages live at `/template/` and `/instancing/`.
+The TypeScript gallery (`pnpm dev`) is at `/`. Basic examples use `/basic/?example=colored-triangle`; standalone pages live at `/template/`, `/instancing/`, and `/particles/`.
 
 ## WebGPU browser support
 

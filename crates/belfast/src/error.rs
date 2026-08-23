@@ -90,6 +90,8 @@ pub enum BelfastError {
     InvalidOrbitalControlOption(&'static str),
     #[error("axis length must be finite and greater than 0")]
     InvalidAxisLength,
+    #[error("camera matrix must be finite and invertible")]
+    InvalidCameraMatrix,
     #[error("texture dimensions must be greater than 0, got {width}x{height}")]
     InvalidTextureDimensions { width: u32, height: u32 },
     #[error("texture dimensions {width}x{height} exceed device limit {limit}")]

@@ -183,8 +183,8 @@ impl WasmMesh {
         &self.inner
     }
 
-    pub(crate) fn into_inner(self) -> belfast::Mesh {
-        self.inner
+    pub(crate) fn clone_inner(&self) -> belfast::Mesh {
+        self.inner.clone()
     }
 }
 

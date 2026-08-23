@@ -4,7 +4,9 @@ mod axis_helper;
 mod bind_group;
 mod bindings;
 mod camera;
+mod camera_helper;
 mod compute;
+mod depth_draw;
 mod device;
 mod draw;
 #[cfg(any(target_arch = "wasm32", test))]
@@ -15,6 +17,7 @@ mod orbital_control;
 #[cfg(any(target_arch = "wasm32", test))]
 mod render_target;
 mod resources;
+mod shadow_map;
 mod texture;
 mod uniform_block;
 
@@ -22,7 +25,9 @@ pub use axis_helper::WasmAxisHelper;
 #[cfg(target_arch = "wasm32")]
 pub use bind_group::WasmBindGroup;
 pub use camera::{WasmOrthographicCamera, WasmPerspectiveCamera};
+pub use camera_helper::WasmCameraHelper;
 pub use compute::WasmCompute;
+pub use depth_draw::WasmDepthDraw;
 pub use device::WasmDevice;
 pub use draw::WasmDraw;
 #[cfg(target_arch = "wasm32")]
@@ -33,6 +38,8 @@ pub use orbital_control::WasmOrbitalControl;
 #[cfg(target_arch = "wasm32")]
 pub use render_target::WasmRenderTarget;
 pub use resources::{WasmBuffer, WasmBufferUsage, WasmMesh};
+#[cfg(target_arch = "wasm32")]
+pub use shadow_map::WasmShadowMap;
 #[cfg(target_arch = "wasm32")]
 pub use texture::WasmTexture;
 pub use uniform_block::WasmUniformBlock;
@@ -48,4 +55,9 @@ pub(crate) fn slice_to_vec3(name: &str, value: &[f32]) -> Result<[f32; 3], JsVal
 
 pub(crate) fn to_js_error(error: impl std::fmt::Display) -> JsValue {
     js_sys::Error::new(&error.to_string()).into()
+}
+
+#[wasm_bindgen(js_name = wgslShadowPcf3x3)]
+pub fn wgsl_shadow_pcf_3x3() -> String {
+    belfast::WGSL_SHADOW_PCF_3X3.to_owned()
 }
