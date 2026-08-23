@@ -464,9 +464,9 @@ impl Example for Experiment {
                 surface_view,
                 self.depth.view(),
                 wgpu::Color {
-                    r: 0.01,
-                    g: 0.0095,
-                    b: 0.0085,
+                    r: 0.08,
+                    g: 0.076,
+                    b: 0.068,
                     a: 1.0,
                 },
             );

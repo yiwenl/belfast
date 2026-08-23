@@ -8,7 +8,7 @@ mod input;
 pub use input::InputEvent;
 pub use web_time::Instant;
 
-use belfast::{pick_surface_color, Device};
+use belfast::{pick_surface_color, Device, SurfaceColorChoice};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -124,6 +124,21 @@ pub fn begin_render_pass_with_depth<'a>(
         occlusion_query_set: None,
         multiview_mask: None,
     })
+}
+
+fn pick_unorm_sdr(formats: &[wgpu::TextureFormat]) -> wgpu::TextureFormat {
+    formats
+        .iter()
+        .copied()
+        .find(|format| {
+            matches!(
+                format,
+                wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Rgba8Unorm
+            )
+        })
+        .or_else(|| formats.iter().copied().find(|format| !format.is_srgb()))
+        .or_else(|| formats.first().copied())
+        .unwrap_or(wgpu::TextureFormat::Bgra8Unorm)
 }
 
 fn log_error(message: &str) {
@@ -371,7 +386,17 @@ impl<E: Example> ExampleState<E> {
         });
 
         let capabilities = surface.get_capabilities(&adapter);
-        let choice = pick_surface_color(&capabilities, options.hdr);
+        // WebGPU canvas is `bgra8unorm`/`rgba8unorm`. Native otherwise prefers `*srgb`,
+        // which encodes linear shader output and washes out clear color + shadows.
+        let choice = if options.hdr {
+            pick_surface_color(&capabilities, true)
+        } else {
+            SurfaceColorChoice {
+                format: pick_unorm_sdr(&capabilities.formats),
+                color_space: wgpu::SurfaceColorSpace::Auto,
+                hdr: false,
+            }
+        };
         let format = choice.format;
         let hdr_info = surface.display_hdr_info(&adapter);
         log_info(&format!(
