@@ -27,6 +27,26 @@ impl<'a> DrawOptions<'a> {
             multisample: wgpu::MultisampleState::default(),
         }
     }
+
+    pub fn depth_only(label: &'a str) -> Self {
+        Self {
+            label,
+            layout: None,
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                ..Default::default()
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            targets: vec![],
+            multisample: wgpu::MultisampleState::default(),
+        }
+    }
 }
 
 pub struct Draw {

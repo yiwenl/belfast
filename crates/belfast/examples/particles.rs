@@ -2,7 +2,7 @@ mod common;
 
 use belfast::{
     AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, CameraHelper,
-    CameraHelperOptions, Compute, ComputeOptions, DepthDraw, DepthDrawOptions, Device, Draw,
+    CameraHelperOptions, Compute, ComputeOptions, Device, Draw,
     DrawOptions, Geom, Mesh, MeshIndexFormat, OrbitalControl, OrbitalControlOptions,
     OrthographicCamera, PerspectiveCamera, ShadowMap, ShadowMapOptions, Texture, TextureOptions,
     UniformBlock, UniformFieldType, VertexAttributeDescriptor, VertexBufferBinding,
@@ -43,7 +43,7 @@ struct Experiment {
     sim_buffer: Buffer,
     sim_bind_group: BindGroup,
     shadow_map: ShadowMap,
-    shadow_draw: DepthDraw,
+    shadow_draw: Draw,
     light_bind_group: BindGroup,
     depth: Texture,
     time: f32,
@@ -296,9 +296,9 @@ impl Example for Experiment {
             }],
             "ParticleLightBindGroup",
         );
-        let mut shadow_draw_options = DepthDrawOptions::new("ParticleShadow");
+        let mut shadow_draw_options = DrawOptions::depth_only("ParticleShadow");
         shadow_draw_options.layout = Some(&axis_pipeline_layout);
-        let shadow_draw = DepthDraw::new(
+        let shadow_draw = Draw::new(
             &context.device,
             include_str!("shaders/particles_shadow_depth.wgsl"),
             &mesh,

@@ -23,7 +23,7 @@ struct DepthDrawOptionsInput {
 
 pub(crate) struct DepthDrawState {
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
-    draw: belfast::DepthDraw,
+    draw: belfast::Draw,
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
     mesh: RefCell<belfast::Mesh>,
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
@@ -32,7 +32,7 @@ pub(crate) struct DepthDrawState {
 
 impl DepthDrawState {
     #[cfg(target_arch = "wasm32")]
-    pub(crate) fn draw(&self) -> &belfast::DepthDraw {
+    pub(crate) fn draw(&self) -> &belfast::Draw {
         &self.draw
     }
 
@@ -73,11 +73,11 @@ impl WasmDepthDraw {
         )
         .map_err(to_js_error)?;
         let label = options.label.unwrap_or_else(|| "DepthDraw".to_owned());
-        let draw = belfast::DepthDraw::new(
+        let draw = belfast::Draw::new(
             &device.inner,
             shader_code,
             &mesh,
-            belfast::DepthDrawOptions::new(&label),
+            belfast::DrawOptions::depth_only(&label),
         );
 
         Ok(Self {
