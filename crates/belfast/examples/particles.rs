@@ -4,7 +4,7 @@ use belfast::{
     AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, CameraHelper,
     CameraHelperOptions, Compute, ComputeOptions, Device, Draw,
     DrawOptions, Geom, Mesh, MeshIndexFormat, OrbitalControl, OrbitalControlOptions,
-    OrthographicCamera, PerspectiveCamera, ShadowMap, ShadowMapOptions, Texture, TextureOptions,
+    OrthographicCamera, PerspectiveCamera, Texture, TextureOptions,
     UniformBlock, UniformFieldType, VertexAttributeDescriptor, VertexBufferBinding,
     WGSL_SHADOW_PCF_3X3,
 };
@@ -42,7 +42,7 @@ struct Experiment {
     sim_params: UniformBlock,
     sim_buffer: Buffer,
     sim_bind_group: BindGroup,
-    shadow_map: ShadowMap,
+    shadow_map: Texture,
     shadow_draw: Draw,
     light_bind_group: BindGroup,
     depth: Texture,
@@ -240,13 +240,11 @@ impl Example for Experiment {
             "ExperimentUniformBindGroup",
         );
 
-        let shadow_map = ShadowMap::create(
+        let shadow_map = Texture::create_2d(
             &context.device,
-            ShadowMapOptions {
-                size: SHADOW_MAP_SIZE,
-                label: "ParticleShadowMap".into(),
-                ..Default::default()
-            },
+            SHADOW_MAP_SIZE,
+            SHADOW_MAP_SIZE,
+            TextureOptions::shadow_map("ParticleShadowMap"),
         )
         .expect("shadow map");
         let shadow_bind_group = BindGroup::create(
@@ -467,7 +465,7 @@ impl Example for Experiment {
             Some("ParticleUpdate"),
         );
         {
-            let mut pass = self.shadow_map.begin_render_pass(&mut encoder);
+            let mut pass = self.shadow_map.begin_depth_pass(&mut encoder);
             self.light_bind_group.bind(&mut pass, 0);
             self.shadow_draw.draw(&mut pass, &self.mesh, PARTICLE_COUNT);
         }

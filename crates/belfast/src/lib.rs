@@ -12,7 +12,6 @@ mod geom;
 mod helpers;
 mod mesh;
 mod render_target;
-mod shadow_map;
 mod surface;
 mod texture;
 mod uniform_block;
@@ -32,7 +31,6 @@ pub use mesh::{
     VertexBufferLayoutDescriptor,
 };
 pub use render_target::{RenderPassOptions, RenderPassTarget, RenderTarget, RenderTargetOptions};
-pub use shadow_map::{ShadowMap, ShadowMapOptions};
 pub use surface::{pick_surface_color, SurfaceColorChoice};
 pub use texture::{Texture, TextureOptions};
 pub use uniform_block::{UniformBlock, UniformFieldType};

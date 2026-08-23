@@ -19,18 +19,17 @@ struct ShadowMapOptionsInput {
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) struct ShadowMapState {
-    shadow_map: belfast::ShadowMap,
-    device: belfast::Device,
+    shadow_map: belfast::Texture,
 }
 
 #[cfg(target_arch = "wasm32")]
 impl ShadowMapState {
-    pub(crate) fn shadow_map(&self) -> &belfast::ShadowMap {
+    pub(crate) fn shadow_map(&self) -> &belfast::Texture {
         &self.shadow_map
     }
 
     pub(crate) fn device(&self) -> &belfast::Device {
-        &self.device
+        self.shadow_map.device()
     }
 }
 
@@ -50,21 +49,19 @@ impl WasmShadowMap {
             .transpose()
             .map_err(to_js_error)?
             .unwrap_or_default();
-        let shadow_map = belfast::ShadowMap::create(
+        let size = options.size.unwrap_or(1024).max(1);
+        let shadow_map = belfast::Texture::create_2d(
             &device.inner,
-            belfast::ShadowMapOptions {
-                size: options.size.unwrap_or(1024),
-                label: options.label.unwrap_or_else(|| "ShadowMap".into()),
-                ..Default::default()
-            },
+            size,
+            size,
+            belfast::TextureOptions::shadow_map(
+                options.label.unwrap_or_else(|| "ShadowMap".into()),
+            ),
         )
         .map_err(to_js_error)?;
 
         let wrapper = JsValue::from(Self {
-            state: Rc::new(ShadowMapState {
-                shadow_map,
-                device: device.inner.clone(),
-            }),
+            state: Rc::new(ShadowMapState { shadow_map }),
         });
         crate::frame::register_shadow_map_wrapper(&wrapper)?;
         Ok(wrapper)
@@ -72,7 +69,7 @@ impl WasmShadowMap {
 
     #[wasm_bindgen(getter)]
     pub fn size(&self) -> u32 {
-        self.state.shadow_map.size()
+        self.state.shadow_map.width()
     }
 
     #[wasm_bindgen(js_name = __frameHandle, skip_typescript)]

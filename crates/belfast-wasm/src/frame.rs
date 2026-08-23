@@ -1547,7 +1547,7 @@ fn encode_logical_pass(
             encode_render_commands(&mut pass, &commands, &draw_meshes);
         }
         FrameTarget::ShadowMap(shadow_map) => {
-            let mut pass = shadow_map.shadow_map().begin_render_pass(encoder);
+            let mut pass = shadow_map.shadow_map().begin_depth_pass(encoder);
             encode_render_commands(&mut pass, &commands, &draw_meshes);
         }
     }

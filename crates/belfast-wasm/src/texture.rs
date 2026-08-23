@@ -111,6 +111,7 @@ impl WasmTexture {
                     | wgpu::TextureUsages::RENDER_ATTACHMENT,
                 mag_filter: options.mag_filter,
                 min_filter: options.min_filter,
+                compare: None,
             },
         )
         .map_err(to_js_error)?;
