@@ -1,19 +1,22 @@
 mod common;
 
 use belfast::{
-    AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device,
-    Draw, DrawOptions, Geom, Mesh, MeshIndexFormat, OrbitalControl, OrbitalControlOptions,
-    PerspectiveCamera, Texture, TextureOptions, UniformBlock, UniformFieldType,
-    VertexAttributeDescriptor, VertexBufferBinding,
+    AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, Compute, ComputeOptions,
+    DepthDraw, DepthDrawOptions, Device, Draw, DrawOptions, Geom, Mesh, MeshIndexFormat,
+    OrbitalControl, OrbitalControlOptions, OrthographicCamera, PerspectiveCamera, ShadowMap,
+    ShadowMapOptions, Texture, TextureOptions, UniformBlock, UniformFieldType,
+    VertexAttributeDescriptor, VertexBufferBinding, WGSL_SHADOW_PCF_3X3,
 };
 use common::{Example, ExampleContext, InputEvent};
 use rand::Rng;
 
 const PARTICLE_COUNT: u32 = 1_000_000;
 const SPAWN_RADIUS: f32 = 1.5;
+const MAX_RADIUS: f32 = 2.5;
 const PARTICLE_STRIDE: u64 = 48;
 const WORKGROUP_SIZE: u32 = 256;
 const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
+const SHADOW_MAP_SIZE: u32 = 1024;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -32,10 +35,14 @@ struct Experiment {
     uniform_block: UniformBlock,
     uniform_buffer: Buffer,
     uniform_bind_group: BindGroup,
+    shadow_bind_group: BindGroup,
     compute: Compute,
     sim_params: UniformBlock,
     sim_buffer: Buffer,
     sim_bind_group: BindGroup,
+    shadow_map: ShadowMap,
+    shadow_draw: DepthDraw,
+    light_bind_group: BindGroup,
     depth: Texture,
     time: f32,
 }
@@ -110,7 +117,7 @@ impl Example for Experiment {
                     label: Some("ExperimentUniformBindGroupLayout"),
                     entries: &[wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -119,40 +126,92 @@ impl Example for Experiment {
                         count: None,
                     }],
                 });
-        let pipeline_layout =
+        let shadow_bind_group_layout =
+            context
+                .device
+                .gpu()
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("ExperimentShadowBindGroupLayout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                sample_type: wgpu::TextureSampleType::Depth,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                multisampled: false,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+                            count: None,
+                        },
+                    ],
+                });
+        let axis_pipeline_layout =
             context
                 .device
                 .gpu()
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("ExperimentPipelineLayout"),
+                    label: Some("ExperimentAxisPipelineLayout"),
                     bind_group_layouts: &[Some(&uniform_bind_group_layout)],
                     immediate_size: 0,
                 });
-        let mut draw_options = DrawOptions::new("Particles", context.format);
-        draw_options.layout = Some(&pipeline_layout);
-        draw_options.depth_stencil = Some(depth_stencil_state());
-        let draw = Draw::new(
-            &context.device,
-            include_str!("shaders/particles.wgsl"),
-            &mesh,
-            draw_options,
+        let draw_pipeline_layout =
+            context
+                .device
+                .gpu()
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("ExperimentDrawPipelineLayout"),
+                    bind_group_layouts: &[
+                        Some(&uniform_bind_group_layout),
+                        Some(&shadow_bind_group_layout),
+                    ],
+                    immediate_size: 0,
+                });
+        let draw_shader = format!(
+            "{}\n{}",
+            WGSL_SHADOW_PCF_3X3,
+            include_str!("shaders/particles.wgsl")
         );
+        let mut draw_options = DrawOptions::new("Particles", context.format);
+        draw_options.layout = Some(&draw_pipeline_layout);
+        draw_options.depth_stencil = Some(depth_stencil_state());
+        let draw = Draw::new(&context.device, &draw_shader, &mesh, draw_options);
         let axis = AxisHelper::new(
             &context.device,
             AxisHelperOptions {
-                length: 1.5,
+                length: 100.0,
                 depth_stencil: Some(depth_stencil_state()),
-                ..AxisHelperOptions::new(context.format, &pipeline_layout)
+                ..AxisHelperOptions::new(context.format, &axis_pipeline_layout)
             },
         )
         .expect("axis helper");
 
-        let uniform_block = UniformBlock::create([
+        let light_r = 6.5;
+        let mut light_camera =
+            OrthographicCamera::new(-light_r, light_r, -light_r, light_r, 1.0, 16.0);
+        light_camera.look_at([0.0, 8.0, 0.5], [0.0, 0.0, 0.0]);
+        let light_view = light_camera.view_matrix();
+        let (light_right, light_up) = view_right_up(&light_view);
+
+        let mut uniform_block = UniformBlock::create([
             ("view_proj", UniformFieldType::Mat4x4F),
             ("camera_right", UniformFieldType::Vec4F),
             ("camera_up", UniformFieldType::Vec4F),
+            ("light_view_proj", UniformFieldType::Mat4x4F),
+            ("shadow_params", UniformFieldType::Vec4F),
         ])
         .expect("uniform block");
+        uniform_block
+            .set_f32_slice("light_view_proj", &light_camera.view_projection_matrix())
+            .expect("light_view_proj");
+        uniform_block
+            .set_f32_slice("shadow_params", &[0.8, SHADOW_MAP_SIZE as f32, 0.001, 0.0])
+            .expect("shadow_params");
         let uniform_buffer = Buffer::create(
             &context.device,
             uniform_block.byte_size() as u64,
@@ -167,6 +226,71 @@ impl Example for Experiment {
                 resource: uniform_buffer.gpu().as_entire_binding(),
             }],
             "ExperimentUniformBindGroup",
+        );
+
+        let shadow_map = ShadowMap::create(
+            &context.device,
+            ShadowMapOptions {
+                size: SHADOW_MAP_SIZE,
+                label: "ParticleShadowMap".into(),
+                ..Default::default()
+            },
+        )
+        .expect("shadow map");
+        let shadow_bind_group = BindGroup::create(
+            &context.device,
+            &shadow_bind_group_layout,
+            &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(shadow_map.view()),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(shadow_map.sampler()),
+                },
+            ],
+            "ParticleShadowBindGroup",
+        );
+
+        let mut light_uniform = UniformBlock::create([
+            ("view_proj", UniformFieldType::Mat4x4F),
+            ("camera_right", UniformFieldType::Vec4F),
+            ("camera_up", UniformFieldType::Vec4F),
+        ])
+        .expect("light uniform");
+        light_uniform
+            .set_f32_slice("view_proj", &light_camera.view_projection_matrix())
+            .expect("light view_proj");
+        light_uniform
+            .set_f32_slice("camera_right", &light_right)
+            .expect("light right");
+        light_uniform
+            .set_f32_slice("camera_up", &light_up)
+            .expect("light up");
+        let light_buffer = Buffer::create(
+            &context.device,
+            light_uniform.byte_size() as u64,
+            BufferUsage::uniform(),
+            "ParticleLightUniform",
+        );
+        light_buffer.write(&context.device, light_uniform.bytes(), 0);
+        let light_bind_group = BindGroup::create(
+            &context.device,
+            &uniform_bind_group_layout,
+            &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: light_buffer.gpu().as_entire_binding(),
+            }],
+            "ParticleLightBindGroup",
+        );
+        let mut shadow_draw_options = DepthDrawOptions::new("ParticleShadow");
+        shadow_draw_options.layout = Some(&axis_pipeline_layout);
+        let shadow_draw = DepthDraw::new(
+            &context.device,
+            include_str!("shaders/particles_shadow_depth.wgsl"),
+            &mesh,
+            shadow_draw_options,
         );
 
         let time = rand::rng().random_range(0.0..1000.0);
@@ -184,7 +308,7 @@ impl Example for Experiment {
         sim_params.set_f32("time", time).expect("init time");
         sim_params.set_f32("dt", 0.016).expect("init dt");
         sim_params
-            .set_f32("max_radius", 2.5)
+            .set_f32("max_radius", MAX_RADIUS)
             .expect("init max_radius");
         sim_params
             .set_u32("count", PARTICLE_COUNT)
@@ -235,7 +359,7 @@ impl Example for Experiment {
             100.0,
         );
         let mut control = OrbitalControl::new(OrbitalControlOptions {
-            radius: 10.0,
+            radius: 20.0,
             ..Default::default()
         })
         .expect("valid orbital control");
@@ -250,10 +374,14 @@ impl Example for Experiment {
             uniform_block,
             uniform_buffer,
             uniform_bind_group,
+            shadow_bind_group,
             compute,
             sim_params,
             sim_buffer,
             sim_bind_group,
+            shadow_map,
+            shadow_draw,
+            light_bind_group,
             depth: create_depth_texture(&context.device, context.width, context.height),
             time,
         }
@@ -326,6 +454,11 @@ impl Example for Experiment {
             Some("ParticleUpdate"),
         );
         {
+            let mut pass = self.shadow_map.begin_render_pass(&mut encoder);
+            self.light_bind_group.bind(&mut pass, 0);
+            self.shadow_draw.draw(&mut pass, &self.mesh, PARTICLE_COUNT);
+        }
+        {
             let mut pass = common::begin_render_pass_with_depth(
                 &mut encoder,
                 surface_view,
@@ -339,6 +472,7 @@ impl Example for Experiment {
             );
 
             self.uniform_bind_group.bind(&mut pass, 0);
+            self.shadow_bind_group.bind(&mut pass, 1);
             self.draw.draw(&mut pass, &self.mesh, PARTICLE_COUNT);
             self.axis.draw(&mut pass, &self.uniform_bind_group);
         }
@@ -361,6 +495,13 @@ fn create_depth_texture(device: &Device, width: u32, height: u32) -> Texture {
     .expect("particle depth texture")
 }
 
+fn view_right_up(view: &[f32; 16]) -> ([f32; 4], [f32; 4]) {
+    (
+        [view[0], view[4], view[8], 0.0],
+        [view[1], view[5], view[9], 0.0],
+    )
+}
+
 fn depth_stencil_state() -> wgpu::DepthStencilState {
     wgpu::DepthStencilState {
         format: DEPTH_FORMAT,
@@ -378,14 +519,14 @@ fn spawn_particles() -> Vec<Particle> {
             let theta = rng.random::<f32>() * std::f32::consts::TAU;
             let phi = (2.0 * rng.random::<f32>() - 1.0).acos();
             let r = rng.random::<f32>().sqrt() * SPAWN_RADIUS;
-            let sin_phi = phi.sin();            
+            let sin_phi = phi.sin();
             let grey = rng.random_range(0.8..1.0);
             Particle {
                 pos_size: [
                     r * sin_phi * theta.cos(),
                     r * sin_phi * theta.sin(),
                     r * phi.cos(),
-                    rng.random_range(0.02..0.08),
+                    rng.random_range(0.02..0.04),
                 ],
                 velocity: [
                     rng.random_range(-0.2..0.2),
@@ -393,12 +534,7 @@ fn spawn_particles() -> Vec<Particle> {
                     rng.random_range(-0.2..0.2),
                     rng.random::<f32>(),
                 ],
-                color: [
-                    grey,
-                    grey,
-                    grey,
-                    rng.random::<f32>(),
-                ],
+                color: [grey, grey, grey, rng.random::<f32>()],
             }
         })
         .collect()
