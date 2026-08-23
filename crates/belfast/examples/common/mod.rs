@@ -158,26 +158,11 @@ fn log_info(message: &str) {
 fn create_window(event_loop: &ActiveEventLoop, title: &'static str) -> Arc<Window> {
     #[cfg(target_arch = "wasm32")]
     let attributes = {
-        use winit::dpi::LogicalSize;
         use winit::platform::web::WindowAttributesExtWebSys;
-        let mut attributes = Window::default_attributes()
+        Window::default_attributes()
             .with_title(title)
             .with_append(true)
-            .with_prevent_default(false);
-        if let Some(web_window) = web_sys::window() {
-            let width = web_window
-                .inner_width()
-                .ok()
-                .and_then(|value| value.as_f64())
-                .unwrap_or(1.0);
-            let height = web_window
-                .inner_height()
-                .ok()
-                .and_then(|value| value.as_f64())
-                .unwrap_or(1.0);
-            attributes = attributes.with_inner_size(LogicalSize::new(width, height));
-        }
-        attributes
+            .with_prevent_default(false)
     };
     #[cfg(not(target_arch = "wasm32"))]
     let attributes = Window::default_attributes().with_title(title);
@@ -463,12 +448,32 @@ impl<E: Example> ExampleState<E> {
         self.example.resize(&self.context);
     }
 
+    #[cfg(target_arch = "wasm32")]
+    fn sync_canvas_size(&mut self) {
+        use winit::platform::web::WindowExtWebSys;
+        let Some(canvas) = self.window.canvas() else {
+            return;
+        };
+        let dpr = web_sys::window()
+            .map(|window| window.device_pixel_ratio())
+            .filter(|dpr| dpr.is_finite() && *dpr > 0.0)
+            .unwrap_or(1.0);
+        let width = (f64::from(canvas.client_width().max(0)) * dpr).round() as u32;
+        let height = (f64::from(canvas.client_height().max(0)) * dpr).round() as u32;
+        if width != self.config.width || height != self.config.height {
+            self.resize(PhysicalSize::new(width, height));
+        }
+    }
+
     fn render(&mut self, event_loop: &ActiveEventLoop) {
         if let Some(error) = self.pending_gpu_errors.take() {
             log_error(&error);
             event_loop.exit();
             return;
         }
+
+        #[cfg(target_arch = "wasm32")]
+        self.sync_canvas_size();
 
         let now = Instant::now();
         let delta_seconds = (now - self.last_frame_at).as_secs_f32().min(0.1);
