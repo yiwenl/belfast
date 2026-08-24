@@ -2,11 +2,10 @@ mod common;
 
 use belfast::{
     AxisHelper, AxisHelperOptions, BindGroup, Buffer, BufferUsage, CameraHelper,
-    CameraHelperOptions, Compute, ComputeOptions, Device, Draw,
-    DrawOptions, Geom, Mesh, MeshIndexFormat, OrbitalControl, OrbitalControlOptions,
-    OrthographicCamera, PerspectiveCamera, Texture, TextureOptions,
-    UniformBlock, UniformFieldType, VertexAttributeDescriptor, VertexBufferBinding,
-    WGSL_SHADOW_PCF_3X3,
+    CameraHelperOptions, Compute, ComputeOptions, Device, Draw, DrawOptions, Geom, Mesh,
+    MeshIndexFormat, OrbitalControl, OrbitalControlOptions, OrthographicCamera, PerspectiveCamera,
+    Texture, TextureOptions, UniformBlock, UniformFieldType, VertexAttributeDescriptor,
+    VertexBufferBinding, WGSL_SHADOW_PCF_3X3,
 };
 use common::{Example, ExampleContext, InputEvent};
 use rand::Rng;
@@ -465,7 +464,9 @@ impl Example for Experiment {
             Some("ParticleUpdate"),
         );
         {
-            let mut pass = self.shadow_map.begin_depth_pass(&mut encoder);
+            let mut pass = self
+                .shadow_map
+                .begin_depth_pass(&mut encoder, wgpu::LoadOp::Clear(1.0));
             self.light_bind_group.bind(&mut pass, 0);
             self.shadow_draw.draw(&mut pass, &self.mesh, PARTICLE_COUNT);
         }

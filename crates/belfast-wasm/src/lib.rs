@@ -16,7 +16,6 @@ mod orbital_control;
 #[cfg(any(target_arch = "wasm32", test))]
 mod render_target;
 mod resources;
-mod shadow_map;
 mod texture;
 mod uniform_block;
 
@@ -36,8 +35,6 @@ pub use orbital_control::WasmOrbitalControl;
 #[cfg(target_arch = "wasm32")]
 pub use render_target::WasmRenderTarget;
 pub use resources::{WasmBuffer, WasmBufferUsage, WasmMesh};
-#[cfg(target_arch = "wasm32")]
-pub use shadow_map::WasmShadowMap;
 #[cfg(target_arch = "wasm32")]
 pub use texture::WasmTexture;
 pub use uniform_block::WasmUniformBlock;

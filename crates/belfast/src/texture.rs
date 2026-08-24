@@ -184,6 +184,7 @@ impl Texture {
     pub fn begin_depth_pass<'a>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
+        load_op: wgpu::LoadOp<f32>,
     ) -> wgpu::RenderPass<'a> {
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some(&format!("{}Pass", self.label)),
@@ -191,7 +192,7 @@ impl Texture {
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: &self.view,
                 depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
+                    load: load_op,
                     store: wgpu::StoreOp::Store,
                 }),
                 stencil_ops: None,

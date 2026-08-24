@@ -24,6 +24,16 @@ struct TextureOptionsInput {
 }
 
 #[cfg(any(target_arch = "wasm32", test))]
+#[derive(Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ShadowMapOptionsInput {
+    #[serde(default)]
+    size: Option<u32>,
+    #[serde(default)]
+    label: Option<String>,
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 struct TextureOptions {
     label: String,
@@ -64,6 +74,14 @@ fn resolve_filter(name: &str, value: Option<&str>) -> Result<wgpu::FilterMode, S
     }
 }
 
+#[cfg(any(target_arch = "wasm32", test))]
+fn resolve_shadow_map_options(input: ShadowMapOptionsInput) -> (u32, belfast::TextureOptions) {
+    let size = input.size.unwrap_or(1024).max(1);
+    let options =
+        belfast::TextureOptions::shadow_map(input.label.unwrap_or_else(|| "ShadowMap".into()));
+    (size, options)
+}
+
 #[cfg(target_arch = "wasm32")]
 pub(crate) struct TextureState {
     texture: belfast::Texture,
@@ -73,6 +91,10 @@ pub(crate) struct TextureState {
 impl TextureState {
     pub(crate) fn texture(&self) -> &belfast::Texture {
         &self.texture
+    }
+
+    pub(crate) fn is_shadow_map(&self) -> bool {
+        self.texture.format() == wgpu::TextureFormat::Depth32Float
     }
 }
 
@@ -85,6 +107,26 @@ pub struct WasmTexture {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_class = Texture)]
 impl WasmTexture {
+    #[wasm_bindgen(js_name = createShadowMap, unchecked_return_type = "Texture")]
+    pub fn create_shadow_map(
+        device: &WasmDevice,
+        options: Option<JsValue>,
+    ) -> Result<JsValue, JsValue> {
+        let options: ShadowMapOptionsInput = options
+            .map(serde_wasm_bindgen::from_value)
+            .transpose()
+            .map_err(to_js_error)?
+            .unwrap_or_default();
+        let (size, options) = resolve_shadow_map_options(options);
+        let texture =
+            belfast::Texture::create_2d(&device.inner, size, size, options).map_err(to_js_error)?;
+        let wrapper = JsValue::from(Self {
+            state: Rc::new(TextureState { texture }),
+        });
+        crate::frame::register_shadow_texture_wrapper(&wrapper)?;
+        Ok(wrapper)
+    }
+
     #[wasm_bindgen(js_name = fromImageBitmap)]
     pub fn from_image_bitmap(
         device: &WasmDevice,
@@ -151,6 +193,13 @@ impl WasmTexture {
     pub fn height(&self) -> u32 {
         self.state.texture.height()
     }
+
+    #[wasm_bindgen(js_name = __frameHandle, skip_typescript)]
+    pub fn frame_handle(&self) -> WasmTexture {
+        Self {
+            state: self.state.clone(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -193,5 +242,13 @@ mod tests {
         };
 
         assert!(options.resolve().is_err());
+    }
+
+    #[test]
+    fn shadow_map_options_resolve_to_a_depth_texture() {
+        let (size, options) = resolve_shadow_map_options(ShadowMapOptionsInput::default());
+        assert_eq!(size, 1024);
+        assert_eq!(options.format, wgpu::TextureFormat::Depth32Float);
+        assert_eq!(options.compare, Some(wgpu::CompareFunction::Less));
     }
 }

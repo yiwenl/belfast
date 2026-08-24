@@ -16,7 +16,7 @@ use crate::{
     compute::{parse_workgroups, ComputeState},
     device::{CanvasTarget, PendingGpuErrors, SurfaceLeaseGuard},
     draw::DrawState,
-    shadow_map::{ShadowMapState, WasmShadowMap},
+    texture::{TextureState, WasmTexture},
     to_js_error, WasmBindGroup, WasmCompute, WasmDraw, WasmRenderTarget,
 };
 
@@ -68,7 +68,7 @@ extern "C" {
 std::thread_local! {
     static RENDER_TARGET_WRAPPERS: js_sys::WeakMap = js_sys::WeakMap::new();
     static BIND_GROUP_WRAPPERS: js_sys::WeakMap = js_sys::WeakMap::new();
-    static SHADOW_MAP_WRAPPERS: js_sys::WeakMap = js_sys::WeakMap::new();
+    static SHADOW_TEXTURE_WRAPPERS: js_sys::WeakMap = js_sys::WeakMap::new();
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -641,11 +641,11 @@ pub(crate) fn register_render_target_wrapper(value: &JsValue) -> Result<(), JsVa
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) fn register_shadow_map_wrapper(value: &JsValue) -> Result<(), JsValue> {
+pub(crate) fn register_shadow_texture_wrapper(value: &JsValue) -> Result<(), JsValue> {
     register_wasm_class(
         value,
-        &SHADOW_MAP_WRAPPERS,
-        "failed to register ShadowMap wrapper",
+        &SHADOW_TEXTURE_WRAPPERS,
+        "failed to register shadow Texture wrapper",
     )
 }
 
@@ -693,7 +693,7 @@ pub(crate) fn parse_drawable(value: &JsValue) -> Result<Drawable, JsValue> {
 enum ParsedFrameTarget {
     Canvas,
     RenderTarget(WasmRenderTarget),
-    ShadowMap(WasmShadowMap),
+    ShadowMap(WasmTexture),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -703,21 +703,21 @@ fn parse_frame_target(value: JsValue) -> Result<ParsedFrameTarget, JsValue> {
     }
     if let Ok(handle) = borrow_registered_wasm_class(
         &value,
-        &SHADOW_MAP_WRAPPERS,
-        "target must be a live RenderTarget, ShadowMap, or null",
+        &SHADOW_TEXTURE_WRAPPERS,
+        "target must be a live RenderTarget, Texture, or null",
     ) {
-        if let Ok(shadow_map) = WasmShadowMap::try_from_js_value(handle) {
-            return Ok(ParsedFrameTarget::ShadowMap(shadow_map));
+        if let Ok(texture) = WasmTexture::try_from_js_value(handle) {
+            return Ok(ParsedFrameTarget::ShadowMap(texture));
         }
     }
     let handle = borrow_registered_wasm_class(
         &value,
         &RENDER_TARGET_WRAPPERS,
-        "target must be a live RenderTarget, ShadowMap, or null",
+        "target must be a live RenderTarget, Texture, or null",
     )?;
     WasmRenderTarget::try_from_js_value(handle)
         .map(ParsedFrameTarget::RenderTarget)
-        .map_err(|_| to_js_error("target must be a live RenderTarget, ShadowMap, or null"))
+        .map_err(|_| to_js_error("target must be a live RenderTarget, Texture, or null"))
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -747,7 +747,7 @@ fn required_bind_group(value: JsValue) -> Result<WasmBindGroup, JsValue> {
 enum FrameTarget {
     Canvas,
     RenderTarget(Rc<RefCell<belfast::RenderTarget>>),
-    ShadowMap(Rc<ShadowMapState>),
+    ShadowMap(Rc<TextureState>),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -810,7 +810,7 @@ pub struct WasmFrame {
     reconfigure_after_present: bool,
     plan: FramePlan,
     render_targets: HashMap<TargetKey, Rc<RefCell<belfast::RenderTarget>>>,
-    shadow_maps: HashMap<TargetKey, Rc<ShadowMapState>>,
+    shadow_maps: HashMap<TargetKey, Rc<TextureState>>,
     draws: HashMap<DrawKey, Rc<DrawState>>,
     axes: HashMap<AxisKey, Rc<AxisHelperState>>,
     cameras: HashMap<CameraKey, Rc<CameraHelperState>>,
@@ -963,7 +963,7 @@ impl WasmFrame {
     #[wasm_bindgen(js_name = bindTarget)]
     pub fn bind_target(
         &mut self,
-        #[wasm_bindgen(unchecked_optional_param_type = "RenderTarget | ShadowMap | null")]
+        #[wasm_bindgen(unchecked_optional_param_type = "RenderTarget | Texture | null")]
         target: JsValue,
         #[wasm_bindgen(unchecked_optional_param_type = "FramePassOptions")] options: JsValue,
     ) -> Result<(), JsValue> {
@@ -986,13 +986,15 @@ impl WasmFrame {
                     .insert(target_key, target.target.clone());
                 target_key
             }
-            ParsedFrameTarget::ShadowMap(shadow_map) => {
-                if !shadow_map.state.device().is_same(&self.device) {
+            ParsedFrameTarget::ShadowMap(texture) => {
+                if !texture.state.is_shadow_map() {
+                    return Err(to_js_error("texture must be a depth shadow map"));
+                }
+                if !texture.state.texture().device().is_same(&self.device) {
                     return Err(to_js_error("shadow map was created by a different device"));
                 }
-                let target_key = TargetKey::Shadow(rc_key(&shadow_map.state));
-                self.shadow_maps
-                    .insert(target_key, shadow_map.state.clone());
+                let target_key = TargetKey::Shadow(rc_key(&texture.state));
+                self.shadow_maps.insert(target_key, texture.state.clone());
                 target_key
             }
         };
@@ -1208,7 +1210,7 @@ fn color_load_op(load_op: PlannedLoadOp, clear_color: wgpu::Color) -> wgpu::Load
 fn materialize_ops(
     planned_ops: Vec<PlannedOp>,
     render_targets: &HashMap<TargetKey, Rc<RefCell<belfast::RenderTarget>>>,
-    shadow_maps: &HashMap<TargetKey, Rc<ShadowMapState>>,
+    shadow_maps: &HashMap<TargetKey, Rc<TextureState>>,
     draws: &HashMap<DrawKey, Rc<DrawState>>,
     axes: &HashMap<AxisKey, Rc<AxisHelperState>>,
     cameras: &HashMap<CameraKey, Rc<CameraHelperState>>,
@@ -1413,7 +1415,7 @@ fn encode_logical_pass(
             encode_render_commands(&mut pass, &commands, &draw_meshes);
         }
         FrameTarget::ShadowMap(shadow_map) => {
-            let mut pass = shadow_map.shadow_map().begin_depth_pass(encoder);
+            let mut pass = shadow_map.texture().begin_depth_pass(encoder, depth_load);
             encode_render_commands(&mut pass, &commands, &draw_meshes);
         }
     }
@@ -1603,7 +1605,7 @@ mod tests {
     #[test]
     fn compute_splits_render_pass_and_reopens_with_load() {
         let mut plan = FramePlan::new();
-        plan.bind_target(TargetKey::Canvas, clear(0.2), false);
+        plan.bind_target(TargetKey::Shadow(9), clear(0.2), true);
         plan.render(DrawKey(1), vec![], 1).unwrap();
         plan.dispatch(ComputeKey(7), Some(BindGroupKey(8)), [4, 1, 1])
             .unwrap();
@@ -1620,8 +1622,14 @@ mod tests {
                 workgroups: [4, 1, 1],
             }
         );
-        assert_eq!(render_pass(&ops[2]).load_op, PlannedLoadOp::Load);
-        assert_eq!(render_pass(&ops[2]).target, TargetKey::Canvas);
+        assert!(matches!(
+            &ops[2],
+            PlannedOp::RenderPass(PlannedRenderPass {
+                target: TargetKey::Shadow(_),
+                load_op: PlannedLoadOp::Load,
+                ..
+            })
+        ));
     }
 
     #[test]

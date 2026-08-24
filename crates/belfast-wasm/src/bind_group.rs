@@ -14,9 +14,8 @@ use crate::{
     camera_helper::{CameraHelperState, WasmCameraHelper},
     compute::{ComputeState, WasmCompute},
     draw::DrawState,
-    shadow_map::ShadowMapState,
     texture::TextureState,
-    to_js_error, WasmBuffer, WasmDevice, WasmDraw, WasmRenderTarget, WasmShadowMap, WasmTexture,
+    to_js_error, WasmBuffer, WasmDevice, WasmDraw, WasmRenderTarget, WasmTexture,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -469,7 +468,6 @@ impl BindGroupState {
 enum BindGroupSource {
     Texture(Rc<TextureState>),
     RenderTarget(Rc<RefCell<belfast::RenderTarget>>),
-    ShadowMap(Rc<ShadowMapState>),
     Buffer(belfast::Buffer),
     Buffers(Vec<belfast::Buffer>),
 }
@@ -607,7 +605,7 @@ impl WasmBindGroup {
     pub fn from_shadow_map(
         device: &WasmDevice,
         draw: &WasmDraw,
-        shadow_map: &WasmShadowMap,
+        texture: &WasmTexture,
         options: Option<JsValue>,
     ) -> Result<JsValue, JsValue> {
         let options: BindGroupOptionsInput = options
@@ -632,7 +630,10 @@ impl WasmBindGroup {
         if !draw.state.draw().device().is_same(&device.inner) {
             return Err(to_js_error("draw was created by a different device"));
         }
-        if !shadow_map.state.device().is_same(&device.inner) {
+        if !texture.state.is_shadow_map() {
+            return Err(to_js_error("texture must be a depth shadow map"));
+        }
+        if !texture.state.texture().device().is_same(&device.inner) {
             return Err(to_js_error("shadow map was created by a different device"));
         }
 
@@ -643,15 +644,11 @@ impl WasmBindGroup {
             &[
                 wgpu::BindGroupEntry {
                     binding: options.texture_binding,
-                    resource: wgpu::BindingResource::TextureView(
-                        shadow_map.state.shadow_map().view(),
-                    ),
+                    resource: wgpu::BindingResource::TextureView(texture.state.texture().view()),
                 },
                 wgpu::BindGroupEntry {
                     binding: options.sampler_binding,
-                    resource: wgpu::BindingResource::Sampler(
-                        shadow_map.state.shadow_map().sampler(),
-                    ),
+                    resource: wgpu::BindingResource::Sampler(texture.state.texture().sampler()),
                 },
             ],
             &options.label,
@@ -662,7 +659,7 @@ impl WasmBindGroup {
                 bind_group,
                 owner: BindGroupOwner::Draw(draw.state.clone()),
                 group_index: options.group_index,
-                source: BindGroupSource::ShadowMap(shadow_map.state.clone()),
+                source: BindGroupSource::Texture(texture.state.clone()),
             }),
         });
         crate::frame::register_bind_group_wrapper(&wrapper)?;

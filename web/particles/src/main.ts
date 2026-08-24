@@ -12,7 +12,7 @@ import init, {
   OrbitalControl,
   OrthographicCamera,
   PerspectiveCamera,
-  ShadowMap,
+  Texture,
   UniformBlock,
   wgslShadowPcf3x3,
 } from "@belfast/wasm";
@@ -179,7 +179,7 @@ async function start() {
       color: [1, 0.85, 0.2],
       depth: true,
     });
-    const shadowMap = ShadowMap.create(device, {
+    const shadowMap = Texture.createShadowMap(device, {
       size: SHADOW_MAP_SIZE,
       label: "ParticleShadowMap",
     });
