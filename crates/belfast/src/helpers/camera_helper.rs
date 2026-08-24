@@ -118,9 +118,9 @@ impl CameraHelper {
         })
     }
 
-    pub fn set_matrix(&self, device: &Device, view_proj: &[f32; 16]) -> BelfastResult<()> {
+    pub fn set_matrix(&self, view_proj: &[f32; 16]) -> BelfastResult<()> {
         let positions = frustum_positions(view_proj)?;
-        self.positions.write(device, &positions, 0);
+        self.positions.write(self.positions.device(), &positions, 0);
         Ok(())
     }
 

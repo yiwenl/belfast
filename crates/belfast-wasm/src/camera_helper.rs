@@ -111,7 +111,7 @@ impl WasmCameraHelper {
     }
 
     #[wasm_bindgen(js_name = setMatrix)]
-    pub fn set_matrix(&self, device: &WasmDevice, view_proj: &[f32]) -> Result<(), JsValue> {
+    pub fn set_matrix(&self, view_proj: &[f32]) -> Result<(), JsValue> {
         if view_proj.len() < 16 {
             return Err(to_js_error("viewProj requires 16 floats"));
         }
@@ -119,7 +119,7 @@ impl WasmCameraHelper {
         matrix.copy_from_slice(&view_proj[..16]);
         self.state
             .helper
-            .set_matrix(&device.inner, &matrix)
+            .set_matrix(&matrix)
             .map_err(to_js_error)
     }
 

@@ -48,7 +48,11 @@ fn camera_helper_builds_with_a_compatible_camera_layout() {
         .expect("poll device");
     let error = pollster::block_on(error_scope.pop());
 
-    assert!(helper.is_ok());
+    let helper = helper.unwrap();
+    let updated = OrthographicCamera::new(-2.0, 2.0, -2.0, 2.0, 1.0, 4.0);
+    helper
+        .set_matrix(&updated.view_projection_matrix())
+        .expect("update camera helper matrix");
     assert!(error.is_none(), "{}", error.unwrap());
 }
 
