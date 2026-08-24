@@ -13,7 +13,6 @@ use crate::{
     axis_helper::{AxisHelperState, WasmAxisHelper},
     camera_helper::{CameraHelperState, WasmCameraHelper},
     compute::{ComputeState, WasmCompute},
-    depth_draw::{DepthDrawState, WasmDepthDraw},
     draw::DrawState,
     shadow_map::ShadowMapState,
     texture::TextureState,
@@ -404,7 +403,6 @@ fn parse_u64(value: &JsValue, name: &str) -> Result<u64, String> {
 #[cfg(target_arch = "wasm32")]
 enum BindGroupOwner {
     Draw(Rc<DrawState>),
-    DepthDraw(Rc<DepthDrawState>),
     Compute(Rc<ComputeState>),
     AxisHelper(Rc<AxisHelperState>),
     CameraHelper(Rc<CameraHelperState>),
@@ -428,18 +426,7 @@ impl BindGroupState {
     pub(crate) fn draw(&self) -> Option<&Rc<DrawState>> {
         match &self.owner {
             BindGroupOwner::Draw(draw) => Some(draw),
-            BindGroupOwner::DepthDraw(_)
-            | BindGroupOwner::Compute(_)
-            | BindGroupOwner::AxisHelper(_)
-            | BindGroupOwner::CameraHelper(_) => None,
-        }
-    }
-
-    pub(crate) fn depth_draw(&self) -> Option<&Rc<DepthDrawState>> {
-        match &self.owner {
-            BindGroupOwner::DepthDraw(draw) => Some(draw),
-            BindGroupOwner::Draw(_)
-            | BindGroupOwner::Compute(_)
+            BindGroupOwner::Compute(_)
             | BindGroupOwner::AxisHelper(_)
             | BindGroupOwner::CameraHelper(_) => None,
         }
@@ -449,7 +436,6 @@ impl BindGroupState {
         match &self.owner {
             BindGroupOwner::Compute(compute) => Some(compute),
             BindGroupOwner::Draw(_)
-            | BindGroupOwner::DepthDraw(_)
             | BindGroupOwner::AxisHelper(_)
             | BindGroupOwner::CameraHelper(_) => None,
         }
@@ -459,7 +445,6 @@ impl BindGroupState {
         match &self.owner {
             BindGroupOwner::AxisHelper(axis) => Some(axis),
             BindGroupOwner::Draw(_)
-            | BindGroupOwner::DepthDraw(_)
             | BindGroupOwner::Compute(_)
             | BindGroupOwner::CameraHelper(_) => None,
         }
@@ -469,7 +454,6 @@ impl BindGroupState {
         match &self.owner {
             BindGroupOwner::CameraHelper(camera) => Some(camera),
             BindGroupOwner::Draw(_)
-            | BindGroupOwner::DepthDraw(_)
             | BindGroupOwner::Compute(_)
             | BindGroupOwner::AxisHelper(_) => None,
         }
@@ -688,16 +672,13 @@ impl WasmBindGroup {
     #[wasm_bindgen(js_name = fromBuffer, unchecked_return_type = "BindGroup")]
     pub fn from_buffer(
         device: &WasmDevice,
-        #[wasm_bindgen(unchecked_param_type = "Draw | DepthDraw | AxisHelper | CameraHelper")]
+        #[wasm_bindgen(unchecked_param_type = "Draw | AxisHelper | CameraHelper")]
         pipeline: JsValue,
         buffer: &WasmBuffer,
         options: Option<JsValue>,
     ) -> Result<JsValue, JsValue> {
         match crate::frame::parse_drawable(&pipeline)? {
             crate::frame::Drawable::Draw(draw) => from_draw_buffer(device, &draw, buffer, options),
-            crate::frame::Drawable::DepthDraw(draw) => {
-                from_depth_draw_buffer(device, &draw, buffer, options)
-            }
             crate::frame::Drawable::Axis(axes) => from_axis_buffer(device, &axes, buffer, options),
             crate::frame::Drawable::Camera(camera) => {
                 from_camera_buffer(device, &camera, buffer, options)
@@ -877,52 +858,6 @@ fn from_axis_buffer(
         state: Rc::new(BindGroupState {
             bind_group,
             owner: BindGroupOwner::AxisHelper(axes.state.clone()),
-            group_index: options.group_index,
-            source: BindGroupSource::Buffer(buffer.inner().clone()),
-        }),
-    });
-    crate::frame::register_bind_group_wrapper(&wrapper)?;
-    Ok(wrapper)
-}
-
-#[cfg(target_arch = "wasm32")]
-fn from_depth_draw_buffer(
-    device: &WasmDevice,
-    draw: &WasmDepthDraw,
-    buffer: &WasmBuffer,
-    options: Option<JsValue>,
-) -> Result<JsValue, JsValue> {
-    let options: UniformBindGroupOptionsInput = options
-        .map(serde_wasm_bindgen::from_value)
-        .transpose()
-        .map_err(to_js_error)?
-        .unwrap_or_default();
-    let options = options.resolve();
-    validate_uniform_bindings(&draw.state.resources, options.group_index, options.binding)
-        .map_err(to_js_error)?;
-
-    if !draw.state.draw().device().is_same(&device.inner) {
-        return Err(to_js_error("depth draw was created by a different device"));
-    }
-    if !buffer.inner().device().is_same(&device.inner) {
-        return Err(to_js_error("buffer was created by a different device"));
-    }
-
-    let layout = draw.state.draw().get_bind_group_layout(options.group_index);
-    let bind_group = belfast::BindGroup::create(
-        &device.inner,
-        &layout,
-        &[wgpu::BindGroupEntry {
-            binding: options.binding,
-            resource: buffer.inner().gpu().as_entire_binding(),
-        }],
-        &options.label,
-    );
-
-    let wrapper = JsValue::from(WasmBindGroup {
-        state: Rc::new(BindGroupState {
-            bind_group,
-            owner: BindGroupOwner::DepthDraw(draw.state.clone()),
             group_index: options.group_index,
             source: BindGroupSource::Buffer(buffer.inner().clone()),
         }),

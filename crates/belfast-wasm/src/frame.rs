@@ -14,7 +14,6 @@ use crate::{
     bind_group::BindGroupState,
     camera_helper::{CameraHelperState, WasmCameraHelper},
     compute::{parse_workgroups, ComputeState},
-    depth_draw::{DepthDrawState, WasmDepthDraw},
     device::{CanvasTarget, PendingGpuErrors, SurfaceLeaseGuard},
     draw::DrawState,
     shadow_map::{ShadowMapState, WasmShadowMap},
@@ -88,9 +87,6 @@ struct ComputeKey(u64);
 struct BindGroupKey(u64);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-struct DepthDrawKey(u64);
-
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 struct CameraKey(u64);
 
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
@@ -106,12 +102,6 @@ struct DrawValidation {
     key: DrawKey,
     device: DeviceKey,
     bind_group_count: usize,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct DepthDrawValidation {
-    key: DepthDrawKey,
-    device: DeviceKey,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -137,7 +127,6 @@ struct ComputeValidation {
 struct BindGroupValidation {
     key: BindGroupKey,
     draw: Option<DrawKey>,
-    depth_draw: Option<DepthDrawKey>,
     compute: Option<ComputeKey>,
     axis: Option<AxisKey>,
     camera: Option<CameraKey>,
@@ -184,26 +173,6 @@ fn validate_render_command(
         }
     }
 
-    Ok(())
-}
-
-fn validate_depth_draw_command(
-    frame_device: DeviceKey,
-    draw: DepthDrawValidation,
-    bind_group: Option<BindGroupValidation>,
-) -> Result<(), String> {
-    if draw.device != frame_device {
-        return Err("depth draw was created by a different device".into());
-    }
-    let Some(bind_group) = bind_group else {
-        return Err("depth draw requires a bind group".into());
-    };
-    if bind_group.device != frame_device {
-        return Err("bind group was created by a different device".into());
-    }
-    if bind_group.depth_draw != Some(draw.key) {
-        return Err("bind group was created for a different depth draw".into());
-    }
     Ok(())
 }
 
@@ -337,7 +306,6 @@ enum PlannedDrawable {
     Draw(DrawKey),
     Axis(AxisKey),
     Camera(CameraKey),
-    DepthDraw(DepthDrawKey),
 }
 
 #[derive(Debug, PartialEq)]
@@ -432,20 +400,6 @@ impl FramePlan {
             drawable: PlannedDrawable::Camera(camera),
             bind_groups: vec![bind_group],
             instance_count: 1,
-        });
-        Ok(())
-    }
-
-    fn render_depth_draw(
-        &mut self,
-        draw: DepthDrawKey,
-        bind_group: BindGroupKey,
-        instance_count: u32,
-    ) -> Result<(), String> {
-        self.commands.push(RecordedCommand::Render {
-            drawable: PlannedDrawable::DepthDraw(draw),
-            bind_groups: vec![bind_group],
-            instance_count,
         });
         Ok(())
     }
@@ -714,21 +668,16 @@ pub(crate) fn clone_live_wasm_class(value: &JsValue, error: &str) -> Result<JsVa
 #[cfg(target_arch = "wasm32")]
 pub(crate) enum Drawable {
     Draw(WasmDraw),
-    DepthDraw(WasmDepthDraw),
     Axis(WasmAxisHelper),
     Camera(WasmCameraHelper),
 }
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn parse_drawable(value: &JsValue) -> Result<Drawable, JsValue> {
-    const ERROR: &str = "value must be a live Draw, DepthDraw, AxisHelper, or CameraHelper";
+    const ERROR: &str = "value must be a live Draw, AxisHelper, or CameraHelper";
     let draw_handle = clone_live_wasm_class(value, ERROR)?;
     if let Ok(draw) = WasmDraw::try_from_js_value(draw_handle) {
         return Ok(Drawable::Draw(draw));
-    }
-    let depth_handle = clone_live_wasm_class(value, ERROR)?;
-    if let Ok(draw) = WasmDepthDraw::try_from_js_value(depth_handle) {
-        return Ok(Drawable::DepthDraw(draw));
     }
     let axis_handle = clone_live_wasm_class(value, ERROR)?;
     if let Ok(axes) = WasmAxisHelper::try_from_js_value(axis_handle) {
@@ -808,11 +757,6 @@ enum RenderCommand {
         bind_groups: Vec<Rc<BindGroupState>>,
         instance_count: u32,
     },
-    DepthDraw {
-        draw: Rc<DepthDrawState>,
-        bind_group: Rc<BindGroupState>,
-        instance_count: u32,
-    },
     Axis {
         axis: Rc<AxisHelperState>,
         bind_group: Rc<BindGroupState>,
@@ -868,7 +812,6 @@ pub struct WasmFrame {
     render_targets: HashMap<TargetKey, Rc<RefCell<belfast::RenderTarget>>>,
     shadow_maps: HashMap<TargetKey, Rc<ShadowMapState>>,
     draws: HashMap<DrawKey, Rc<DrawState>>,
-    depth_draws: HashMap<DepthDrawKey, Rc<DepthDrawState>>,
     axes: HashMap<AxisKey, Rc<AxisHelperState>>,
     cameras: HashMap<CameraKey, Rc<CameraHelperState>>,
     computes: HashMap<ComputeKey, Rc<ComputeState>>,
@@ -900,7 +843,6 @@ impl WasmFrame {
             render_targets: HashMap::new(),
             shadow_maps: HashMap::new(),
             draws: HashMap::new(),
-            depth_draws: HashMap::new(),
             axes: HashMap::new(),
             cameras: HashMap::new(),
             computes: HashMap::new(),
@@ -1005,50 +947,6 @@ impl WasmFrame {
             .render_camera(camera_key, BindGroupKey(rc_key(&bind_group.state)))
             .map_err(to_js_error)
     }
-
-    fn render_depth_draw(
-        &mut self,
-        draw: &WasmDepthDraw,
-        bind_group: JsValue,
-        instance_count: u32,
-    ) -> Result<(), JsValue> {
-        let bind_group_handle = optional_bind_group(bind_group)?;
-        let bind_group = bind_group_handle.as_ref();
-        let draw_key = DepthDrawKey(rc_key(&draw.state));
-        let bind_group_validation = bind_group.map(bind_group_validation);
-        validate_depth_draw_command(
-            device_key(&self.device),
-            DepthDrawValidation {
-                key: draw_key,
-                device: device_key(draw.state.draw().device()),
-            },
-            bind_group_validation,
-        )
-        .map_err(to_js_error)?;
-
-        {
-            let mesh = draw.state.mesh();
-            draw.state
-                .draw()
-                .validate_for_render(&self.device, &mesh)
-                .map_err(to_js_error)?;
-        }
-
-        self.depth_draws.insert(draw_key, draw.state.clone());
-        let bind_group =
-            bind_group.ok_or_else(|| to_js_error("depth draw requires a bind group"))?;
-        self.bind_groups.insert(
-            BindGroupKey(rc_key(&bind_group.state)),
-            bind_group.state.clone(),
-        );
-        self.plan
-            .render_depth_draw(
-                draw_key,
-                BindGroupKey(rc_key(&bind_group.state)),
-                instance_count,
-            )
-            .map_err(to_js_error)
-    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1109,7 +1007,7 @@ impl WasmFrame {
 
     pub fn render(
         &mut self,
-        #[wasm_bindgen(unchecked_param_type = "Draw | DepthDraw | AxisHelper | CameraHelper")]
+        #[wasm_bindgen(unchecked_param_type = "Draw | AxisHelper | CameraHelper")]
         drawable: JsValue,
         #[wasm_bindgen(
             js_name = bindGroup,
@@ -1136,24 +1034,10 @@ impl WasmFrame {
                 let bind_groups = parse_bind_groups(bind_group)?;
                 self.render_draw(&draw, bind_groups, instance_count)
             }
-            Drawable::DepthDraw(draw) => {
-                let instance_count = if has_instance_count {
-                    Some(instance_count.as_f64().ok_or_else(|| {
-                        to_js_error(
-                            "instanceCount must be a finite integer between 0 and 4294967295",
-                        )
-                    })?)
-                } else {
-                    None
-                };
-                let instance_count =
-                    crate::bindings::parse_instance_count(instance_count).map_err(to_js_error)?;
-                self.render_depth_draw(&draw, bind_group, instance_count)
-            }
             Drawable::Axis(axes) => {
                 if has_instance_count {
                     return Err(to_js_error(
-                        "instanceCount is only supported when rendering a Draw or DepthDraw",
+                        "instanceCount is only supported when rendering a Draw",
                     ));
                 }
                 self.render_axis(&axes, bind_group)
@@ -1161,7 +1045,7 @@ impl WasmFrame {
             Drawable::Camera(camera) => {
                 if has_instance_count {
                     return Err(to_js_error(
-                        "instanceCount is only supported when rendering a Draw or DepthDraw",
+                        "instanceCount is only supported when rendering a Draw",
                     ));
                 }
                 self.render_camera(&camera, bind_group)
@@ -1231,7 +1115,6 @@ impl WasmFrame {
             &self.render_targets,
             &self.shadow_maps,
             &self.draws,
-            &self.depth_draws,
             &self.axes,
             &self.cameras,
             &self.computes,
@@ -1288,10 +1171,6 @@ fn bind_group_validation(bind_group: &WasmBindGroup) -> BindGroupValidation {
     BindGroupValidation {
         key: BindGroupKey(rc_key(&bind_group.state)),
         draw: bind_group.state.draw().map(|draw| DrawKey(rc_key(draw))),
-        depth_draw: bind_group
-            .state
-            .depth_draw()
-            .map(|draw| DepthDrawKey(rc_key(draw))),
         compute: bind_group
             .state
             .compute()
@@ -1331,7 +1210,6 @@ fn materialize_ops(
     render_targets: &HashMap<TargetKey, Rc<RefCell<belfast::RenderTarget>>>,
     shadow_maps: &HashMap<TargetKey, Rc<ShadowMapState>>,
     draws: &HashMap<DrawKey, Rc<DrawState>>,
-    depth_draws: &HashMap<DepthDrawKey, Rc<DepthDrawState>>,
     axes: &HashMap<AxisKey, Rc<AxisHelperState>>,
     cameras: &HashMap<CameraKey, Rc<CameraHelperState>>,
     computes: &HashMap<ComputeKey, Rc<ComputeState>>,
@@ -1396,17 +1274,6 @@ fn materialize_ops(
                                     .cloned()
                                     .ok_or_else(|| "frame draw is unavailable".to_owned())?,
                                 bind_groups: resolved_bind_groups,
-                                instance_count: command.instance_count,
-                            }),
-                            PlannedDrawable::DepthDraw(draw) => Ok(RenderCommand::DepthDraw {
-                                draw: depth_draws
-                                    .get(&draw)
-                                    .cloned()
-                                    .ok_or_else(|| "frame depth draw is unavailable".to_owned())?,
-                                bind_group: resolved_bind_groups
-                                    .into_iter()
-                                    .next()
-                                    .ok_or_else(|| "depth draw requires a bind group".to_owned())?,
                                 instance_count: command.instance_count,
                             }),
                             PlannedDrawable::Axis(axis) => Ok(RenderCommand::Axis {
@@ -1493,7 +1360,6 @@ fn encode_logical_pass(
         .iter()
         .map(|command| match command {
             RenderCommand::Draw { draw, .. } => Some(draw.mesh()),
-            RenderCommand::DepthDraw { draw, .. } => Some(draw.mesh()),
             RenderCommand::Axis { .. } | RenderCommand::Camera { .. } => None,
         })
         .collect();
@@ -1575,18 +1441,6 @@ fn encode_render_commands<'pass>(
                     *instance_count,
                 );
             }
-            RenderCommand::DepthDraw {
-                draw,
-                bind_group,
-                instance_count,
-            } => {
-                bind_group.bind_group().bind(pass, bind_group.group_index());
-                draw.draw().draw(
-                    pass,
-                    mesh.as_ref().expect("depth draw command requires a mesh"),
-                    *instance_count,
-                );
-            }
             RenderCommand::Axis { axis, bind_group } => {
                 axis.helper().draw(pass, bind_group.bind_group());
             }
@@ -1632,7 +1486,6 @@ mod tests {
         BindGroupValidation {
             key: BindGroupKey(key),
             draw: Some(DrawKey(draw)),
-            depth_draw: None,
             compute: None,
             axis: None,
             camera: None,
@@ -1645,7 +1498,6 @@ mod tests {
         BindGroupValidation {
             key: BindGroupKey(key),
             draw: Some(DrawKey(draw)),
-            depth_draw: None,
             compute: None,
             axis: None,
             camera: None,
@@ -1658,7 +1510,6 @@ mod tests {
         BindGroupValidation {
             key: BindGroupKey(key),
             draw: None,
-            depth_draw: None,
             compute: Some(ComputeKey(compute)),
             axis: None,
             camera: None,
@@ -1671,7 +1522,6 @@ mod tests {
         BindGroupValidation {
             key: BindGroupKey(key),
             draw: None,
-            depth_draw: None,
             compute: None,
             axis: Some(AxisKey(axis)),
             camera: None,
@@ -1801,6 +1651,11 @@ mod tests {
     }
 
     #[test]
+    fn resource_free_draw_accepts_zero_bind_groups() {
+        assert!(validate_render_command(DeviceKey(1), draw(7, 1, 0), &[]).is_ok());
+    }
+
+    #[test]
     fn unexpected_bind_group_is_rejected() {
         assert_eq!(
             validate_render_command(DeviceKey(1), draw(2, 1, 0), &[bind_group(3, 2, 1)]),
@@ -1908,19 +1763,11 @@ mod tests {
         BindGroupValidation {
             key: BindGroupKey(key),
             draw: None,
-            depth_draw: None,
             compute: None,
             axis: None,
             camera: Some(CameraKey(camera)),
             device: DeviceKey(device),
             group_index: 0,
-        }
-    }
-
-    fn depth_draw(key: u64, device: u64) -> DepthDrawValidation {
-        DepthDrawValidation {
-            key: DepthDrawKey(key),
-            device: DeviceKey(device),
         }
     }
 
@@ -1931,33 +1778,8 @@ mod tests {
         }
     }
 
-    fn depth_draw_bind_group(key: u64, draw: u64, device: u64) -> BindGroupValidation {
-        BindGroupValidation {
-            key: BindGroupKey(key),
-            draw: None,
-            depth_draw: Some(DepthDrawKey(draw)),
-            compute: None,
-            axis: None,
-            camera: None,
-            device: DeviceKey(device),
-            group_index: 0,
-        }
-    }
-
     #[test]
-    fn depth_draw_and_camera_helper_require_matching_bind_groups() {
-        assert_eq!(
-            validate_depth_draw_command(DeviceKey(1), depth_draw(2, 1), None),
-            Err("depth draw requires a bind group".into())
-        );
-        assert_eq!(
-            validate_depth_draw_command(
-                DeviceKey(1),
-                depth_draw(2, 1),
-                Some(depth_draw_bind_group(3, 4, 1)),
-            ),
-            Err("bind group was created for a different depth draw".into())
-        );
+    fn camera_helper_requires_a_matching_bind_group() {
         assert_eq!(
             validate_camera_render_command(DeviceKey(1), camera(2, 1), None),
             Err("camera helper requires a bind group".into())
@@ -2014,8 +1836,7 @@ mod tests {
     fn shadow_target_splits_from_the_canvas_pass() {
         let mut plan = FramePlan::new();
         plan.bind_target(TargetKey::Shadow(9), clear(0.0), true);
-        plan.render_depth_draw(DepthDrawKey(1), BindGroupKey(2), 64)
-            .unwrap();
+        plan.render(DrawKey(1), vec![BindGroupKey(2)], 64).unwrap();
         plan.bind_target(TargetKey::Canvas, clear(0.08), true);
         plan.render(DrawKey(3), vec![BindGroupKey(4), BindGroupKey(5)], 64)
             .unwrap();

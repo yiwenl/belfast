@@ -6,7 +6,6 @@ mod bindings;
 mod camera;
 mod camera_helper;
 mod compute;
-mod depth_draw;
 mod device;
 mod draw;
 #[cfg(any(target_arch = "wasm32", test))]
@@ -27,7 +26,6 @@ pub use bind_group::WasmBindGroup;
 pub use camera::{WasmOrthographicCamera, WasmPerspectiveCamera};
 pub use camera_helper::WasmCameraHelper;
 pub use compute::WasmCompute;
-pub use depth_draw::WasmDepthDraw;
 pub use device::WasmDevice;
 pub use draw::WasmDraw;
 #[cfg(target_arch = "wasm32")]

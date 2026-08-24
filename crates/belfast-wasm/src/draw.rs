@@ -14,6 +14,7 @@ export interface DrawOptions {
   label?: string;
   primitive?: DrawPrimitiveState;
   depth?: boolean;
+  depthOnly?: boolean;
 }
 "#;
 
@@ -26,6 +27,8 @@ struct DrawOptionsInput {
     primitive: Option<bindings::PrimitiveStateInput>,
     #[serde(default)]
     depth: bool,
+    #[serde(default)]
+    depth_only: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -118,6 +121,35 @@ fn parse_and_validate_draw_shader(
         .validate(&module)
         .map_err(|error| format!("WGSL validation failed: {error}"))?;
     Ok(resources)
+}
+
+fn validate_depth_options(depth: bool, depth_only: bool) -> Result<(), String> {
+    if depth && depth_only {
+        Err("depth and depthOnly cannot both be true".into())
+    } else {
+        Ok(())
+    }
+}
+
+fn parse_and_validate_pipeline_shader(
+    shader_code: &str,
+    mesh_attributes: &[(u32, wgpu::VertexFormat)],
+    max_inter_stage_shader_variables: u32,
+    depth_only: bool,
+) -> Result<ShaderResourceLayout, String> {
+    if depth_only {
+        parse_and_validate_depth_shader(
+            shader_code,
+            mesh_attributes,
+            max_inter_stage_shader_variables,
+        )
+    } else {
+        parse_and_validate_draw_shader(
+            shader_code,
+            mesh_attributes,
+            max_inter_stage_shader_variables,
+        )
+    }
 }
 
 pub(crate) fn parse_and_validate_depth_shader(
@@ -742,23 +774,29 @@ impl WasmDraw {
         } else {
             serde_wasm_bindgen::from_value(options).map_err(to_js_error)?
         };
+        validate_depth_options(options.depth, options.depth_only).map_err(to_js_error)?;
         let mesh = mesh.clone_inner();
         belfast::Draw::validate_mesh_device(&device.inner, &mesh).map_err(to_js_error)?;
         let mesh_attributes = mesh_shader_attributes(&mesh);
-        let resources = parse_and_validate_draw_shader(
+        let resources = parse_and_validate_pipeline_shader(
             shader_code,
             &mesh_attributes,
             device.inner.gpu().limits().max_inter_stage_shader_variables,
+            options.depth_only,
         )
         .map_err(to_js_error)?;
         let label = options.label.unwrap_or_else(|| "Draw".to_owned());
-        let mut draw_options = belfast::DrawOptions::new(&label, device.inner.format());
+        let mut draw_options = if options.depth_only {
+            belfast::DrawOptions::depth_only(&label)
+        } else {
+            belfast::DrawOptions::new(&label, device.inner.format())
+        };
         if let Some(primitive) = options.primitive {
             primitive
                 .apply(&mut draw_options.primitive)
                 .map_err(to_js_error)?;
         }
-        if options.depth {
+        if !options.depth_only && options.depth {
             draw_options.depth_stencil = Some(bindings::default_depth_state());
         }
         let draw = belfast::Draw::new(&device.inner, shader_code, &mesh, draw_options);
@@ -1038,10 +1076,40 @@ fn fs_main() -> @location(0) vec4f {
 }
 "#;
 
+    const RESOURCE_FREE_DEPTH_SHADER: &str = r#"
+@vertex
+fn vs_main(@location(0) position: vec3f) -> @builtin(position) vec4f {
+    return vec4f(position, 1.0);
+}
+
+@fragment
+fn fs_main() {}
+"#;
+
     const TRIANGLE_ATTRIBUTES: &[(u32, wgpu::VertexFormat)] = &[
         (0, wgpu::VertexFormat::Float32x2),
         (1, wgpu::VertexFormat::Float32x3),
     ];
+
+    #[test]
+    fn depth_only_draw_accepts_a_resource_free_shader() {
+        let resources = parse_and_validate_pipeline_shader(
+            RESOURCE_FREE_DEPTH_SHADER,
+            &[(0, wgpu::VertexFormat::Float32x3)],
+            16,
+            true,
+        )
+        .unwrap();
+        assert_eq!(resources, ShaderResourceLayout::None);
+    }
+
+    #[test]
+    fn depth_only_and_canvas_depth_are_mutually_exclusive() {
+        assert_eq!(
+            validate_depth_options(true, true),
+            Err("depth and depthOnly cannot both be true".into())
+        );
+    }
 
     #[test]
     fn accepts_valid_colored_triangle_shader() {

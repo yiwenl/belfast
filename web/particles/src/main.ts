@@ -5,7 +5,6 @@ import init, {
   BufferUsage,
   CameraHelper,
   Compute,
-  DepthDraw,
   Device,
   Draw,
   Geom,
@@ -171,8 +170,9 @@ async function start() {
       label: "Particles",
       depth: true,
     });
-    const shadowDraw = new DepthDraw(device, shadowShaderCode, mesh, {
+    const shadowDraw = new Draw(device, shadowShaderCode, mesh, {
       label: "ParticleShadow",
+      depthOnly: true,
     });
     const axes = new AxisHelper(device, { length: 100, depth: true });
     const lightFrustum = new CameraHelper(device, lightViewProj, {
