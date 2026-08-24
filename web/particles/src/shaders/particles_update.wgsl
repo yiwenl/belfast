@@ -98,7 +98,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     );
     let force_mul = mix(0.5, 2.0, particle.velocity.w) * mix(0.5, 2.0, particle.color.w) * 1.5;
     var posOffset = snoise(pos + params.time * 0.5);
-    posOffset = pow(posOffset, 2.0);
+    posOffset = posOffset * posOffset;
     posOffset = mix(0.5, 1.0, posOffset);
     var force = curl_noise((pos * posOffset + time_offset) * params.noise_scale)
         * params.force_scale

@@ -1,6 +1,29 @@
 use belfast::{BelfastError, Device};
 
 #[test]
+fn particle_update_shaders_square_noise_without_pow() {
+    for (label, source) in [
+        (
+            "native",
+            include_str!("../examples/shaders/particles_update.wgsl"),
+        ),
+        (
+            "web",
+            include_str!("../../../web/particles/src/shaders/particles_update.wgsl"),
+        ),
+    ] {
+        assert!(
+            source.contains("posOffset = posOffset * posOffset;"),
+            "{label} particle update shader must square signed noise with multiplication"
+        );
+        assert!(
+            !source.contains("pow(posOffset, 2.0)"),
+            "{label} particle update shader must not use pow on signed noise"
+        );
+    }
+}
+
+#[test]
 fn native_example_shaders_pass_wgpu_validation() {
     let Some(device) = create_optional_device() else {
         return;
