@@ -117,10 +117,7 @@ impl WasmCameraHelper {
         }
         let mut matrix = [0.0; 16];
         matrix.copy_from_slice(&view_proj[..16]);
-        self.state
-            .helper
-            .set_matrix(&matrix)
-            .map_err(to_js_error)
+        self.state.helper.set_matrix(&matrix).map_err(to_js_error)
     }
 
     #[wasm_bindgen(js_name = __frameHandle, skip_typescript)]
