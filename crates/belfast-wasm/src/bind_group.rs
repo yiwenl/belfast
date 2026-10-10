@@ -121,6 +121,11 @@ fn validate_texture_bindings(
             group,
             texture_binding: required_texture,
             sampler_binding: required_sampler,
+        } | ShaderResourceLayout::UniformShadowAndTexture {
+            image_group: group,
+            image_texture_binding: required_texture,
+            image_sampler_binding: required_sampler,
+            ..
         } if *group == group_index
             && *required_texture == texture_binding
             && *required_sampler == sampler_binding => Ok(()),
@@ -128,6 +133,11 @@ fn validate_texture_bindings(
             group,
             texture_binding,
             sampler_binding,
+        } | ShaderResourceLayout::UniformShadowAndTexture {
+            image_group: group,
+            image_texture_binding: texture_binding,
+            image_sampler_binding: sampler_binding,
+            ..
         } => Err(format!(
             "bind group bindings must match draw shader layout @group({group}) texture @binding({texture_binding}) sampler @binding({sampler_binding})"
         )),
@@ -157,8 +167,16 @@ fn validate_uniform_bindings(
             uniform_group,
             uniform_binding,
             ..
+        } | ShaderResourceLayout::UniformShadowAndTexture {
+            uniform_group,
+            uniform_binding,
+            ..
         } if *uniform_group == group_index && *uniform_binding == binding => Ok(()),
         ShaderResourceLayout::UniformAndShadow {
+            uniform_group,
+            uniform_binding,
+            ..
+        } | ShaderResourceLayout::UniformShadowAndTexture {
             uniform_group,
             uniform_binding,
             ..
@@ -184,6 +202,11 @@ fn validate_shadow_bindings(
             texture_binding: required_texture,
             sampler_binding: required_sampler,
             ..
+        } | ShaderResourceLayout::UniformShadowAndTexture {
+            shadow_group,
+            shadow_texture_binding: required_texture,
+            shadow_sampler_binding: required_sampler,
+            ..
         } if *shadow_group == group_index
             && *required_texture == texture_binding
             && *required_sampler == sampler_binding =>
@@ -194,6 +217,11 @@ fn validate_shadow_bindings(
             shadow_group,
             texture_binding,
             sampler_binding,
+            ..
+        } | ShaderResourceLayout::UniformShadowAndTexture {
+            shadow_group,
+            shadow_texture_binding: texture_binding,
+            shadow_sampler_binding: sampler_binding,
             ..
         } => Err(format!(
             "bind group bindings must match draw shader layout @group({shadow_group}) depth @binding({texture_binding}) sampler @binding({sampler_binding})"
@@ -989,6 +1017,21 @@ fn from_camera_buffer(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn particle_image_bindings_keep_camera_shadow_and_image_separate() {
+        let module =
+            naga::front::wgsl::parse_str(include_str!("../tests/fixtures/particle-image.wgsl"))
+                .unwrap();
+        let layout = crate::draw::validate_shader_resource_layout(&module).unwrap();
+        assert!(validate_uniform_bindings(&layout, 0, 0).is_ok());
+        assert!(validate_shadow_bindings(&layout, 1, 0, 1).is_ok());
+        assert!(validate_texture_bindings(&layout, 2, 0, 1).is_ok());
+        assert!(validate_uniform_bindings(&layout, 2, 0).is_err());
+        assert!(validate_shadow_bindings(&layout, 2, 0, 1).is_err());
+        assert!(validate_texture_bindings(&layout, 1, 0, 1).is_err());
+        assert!(validate_texture_bindings(&layout, 2, 1, 0).is_err());
+    }
 
     #[test]
     fn bind_group_bindings_must_match_draw_shader_layout() {

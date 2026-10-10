@@ -91,6 +91,43 @@ fn native_example_shaders_pass_wgpu_validation() {
     }
 }
 
+#[test]
+fn particle_image_shaders_pass_wgpu_validation() {
+    let Some(device) = create_optional_device() else {
+        return;
+    };
+    let draw = format!(
+        "{}\n{}",
+        belfast::WGSL_SHADOW_PCF_3X3,
+        include_str!("../../../web/particles-image/src/shaders/particles.wgsl")
+    );
+    for (label, source) in [
+        ("particle_image_draw", draw.as_str()),
+        (
+            "particle_image_update",
+            include_str!("../../../web/particles-image/src/shaders/particles_update.wgsl"),
+        ),
+        (
+            "particle_image_shadow",
+            include_str!("../../../web/particles-image/src/shaders/particles_shadow_depth.wgsl"),
+        ),
+    ] {
+        let scope = device.gpu().push_error_scope(wgpu::ErrorFilter::Validation);
+        let _module = device
+            .gpu()
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(label),
+                source: wgpu::ShaderSource::Wgsl(source.into()),
+            });
+        device
+            .gpu()
+            .poll(wgpu::PollType::wait_indefinitely())
+            .expect("poll device");
+        let error = pollster::block_on(scope.pop());
+        assert!(error.is_none(), "{label}: {}", error.unwrap());
+    }
+}
+
 fn create_optional_device() -> Option<Device> {
     match pollster::block_on(Device::create_headless()) {
         Ok(device) => Some(device),

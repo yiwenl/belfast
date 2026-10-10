@@ -13,6 +13,7 @@
     "basic/src/**/*.ts",
     "template/src/**/*.ts",
     "instancing/src/**/*.ts",
-    "particles/src/**/*.ts"
+    "particles/src/**/*.ts",
+    "particles-image/src/**/*.ts"
   ]
 }

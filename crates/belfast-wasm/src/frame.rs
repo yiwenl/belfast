@@ -183,6 +183,11 @@ fn validate_render_command(
             return Err("draw requires bind groups for @group(0) and @group(1)".into());
         }
     }
+    if draw.bind_group_count == 3
+        && !(0..3).all(|index| bind_groups.iter().any(|group| group.group_index == index))
+    {
+        return Err("draw requires bind groups for @group(0), @group(1), and @group(2)".into());
+    }
 
     Ok(())
 }
@@ -1773,6 +1778,42 @@ mod tests {
     #[test]
     fn resource_free_draw_accepts_zero_bind_groups() {
         assert!(validate_render_command(DeviceKey(1), draw(7, 1, 0), &[]).is_ok());
+    }
+
+    #[test]
+    fn particle_image_draw_requires_each_of_three_groups() {
+        let camera = bind_group(10, 7, 1);
+        let shadow = shadow_bind_group(11, 7, 1);
+        let image = BindGroupValidation {
+            group_index: 2,
+            ..bind_group(12, 7, 1)
+        };
+        assert!(
+            validate_render_command(DeviceKey(1), draw(7, 1, 3), &[image, camera, shadow]).is_ok()
+        );
+        for groups in [
+            vec![camera, shadow],
+            vec![camera, shadow, shadow],
+            vec![image, image, image],
+        ] {
+            assert!(validate_render_command(DeviceKey(1), draw(7, 1, 3), &groups).is_err());
+        }
+        let wrong_draw = BindGroupValidation {
+            draw: Some(DrawKey(99)),
+            ..image
+        };
+        let wrong_device = BindGroupValidation {
+            device: DeviceKey(99),
+            ..image
+        };
+        for invalid in [wrong_draw, wrong_device] {
+            assert!(validate_render_command(
+                DeviceKey(1),
+                draw(7, 1, 3),
+                &[camera, shadow, invalid]
+            )
+            .is_err());
+        }
     }
 
     #[test]

@@ -50,6 +50,16 @@ pub(crate) enum ShaderResourceLayout {
         texture_binding: u32,
         sampler_binding: u32,
     },
+    UniformShadowAndTexture {
+        uniform_group: u32,
+        uniform_binding: u32,
+        shadow_group: u32,
+        shadow_texture_binding: u32,
+        shadow_sampler_binding: u32,
+        image_group: u32,
+        image_texture_binding: u32,
+        image_sampler_binding: u32,
+    },
 }
 
 impl ShaderResourceLayout {
@@ -59,6 +69,7 @@ impl ShaderResourceLayout {
             Self::None => 0,
             Self::Uniform { .. } | Self::TextureSampler { .. } => 1,
             Self::UniformAndShadow { .. } => 2,
+            Self::UniformShadowAndTexture { .. } => 3,
         }
     }
 }
@@ -261,7 +272,8 @@ fn validate_module_depth_interface(
     match resources {
         ShaderResourceLayout::None | ShaderResourceLayout::Uniform { .. } => {}
         ShaderResourceLayout::TextureSampler { .. }
-        | ShaderResourceLayout::UniformAndShadow { .. } => {
+        | ShaderResourceLayout::UniformAndShadow { .. }
+        | ShaderResourceLayout::UniformShadowAndTexture { .. } => {
             return Err("depth shader must use no resources or a group 0 uniform".into());
         }
     }
@@ -337,7 +349,7 @@ pub(crate) fn validate_shader_resource_layout(
                             multi: false,
                         },
                 } => {
-                    if binding.group != 0 {
+                    if binding.group != 0 && binding.group != 2 {
                         return Err(unsupported_shader_resource(binding));
                     }
                     if texture.replace(binding).is_some() {
@@ -354,7 +366,7 @@ pub(crate) fn validate_shader_resource_layout(
                     }
                 }
                 naga::TypeInner::Sampler { comparison: false } => {
-                    if binding.group != 0 {
+                    if binding.group != 0 && binding.group != 2 {
                         return Err(unsupported_shader_resource(binding));
                     }
                     if sampler.replace(binding).is_some() {
@@ -390,7 +402,8 @@ pub(crate) fn validate_shader_resource_layout(
             group: uniform.group,
             binding: uniform.binding,
         }),
-        (None, Some(texture), Some(sampler), None, None) if texture.group == sampler.group => {
+        (None, Some(texture), Some(sampler), None, None)
+            if texture.group == 0 && sampler.group == 0 => {
             Ok(ShaderResourceLayout::TextureSampler {
                 group: texture.group,
                 texture_binding: texture.binding,
@@ -416,6 +429,27 @@ pub(crate) fn validate_shader_resource_layout(
         (Some(_), None, None, Some(_), Some(_)) => Err(
             "shadow layout must be @group(0) @binding(0) uniform, @group(1) @binding(0) depth texture, @group(1) @binding(1) comparison sampler"
                 .into(),
+        ),
+        (Some(uniform), Some(image), Some(sampler), Some(depth), Some(comparison))
+            if uniform.group == 0 && uniform.binding == 0
+                && depth.group == 1 && depth.binding == 0
+                && comparison.group == 1 && comparison.binding == 1
+                && image.group == 2 && image.binding == 0
+                && sampler.group == 2 && sampler.binding == 1 =>
+        {
+            Ok(ShaderResourceLayout::UniformShadowAndTexture {
+                uniform_group: 0,
+                uniform_binding: 0,
+                shadow_group: 1,
+                shadow_texture_binding: 0,
+                shadow_sampler_binding: 1,
+                image_group: 2,
+                image_texture_binding: 0,
+                image_sampler_binding: 1,
+            })
+        }
+        (Some(_), Some(_), Some(_), Some(_), Some(_)) => Err(
+            "particle image layout requires group 0 camera uniform, group 1 shadow texture/sampler at 0/1, and group 2 image texture/sampler at 0/1".into(),
         ),
         (None, Some(_), None, None, None) => {
             Err("sampled texture requires one filtering sampler in the same bind group".into())
@@ -1173,6 +1207,30 @@ fn fs_main() {}
             .bind_group_count(),
             2
         );
+    }
+
+    #[test]
+    fn particle_image_supports_vertex_sampling_with_camera_and_shadow() {
+        let source = include_str!("../tests/fixtures/particle-image.wgsl");
+        let attributes = &[
+            (0, wgpu::VertexFormat::Float32x3),
+            (3, wgpu::VertexFormat::Float32x2),
+        ];
+        let layout = validate_draw_interface(source, attributes).unwrap();
+        assert_eq!(layout.bind_group_count(), 3);
+        assert!(validate_draw_interface(source, &attributes[..1]).is_err());
+        assert!(parse_and_validate_pipeline_shader(source, attributes, 16, true).is_err());
+        for invalid in [
+            source.replace("@group(2)", "@group(3)"),
+            source.replace("@group(2) @binding(1)", "@group(2) @binding(2)"),
+            source.replace(
+                "var image_sampler: sampler;",
+                "var image_sampler: sampler_comparison;",
+            ),
+            source.replace("@group(1) @binding(1)", "@group(1) @binding(2)"),
+        ] {
+            assert!(validate_draw_interface(&invalid, attributes).is_err());
+        }
     }
 
     #[test]
