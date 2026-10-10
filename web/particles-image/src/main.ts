@@ -22,6 +22,7 @@ import "../../src/style.css";
 import { ParticleImageTexture } from "./image-texture";
 import { ParticleImageClient } from "./api-client";
 import { mountPromptPanel } from "./prompt-panel";
+import { createImagePalette } from "./palette";
 import workflow from "./workflow-api.json";
 import "./style.css";
 import drawShaderSource from "./shaders/particles.wgsl?raw";
@@ -395,11 +396,14 @@ async function start() {
       },
       applyImage: async (blob) => {
         const started = performance.now();
-        await imageTexture.replace(blob);
+        const palette = await createImagePalette(blob);
+        if (stopped) throw new DOMException("Renderer stopped", "AbortError");
+        await imageTexture.replace(palette.image);
         if (stopped) throw new DOMException("Renderer stopped", "AbortError");
         console.info(
-          "[particles-image] decoded and uploaded",
+          "[particles-image] palette extracted and uploaded",
           JSON.stringify({
+            colors: palette.colors,
             elapsedMs: performance.now() - started,
           }),
         );
@@ -412,6 +416,7 @@ async function start() {
             elapsedMs: performance.now() - started,
           }),
         );
+        return palette.colors;
       },
     });
 

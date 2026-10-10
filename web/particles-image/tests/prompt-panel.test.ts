@@ -6,6 +6,9 @@ import {
   type PromptHandlers,
 } from "../src/prompt-panel.ts";
 import type { GeneratedImage } from "../src/api-client.ts";
+import type { PaletteColor } from "../src/palette.ts";
+
+const colors: PaletteColor[] = [[20, 180, 80]];
 
 const image: GeneratedImage = {
   blob: new Blob(),
@@ -39,7 +42,7 @@ function panel(handlers: PromptHandlers) {
 
 test("empty text never submits; busy covers both generation and image application", async () => {
   const generated = deferred<GeneratedImage>();
-  const applied = deferred<void>();
+  const applied = deferred<PaletteColor[]>();
   const texts: string[] = [];
   const p = panel({
     generate: async (text) => {
@@ -62,7 +65,7 @@ test("empty text never submits; busy covers both generation and image applicatio
   assert.equal(p.state.busy, true);
   await p.submit("Another");
   assert.deepEqual(texts, ["Forest"]);
-  applied.resolve();
+  applied.resolve(colors);
   await pending;
   assert.equal(p.state.phase, "ready");
   assert.equal(p.state.busy, false);
@@ -77,7 +80,7 @@ test("failure unlocks without retrying and switches timeout only after successfu
       if (fail) throw new Error("Server busy");
       return image;
     },
-    applyImage: async () => {},
+    applyImage: async () => colors,
   });
   await p.submit("Forest");
   assert.equal(p.state.phase, "error");
@@ -114,6 +117,7 @@ test("dispose aborts generation and prevents late results or errors from updatin
       },
       applyImage: async () => {
         applications++;
+        return colors;
       },
     });
     const pending = p.submit("Forest");
@@ -131,14 +135,14 @@ test("dispose aborts generation and prevents late results or errors from updatin
 });
 
 test("dispose during application prevents ready state after the renderer has been released", async () => {
-  const applied = deferred<void>();
+  const applied = deferred<PaletteColor[]>();
   const p = panel({ generate: async () => image, applyImage: () => applied.promise });
   const pending = p.submit("Forest");
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(p.state.phase, "applying");
   p.dispose();
   const count = p.states.length;
-  applied.resolve();
+  applied.resolve(colors);
   await pending;
   assert.equal(p.states.length, count);
 });

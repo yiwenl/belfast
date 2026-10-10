@@ -2,7 +2,7 @@ import { BindGroup, Texture, type Device, type Draw } from "@belfast/wasm";
 
 export interface ImageTextureBackend {
   white(): Promise<ImageBitmap>;
-  decode(blob: Blob): Promise<ImageBitmap>;
+  decode(source: Blob | ImageData): Promise<ImageBitmap>;
   upload(bitmap: ImageBitmap): Texture;
   bind(texture: Texture, slot: number): BindGroup;
 }
@@ -14,11 +14,13 @@ export function createImageTextureBackend(device: Device, draw: Draw): ImageText
     decode: (blob) => createImageBitmap(blob),
     upload: (bitmap) =>
       Texture.fromImageBitmap(device, bitmap, {
-        label: "ParticleImage",
+        label: "ParticlePalette",
         // Match the existing particle shader's output space: a browser unorm canvas
         // expects encoded RGB, while an sRGB render target performs output encoding.
         format: device.format().endsWith("Srgb") ? "rgba8unorm-srgb" : "rgba8unorm",
         flipY: true,
+        minFilter: "nearest",
+        magFilter: "nearest",
       }),
     bind: (texture, slot) =>
       BindGroup.fromTexture(device, draw, texture, {
@@ -78,13 +80,13 @@ export class ParticleImageTexture {
     this.progress = Math.min(1, this.progress + deltaSeconds / COLOR_TRANSITION_SECONDS);
   }
 
-  async replace(blob: Blob): Promise<void> {
+  async replace(source: Blob | ImageData): Promise<void> {
     if (this.disposed) throw new Error("Image textures are disposed");
     if (this.replacing || this.transitioning) throw new Error("Image transition is in progress");
     this.replacing = true;
     try {
       const next = 1 - this.target;
-      const candidate = this.createSlot(await this.backend.decode(blob), next);
+      const candidate = this.createSlot(await this.backend.decode(source), next);
       const previous = this.slots[next];
       this.slots[next] = candidate;
       this.target = next;

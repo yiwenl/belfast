@@ -1,4 +1,5 @@
 import type { GeneratedImage } from "./api-client";
+import type { PaletteColor } from "./palette";
 export interface PromptState {
   phase: "idle" | "generating" | "applying" | "ready" | "error";
   busy: boolean;
@@ -6,7 +7,7 @@ export interface PromptState {
 }
 export interface PromptHandlers {
   generate(text: string, signal: AbortSignal, timeoutMs: number): Promise<GeneratedImage>;
-  applyImage(blob: Blob): Promise<void>;
+  applyImage(blob: Blob): Promise<readonly PaletteColor[]>;
 }
 export function createPromptController(
   render: (state: PromptState) => void,
@@ -80,7 +81,8 @@ export function mountPromptPanel(root: HTMLElement, handlers: PromptHandlers): {
   const status = root.querySelector<HTMLElement>("[role=status]");
   const preview = root.querySelector<HTMLElement>(".image-preview");
   const previewImage = preview?.querySelector("img");
-  if (!form || !input || !button || !status || !preview || !previewImage)
+  const swatches = preview?.querySelector<HTMLElement>(".palette-swatches");
+  if (!form || !input || !button || !status || !preview || !previewImage || !swatches)
     throw new Error("Prompt panel is missing its form controls");
   let disposed = false;
   let previewUrl: string | undefined;
@@ -100,13 +102,23 @@ export function mountPromptPanel(root: HTMLElement, handlers: PromptHandlers): {
     {
       ...handlers,
       async applyImage(blob) {
-        await handlers.applyImage(blob);
-        if (disposed) return;
+        const colors = await handlers.applyImage(blob);
+        if (disposed) return colors;
+        const items = colors.map((color) => {
+          const hex = `#${color.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+          const item = document.createElement("li");
+          item.style.backgroundColor = hex;
+          item.title = hex.toUpperCase();
+          item.setAttribute("aria-label", hex.toUpperCase());
+          return item;
+        });
         const previousUrl = previewUrl;
         previewUrl = URL.createObjectURL(blob);
         previewImage.src = previewUrl;
+        swatches.replaceChildren(...items);
         preview.hidden = false;
         if (previousUrl) URL.revokeObjectURL(previousUrl);
+        return colors;
       },
     },
   );
@@ -130,6 +142,7 @@ export function mountPromptPanel(root: HTMLElement, handlers: PromptHandlers): {
       input.removeEventListener("keydown", onKeydown);
       input.disabled = button.disabled = true;
       previewImage.removeAttribute("src");
+      swatches.replaceChildren();
       preview.hidden = true;
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       previewUrl = undefined;

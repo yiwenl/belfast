@@ -20,6 +20,18 @@ test("upload preserves encoded PNG colors on an unorm canvas and decodes for an 
   assert.deepEqual(formats, ["rgba8unorm", "rgba8unorm", "rgba8unorm-srgb"]);
 });
 
+test("palette upload uses nearest sampling so adjacent swatches do not create muddy colors", (t) => {
+  let filters: unknown;
+  t.mock.method(Texture, "fromImageBitmap", (_device, _bitmap, options) => {
+    filters = [options.minFilter, options.magFilter];
+    return {} as Texture;
+  });
+  createImageTextureBackend({ format: () => "Bgra8Unorm" } as Device, {} as Draw).upload(
+    {} as ImageBitmap,
+  );
+  assert.deepEqual(filters, ["nearest", "nearest"]);
+});
+
 function fixture() {
   const released: string[] = [];
   const bindings: { texture: Texture; slot: number; group: BindGroup }[] = [];

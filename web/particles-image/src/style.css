@@ -35,8 +35,28 @@
   border: 1px solid #ffffff20;
 }
 .image-preview figcaption {
+  flex: 1;
+  min-width: 0;
   color: #a6a59c;
   font-size: 11px;
+}
+.palette-label {
+  display: block;
+  margin-top: 12px;
+  margin-bottom: 6px;
+}
+.palette-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.palette-swatches li {
+  height: 25px;
+  border: 1px solid #ffffff20;
+  border-radius: 5px;
 }
 .panel-heading,
 .panel-actions {
