@@ -385,6 +385,7 @@ async function start() {
           "[particles-image] generated",
           JSON.stringify({
             promptId: result.promptId,
+            effectivePrompt: result.effectivePrompt,
             seed: result.seed,
             receivedMs: result.receivedMs,
             completedMs: result.completedMs,

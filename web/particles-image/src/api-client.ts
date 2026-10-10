@@ -1,3 +1,5 @@
+import { enhanceColorPrompt } from "./prompt-enhancement";
+
 export type Workflow = Record<string, { class_type: string; inputs: Record<string, unknown> }>;
 export type ComfyEvent = {
   type: string;
@@ -6,6 +8,7 @@ export type ComfyEvent = {
 export type GeneratedImage = {
   blob: Blob;
   promptId: string;
+  effectivePrompt: string;
   seed: number;
   steps: number;
   receivedMs: number;
@@ -98,7 +101,8 @@ export class ParticleImageClient {
       controller.signal.throwIfAborted();
 
       const workflow = structuredClone(this.options.workflow);
-      workflow["6"].inputs.text = text.trim();
+      const effectivePrompt = enhanceColorPrompt(text);
+      workflow["6"].inputs.text = effectivePrompt;
       workflow["3"].inputs.noise_seed = seed;
       workflow["10"].inputs.steps = 1;
       socket = new this.Socket(`${this.baseUrl.replace(/^http/, "ws")}/ws?clientId=${clientId}`);
@@ -135,6 +139,7 @@ export class ParticleImageClient {
                 resolveResult({
                   blob: image,
                   promptId,
+                  effectivePrompt,
                   seed,
                   steps: 1,
                   receivedMs,

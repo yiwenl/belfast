@@ -87,7 +87,8 @@ test("accepts final PNG arriving before POST response and preserves the workflow
     [137, 80, 78, 71, 13, 10, 26, 10, 7],
   );
   const body = f.calls[1].body;
-  assert.equal(body.prompt["6"].inputs.text, "A blue ocean");
+  assert.match(body.prompt["6"].inputs.text, /^A blue ocean, \(.+:0\.65\)$/);
+  assert.equal(result.effectivePrompt, body.prompt["6"].inputs.text);
   assert.equal(body.prompt["3"].inputs.noise_seed, 123);
   assert.equal(body.prompt["10"].inputs.steps, 1);
   assert.notEqual(body.client_id, body.prompt_id);
@@ -98,6 +99,29 @@ test("accepts final PNG arriving before POST response and preserves the workflow
   assert.equal(f.client.busy, false);
   assert.equal(f.socket.closed, true);
   assert.equal(f.calls.length, 2);
+});
+
+test("each submission draws one subtle suffix while preserving the original prompt", async (t) => {
+  const samples = [0, 0.999999];
+  t.mock.method(Math, "random", () => samples.shift() ?? 0.5);
+  const f = fixture();
+  const original = "A (deep red:1.3) rose";
+  const first = await f.client.generate(original, options);
+  const second = await f.client.generate(original, options);
+  const prompts = f.calls
+    .filter((call) => call.path === "/comfy/prompt")
+    .map((call) => call.body.prompt["6"].inputs.text as string);
+  assert.equal(samples.length, 0);
+  assert.equal(prompts.length, 2);
+  assert.notEqual(prompts[0], prompts[1]);
+  for (const prompt of prompts) {
+    assert.ok(prompt.startsWith(`${original}, (`));
+    assert.ok(prompt.endsWith(":0.65)"));
+    assert.equal(prompt.split(original).length, 2);
+  }
+  assert.equal(first.effectivePrompt, prompts[0]);
+  assert.equal(second.effectivePrompt, prompts[1]);
+  assert.equal(workflow["6"].inputs.text, "original");
 });
 
 test("ignores previews and other prompts, accepting only node 9 PNG and null-node completion", async () => {

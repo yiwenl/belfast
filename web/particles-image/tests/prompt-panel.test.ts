@@ -10,6 +10,7 @@ import type { GeneratedImage } from "../src/api-client.ts";
 const image: GeneratedImage = {
   blob: new Blob(),
   promptId: "id",
+  effectivePrompt: "Forest",
   seed: 1,
   steps: 1,
   receivedMs: 50,
