@@ -22,6 +22,14 @@ A bright coral reef, turquoise water, vivid orange coral, golden sunlight
 
 每次只處理一筆。生成與套用期間表單暫停輸入，相機及動畫持續；失敗保留目前配色與輸入文字，可手動再試。第一次成功前最多等待 120 秒，之後最多 30 秒；失敗後定向取消清理可能另需約 6 秒。沒有自動重試或背景生成。
 
+## 顏色漸變
+
+新圖片在 A／B 兩組貼圖間交替寫入，保留上一張作為漸變起點。每顆粒子初始化時產生固定的 UV 與 `rnd`（0～1），依 `blend = clamp(offset * 2 - rnd, 0, 1)` 混合兩張圖片，因此換色會錯開開始，結束時所有粒子都到達新配色。
+
+`offset` 在 2 秒內由 0 增加到 1，可修改 `src/image-texture.ts` 的 `COLOR_TRANSITION_SECONDS` 調整時長。漸變完成後才更新原圖預覽並解鎖表單；狀態列的總耗時包含生成與漸變。A／B 貼圖使用 group 2／3，offset 和目標槽位附加於原相機 uniform，粒子模擬與陰影維持不變。
+
+已在 Chrome 實測白色→花田、花田→海洋兩次交替，漸變約 2 秒，無 WebGPU／console 錯誤。104 項 WASM 測試與 27 項客戶端測試通過，涵蓋四組 binding 完整性、交替方向、失敗保留原圖與資源回收。
+
 ## API 設定
 
 預設連至 `http://192.168.1.201:8189`。更換主機時，將 `web/.env.example` 複製為 `web/.env.local`，設定：
@@ -50,9 +58,9 @@ cargo test -p belfast --test example_shaders
 
 客戶端測試涵蓋提早抵達的 WebSocket 結果、preview 過濾、queue busy、HTTP／socket 錯誤、逾時與 abort、定向取消、表單鎖定，以及失敗／卸載時的圖片資源回收。原有 `/particles/` 與 `/basic/` 可用於回歸比較。
 
-瀏覽器 console 的 `[particles-image]` 紀錄包含 PNG 收到、生成完成、解碼上傳及首次提交新配色 frame 的時間。提交 frame 不等同螢幕完成顯示。圖片格式依 canvas 決定：unorm 畫布保留圖片的編碼 RGB，sRGB 畫布則使用 sRGB texture 解碼，避免重複造成暗化。
+瀏覽器 console 的 `[particles-image]` 紀錄包含 PNG 收到、生成完成、解碼上傳及漸變完成的 frame 提交時間。提交 frame 不等同螢幕完成顯示。圖片格式依 canvas 決定：unorm 畫布保留圖片的編碼 RGB，sRGB 畫布則使用 sRGB texture 解碼，避免重複造成暗化。
 
-## 本機驗收紀錄（2026-10-10）
+## 初版直接換色驗收紀錄（2026-10-10）
 
 Chrome、1728×941 視窗、devicePixelRatio 2、一百萬顆粒子：
 

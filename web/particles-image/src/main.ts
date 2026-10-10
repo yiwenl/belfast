@@ -92,7 +92,7 @@ let setupFinished = false;
 let released = false;
 let animationFrame = 0;
 let panel: { dispose(): void } | undefined;
-let pendingImageFrame: { resolve(): void; reject(error: Error): void } | undefined;
+let pendingImageTransition: { resolve(): void; reject(error: Error): void } | undefined;
 const cleanup: (() => void)[] = [];
 
 function own<T extends { free(): void }>(resource: T): T {
@@ -104,8 +104,8 @@ function dispose() {
   stopped = true;
   cancelAnimationFrame(animationFrame);
   panel?.dispose();
-  pendingImageFrame?.reject(new DOMException("Renderer stopped", "AbortError"));
-  pendingImageFrame = undefined;
+  pendingImageTransition?.reject(new DOMException("Renderer stopped", "AbortError"));
+  pendingImageTransition = undefined;
   // An initial bitmap may still be decoding; keep the device alive until setup settles.
   if (setupFinished && !released) {
     released = true;
@@ -142,9 +142,11 @@ async function start() {
     const instanceBuffer = own(
       Buffer.fromData(device, particles, BufferUsage.vertexStorage, "ParticleInstances"),
     );
-    const uvData = new Float32Array(PARTICLE_COUNT * 2);
+    const uvData = new Float32Array(PARTICLE_COUNT * 3);
     for (let i = 0; i < uvData.length; i++) uvData[i] = Math.random();
-    const uvBuffer = own(Buffer.fromData(device, uvData, BufferUsage.vertex, "ParticleImageUvs"));
+    const uvBuffer = own(
+      Buffer.fromData(device, uvData, BufferUsage.vertex, "ParticleImageUvAndRandom"),
+    );
     const indexBuffer = own(Buffer.fromIndices(device, geom.indices, "ParticleQuadIndices"));
     const mesh = own(
       new Mesh(geom.positions.length / 3)
@@ -164,8 +166,8 @@ async function start() {
           stepMode: "instance",
         })
         .addVertexBuffer(uvBuffer, {
-          arrayStride: 8,
-          attributes: [{ shaderLocation: 3, format: "vec2", offset: 0 }],
+          arrayStride: 12,
+          attributes: [{ shaderLocation: 3, format: "vec3", offset: 0 }],
           slot: 2,
           stepMode: "instance",
         })
@@ -187,12 +189,14 @@ async function start() {
           cameraUp: "vec4",
           lightViewProj: "mat4",
           shadowParams: "vec4",
+          transitionParams: "vec4",
         },
         "ParticleCamera",
       ),
     );
     cameraUniforms.set("lightViewProj", lightViewProj);
     cameraUniforms.set("shadowParams", [0.8, SHADOW_MAP_SIZE, 0.001, 0]);
+    cameraUniforms.set("transitionParams", [1, 0, 0, 0]);
     const uniformBuffer = own(
       Buffer.create(device, cameraUniforms.byteSize, BufferUsage.uniform, "ParticleCamera"),
     );
@@ -399,10 +403,10 @@ async function start() {
           }),
         );
         await new Promise<void>((resolve, reject) => {
-          pendingImageFrame = { resolve, reject };
+          pendingImageTransition = { resolve, reject };
         });
         console.info(
-          "[particles-image] first frame submitted",
+          "[particles-image] transition completed",
           JSON.stringify({
             elapsedMs: performance.now() - started,
           }),
@@ -426,6 +430,13 @@ async function start() {
         simBuffer.write(device, simParams);
 
         if (device.resize()) {
+          imageTexture.advance(deltaSeconds);
+          cameraUniforms.set("transitionParams", [
+            imageTexture.offset,
+            imageTexture.targetIndex,
+            0,
+            0,
+          ]);
           camera.setAspect(canvas.width / Math.max(canvas.height, 1));
           writeCamera();
           const frame = device.beginFrame();
@@ -441,7 +452,7 @@ async function start() {
               });
               frame.render(
                 draw,
-                [drawBindGroup, shadowBindGroup, imageTexture.bindGroup],
+                [drawBindGroup, shadowBindGroup, ...imageTexture.bindGroups],
                 PARTICLE_COUNT,
               );
               frame.render(axes, axisBindGroup);
@@ -449,8 +460,10 @@ async function start() {
               frame.render(lightBall, lightBallBindGroup);
               frameConsumed = true;
               frame.submit();
-              pendingImageFrame?.resolve();
-              pendingImageFrame = undefined;
+              if (!imageTexture.transitioning) {
+                pendingImageTransition?.resolve();
+                pendingImageTransition = undefined;
+              }
             } finally {
               if (!frameConsumed) {
                 frame.free();

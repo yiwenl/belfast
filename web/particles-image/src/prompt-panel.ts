@@ -40,7 +40,7 @@ export function createPromptController(
         );
         if (disposed) return;
         hasGenerated = true;
-        render({ phase: "applying", busy: true, message: "正在套用配色…" });
+        render({ phase: "applying", busy: true, message: "正在漸變配色…" });
         await handlers.applyImage(result.blob);
         if (disposed) return;
         render({
@@ -92,7 +92,7 @@ export function mountPromptPanel(root: HTMLElement, handlers: PromptHandlers): {
         state.phase === "generating"
           ? "生成中…"
           : state.phase === "applying"
-            ? "套用中…"
+            ? "漸變中…"
             : "生成配色";
       status.dataset.phase = state.phase;
       status.textContent = state.message;

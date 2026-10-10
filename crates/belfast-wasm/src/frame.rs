@@ -183,10 +183,14 @@ fn validate_render_command(
             return Err("draw requires bind groups for @group(0) and @group(1)".into());
         }
     }
-    if draw.bind_group_count == 3
-        && !(0..3).all(|index| bind_groups.iter().any(|group| group.group_index == index))
+    if draw.bind_group_count >= 3
+        && !(0..draw.bind_group_count as u32)
+            .all(|index| bind_groups.iter().any(|group| group.group_index == index))
     {
-        return Err("draw requires bind groups for @group(0), @group(1), and @group(2)".into());
+        return Err(format!(
+            "draw requires every bind group from @group(0) through @group({})",
+            draw.bind_group_count - 1
+        ));
     }
 
     Ok(())
@@ -1813,6 +1817,30 @@ mod tests {
                 &[camera, shadow, invalid]
             )
             .is_err());
+        }
+    }
+
+    #[test]
+    fn particle_transition_requires_four_distinct_groups() {
+        let camera = bind_group(10, 7, 1);
+        let shadow = shadow_bind_group(11, 7, 1);
+        let a = BindGroupValidation {
+            group_index: 2,
+            ..bind_group(12, 7, 1)
+        };
+        let b = BindGroupValidation {
+            group_index: 3,
+            ..bind_group(13, 7, 1)
+        };
+        assert!(
+            validate_render_command(DeviceKey(1), draw(7, 1, 4), &[b, a, camera, shadow]).is_ok()
+        );
+        for groups in [
+            vec![camera, shadow, a],
+            vec![camera, shadow, a, a],
+            vec![b, b, b, b],
+        ] {
+            assert!(validate_render_command(DeviceKey(1), draw(7, 1, 4), &groups).is_err());
         }
     }
 

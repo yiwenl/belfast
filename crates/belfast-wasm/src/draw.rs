@@ -50,13 +50,13 @@ pub(crate) enum ShaderResourceLayout {
         texture_binding: u32,
         sampler_binding: u32,
     },
-    UniformShadowAndTexture {
+    UniformShadowAndTextures {
         uniform_group: u32,
         uniform_binding: u32,
         shadow_group: u32,
         shadow_texture_binding: u32,
         shadow_sampler_binding: u32,
-        image_group: u32,
+        image_groups: Vec<u32>,
         image_texture_binding: u32,
         image_sampler_binding: u32,
     },
@@ -69,7 +69,7 @@ impl ShaderResourceLayout {
             Self::None => 0,
             Self::Uniform { .. } | Self::TextureSampler { .. } => 1,
             Self::UniformAndShadow { .. } => 2,
-            Self::UniformShadowAndTexture { .. } => 3,
+            Self::UniformShadowAndTextures { image_groups, .. } => 2 + image_groups.len(),
         }
     }
 }
@@ -273,7 +273,7 @@ fn validate_module_depth_interface(
         ShaderResourceLayout::None | ShaderResourceLayout::Uniform { .. } => {}
         ShaderResourceLayout::TextureSampler { .. }
         | ShaderResourceLayout::UniformAndShadow { .. }
-        | ShaderResourceLayout::UniformShadowAndTexture { .. } => {
+        | ShaderResourceLayout::UniformShadowAndTextures { .. } => {
             return Err("depth shader must use no resources or a group 0 uniform".into());
         }
     }
@@ -321,6 +321,8 @@ pub(crate) fn validate_shader_resource_layout(
 ) -> Result<ShaderResourceLayout, String> {
     let mut texture = None;
     let mut sampler = None;
+    let mut next_texture = None;
+    let mut next_sampler = None;
     let mut uniform = None;
     let mut depth_texture = None;
     let mut comparison_sampler = None;
@@ -349,6 +351,12 @@ pub(crate) fn validate_shader_resource_layout(
                             multi: false,
                         },
                 } => {
+                    if binding.group == 3 {
+                        if next_texture.replace(binding).is_some() {
+                            return Err(unsupported_shader_resource(binding));
+                        }
+                        continue;
+                    }
                     if binding.group != 0 && binding.group != 2 {
                         return Err(unsupported_shader_resource(binding));
                     }
@@ -366,6 +374,12 @@ pub(crate) fn validate_shader_resource_layout(
                     }
                 }
                 naga::TypeInner::Sampler { comparison: false } => {
+                    if binding.group == 3 {
+                        if next_sampler.replace(binding).is_some() {
+                            return Err(unsupported_shader_resource(binding));
+                        }
+                        continue;
+                    }
                     if binding.group != 0 && binding.group != 2 {
                         return Err(unsupported_shader_resource(binding));
                     }
@@ -390,7 +404,7 @@ pub(crate) fn validate_shader_resource_layout(
         }
     }
 
-    match (
+    let layout: Result<ShaderResourceLayout, String> = match (
         uniform,
         texture,
         sampler,
@@ -437,13 +451,13 @@ pub(crate) fn validate_shader_resource_layout(
                 && image.group == 2 && image.binding == 0
                 && sampler.group == 2 && sampler.binding == 1 =>
         {
-            Ok(ShaderResourceLayout::UniformShadowAndTexture {
+            Ok(ShaderResourceLayout::UniformShadowAndTextures {
                 uniform_group: 0,
                 uniform_binding: 0,
                 shadow_group: 1,
                 shadow_texture_binding: 0,
                 shadow_sampler_binding: 1,
-                image_group: 2,
+                image_groups: vec![2],
                 image_texture_binding: 0,
                 image_sampler_binding: 1,
             })
@@ -470,6 +484,25 @@ pub(crate) fn validate_shader_resource_layout(
         (None, None, None, _, _) => {
             Err("unsupported shadow resources without a camera uniform".into())
         }
+    };
+
+    match (layout?, next_texture, next_sampler) {
+        (layout, None, None) => Ok(layout),
+        (
+            mut layout @ ShaderResourceLayout::UniformShadowAndTextures { .. },
+            Some(image),
+            Some(sampler),
+        ) if image.binding == 0 && sampler.binding == 1 => {
+            if let ShaderResourceLayout::UniformShadowAndTextures { image_groups, .. } = &mut layout
+            {
+                image_groups.push(3);
+            }
+            Ok(layout)
+        }
+        _ => Err(
+            "second particle image requires group 2 image and group 3 texture/sampler at 0/1"
+                .into(),
+        ),
     }
 }
 
@@ -1228,6 +1261,29 @@ fn fs_main() {}
                 "var image_sampler: sampler_comparison;",
             ),
             source.replace("@group(1) @binding(1)", "@group(1) @binding(2)"),
+        ] {
+            assert!(validate_draw_interface(&invalid, attributes).is_err());
+        }
+    }
+
+    #[test]
+    fn particle_transition_supports_two_image_groups() {
+        let source = include_str!("../tests/fixtures/particle-image-transition.wgsl");
+        let attributes = &[
+            (0, wgpu::VertexFormat::Float32x3),
+            (3, wgpu::VertexFormat::Float32x2),
+        ];
+        assert_eq!(
+            validate_draw_interface(source, attributes)
+                .unwrap()
+                .bind_group_count(),
+            4
+        );
+        assert!(parse_and_validate_pipeline_shader(source, attributes, 16, true).is_err());
+        for invalid in [
+            source.replace("@group(3)", "@group(4)"),
+            source.replace("@group(3) @binding(1)", "@group(3) @binding(2)"),
+            source.replace("@group(3) @binding(1) var next_sampler: sampler;", ""),
         ] {
             assert!(validate_draw_interface(&invalid, attributes).is_err());
         }

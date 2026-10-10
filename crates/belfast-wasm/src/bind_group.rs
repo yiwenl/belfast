@@ -121,11 +121,6 @@ fn validate_texture_bindings(
             group,
             texture_binding: required_texture,
             sampler_binding: required_sampler,
-        } | ShaderResourceLayout::UniformShadowAndTexture {
-            image_group: group,
-            image_texture_binding: required_texture,
-            image_sampler_binding: required_sampler,
-            ..
         } if *group == group_index
             && *required_texture == texture_binding
             && *required_sampler == sampler_binding => Ok(()),
@@ -133,14 +128,24 @@ fn validate_texture_bindings(
             group,
             texture_binding,
             sampler_binding,
-        } | ShaderResourceLayout::UniformShadowAndTexture {
-            image_group: group,
-            image_texture_binding: texture_binding,
-            image_sampler_binding: sampler_binding,
-            ..
         } => Err(format!(
             "bind group bindings must match draw shader layout @group({group}) texture @binding({texture_binding}) sampler @binding({sampler_binding})"
         )),
+        ShaderResourceLayout::UniformShadowAndTextures {
+            image_groups,
+            image_texture_binding,
+            image_sampler_binding,
+            ..
+        } => {
+            if image_groups.contains(&group_index)
+                && *image_texture_binding == texture_binding
+                && *image_sampler_binding == sampler_binding
+            {
+                Ok(())
+            } else {
+                Err(format!("image bind group must use group {image_groups:?} texture @binding({image_texture_binding}) sampler @binding({image_sampler_binding})"))
+            }
+        }
         ShaderResourceLayout::None
         | ShaderResourceLayout::Uniform { .. }
         | ShaderResourceLayout::UniformAndShadow { .. } => {
@@ -167,7 +172,7 @@ fn validate_uniform_bindings(
             uniform_group,
             uniform_binding,
             ..
-        } | ShaderResourceLayout::UniformShadowAndTexture {
+        } | ShaderResourceLayout::UniformShadowAndTextures {
             uniform_group,
             uniform_binding,
             ..
@@ -176,7 +181,7 @@ fn validate_uniform_bindings(
             uniform_group,
             uniform_binding,
             ..
-        } | ShaderResourceLayout::UniformShadowAndTexture {
+        } | ShaderResourceLayout::UniformShadowAndTextures {
             uniform_group,
             uniform_binding,
             ..
@@ -202,7 +207,7 @@ fn validate_shadow_bindings(
             texture_binding: required_texture,
             sampler_binding: required_sampler,
             ..
-        } | ShaderResourceLayout::UniformShadowAndTexture {
+        } | ShaderResourceLayout::UniformShadowAndTextures {
             shadow_group,
             shadow_texture_binding: required_texture,
             shadow_sampler_binding: required_sampler,
@@ -218,7 +223,7 @@ fn validate_shadow_bindings(
             texture_binding,
             sampler_binding,
             ..
-        } | ShaderResourceLayout::UniformShadowAndTexture {
+        } | ShaderResourceLayout::UniformShadowAndTextures {
             shadow_group,
             shadow_texture_binding: texture_binding,
             shadow_sampler_binding: sampler_binding,
@@ -1031,6 +1036,22 @@ mod tests {
         assert!(validate_shadow_bindings(&layout, 2, 0, 1).is_err());
         assert!(validate_texture_bindings(&layout, 1, 0, 1).is_err());
         assert!(validate_texture_bindings(&layout, 2, 1, 0).is_err());
+    }
+
+    #[test]
+    fn particle_transition_bindings_accept_both_image_slots() {
+        let module = naga::front::wgsl::parse_str(include_str!(
+            "../tests/fixtures/particle-image-transition.wgsl"
+        ))
+        .unwrap();
+        let layout = crate::draw::validate_shader_resource_layout(&module).unwrap();
+        assert!(validate_uniform_bindings(&layout, 0, 0).is_ok());
+        assert!(validate_shadow_bindings(&layout, 1, 0, 1).is_ok());
+        for group in [2, 3] {
+            assert!(validate_texture_bindings(&layout, group, 0, 1).is_ok());
+            assert!(validate_texture_bindings(&layout, group, 1, 0).is_err());
+        }
+        assert!(validate_texture_bindings(&layout, 4, 0, 1).is_err());
     }
 
     #[test]
