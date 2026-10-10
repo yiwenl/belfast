@@ -58,6 +58,10 @@ fn native_example_shaders_pass_wgpu_validation() {
             "axis_helper",
             include_str!("../src/helpers/axis_helper.wgsl"),
         ),
+        (
+            "ball_helper",
+            include_str!("../src/helpers/ball_helper.wgsl"),
+        ),
         ("compute", include_str!("../examples/shaders/compute.wgsl")),
         (
             "compute_triangle",

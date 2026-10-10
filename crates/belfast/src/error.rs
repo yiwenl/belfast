@@ -90,6 +90,10 @@ pub enum BelfastError {
     InvalidOrbitalControlOption(&'static str),
     #[error("axis length must be finite and greater than 0")]
     InvalidAxisLength,
+    #[error(
+        "ball position and color must be finite, and radius must be finite and greater than 0"
+    )]
+    InvalidBallParams,
     #[error("camera matrix must be finite and invertible")]
     InvalidCameraMatrix,
     #[error("texture dimensions must be greater than 0, got {width}x{height}")]

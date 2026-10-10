@@ -11,6 +11,7 @@ use crate::draw::ShaderResourceLayout;
 #[cfg(target_arch = "wasm32")]
 use crate::{
     axis_helper::{AxisHelperState, WasmAxisHelper},
+    ball_helper::{BallHelperState, WasmBallHelper},
     camera_helper::{CameraHelperState, WasmCameraHelper},
     compute::{ComputeState, WasmCompute},
     draw::DrawState,
@@ -404,6 +405,7 @@ enum BindGroupOwner {
     Draw(Rc<DrawState>),
     Compute(Rc<ComputeState>),
     AxisHelper(Rc<AxisHelperState>),
+    BallHelper(Rc<BallHelperState>),
     CameraHelper(Rc<CameraHelperState>),
 }
 
@@ -427,6 +429,7 @@ impl BindGroupState {
             BindGroupOwner::Draw(draw) => Some(draw),
             BindGroupOwner::Compute(_)
             | BindGroupOwner::AxisHelper(_)
+            | BindGroupOwner::BallHelper(_)
             | BindGroupOwner::CameraHelper(_) => None,
         }
     }
@@ -436,6 +439,7 @@ impl BindGroupState {
             BindGroupOwner::Compute(compute) => Some(compute),
             BindGroupOwner::Draw(_)
             | BindGroupOwner::AxisHelper(_)
+            | BindGroupOwner::BallHelper(_)
             | BindGroupOwner::CameraHelper(_) => None,
         }
     }
@@ -445,6 +449,17 @@ impl BindGroupState {
             BindGroupOwner::AxisHelper(axis) => Some(axis),
             BindGroupOwner::Draw(_)
             | BindGroupOwner::Compute(_)
+            | BindGroupOwner::BallHelper(_)
+            | BindGroupOwner::CameraHelper(_) => None,
+        }
+    }
+
+    pub(crate) fn ball_helper(&self) -> Option<&Rc<BallHelperState>> {
+        match &self.owner {
+            BindGroupOwner::BallHelper(ball) => Some(ball),
+            BindGroupOwner::Draw(_)
+            | BindGroupOwner::Compute(_)
+            | BindGroupOwner::AxisHelper(_)
             | BindGroupOwner::CameraHelper(_) => None,
         }
     }
@@ -454,7 +469,8 @@ impl BindGroupState {
             BindGroupOwner::CameraHelper(camera) => Some(camera),
             BindGroupOwner::Draw(_)
             | BindGroupOwner::Compute(_)
-            | BindGroupOwner::AxisHelper(_) => None,
+            | BindGroupOwner::AxisHelper(_)
+            | BindGroupOwner::BallHelper(_) => None,
         }
     }
 
@@ -669,7 +685,7 @@ impl WasmBindGroup {
     #[wasm_bindgen(js_name = fromBuffer, unchecked_return_type = "BindGroup")]
     pub fn from_buffer(
         device: &WasmDevice,
-        #[wasm_bindgen(unchecked_param_type = "Draw | AxisHelper | CameraHelper")]
+        #[wasm_bindgen(unchecked_param_type = "Draw | AxisHelper | BallHelper | CameraHelper")]
         pipeline: JsValue,
         buffer: &WasmBuffer,
         options: Option<JsValue>,
@@ -677,6 +693,7 @@ impl WasmBindGroup {
         match crate::frame::parse_drawable(&pipeline)? {
             crate::frame::Drawable::Draw(draw) => from_draw_buffer(device, &draw, buffer, options),
             crate::frame::Drawable::Axis(axes) => from_axis_buffer(device, &axes, buffer, options),
+            crate::frame::Drawable::Ball(ball) => from_ball_buffer(device, &ball, buffer, options),
             crate::frame::Drawable::Camera(camera) => {
                 from_camera_buffer(device, &camera, buffer, options)
             }
@@ -855,6 +872,58 @@ fn from_axis_buffer(
         state: Rc::new(BindGroupState {
             bind_group,
             owner: BindGroupOwner::AxisHelper(axes.state.clone()),
+            group_index: options.group_index,
+            source: BindGroupSource::Buffer(buffer.inner().clone()),
+        }),
+    });
+    crate::frame::register_bind_group_wrapper(&wrapper)?;
+    Ok(wrapper)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn from_ball_buffer(
+    device: &WasmDevice,
+    ball: &WasmBallHelper,
+    buffer: &WasmBuffer,
+    options: Option<JsValue>,
+) -> Result<JsValue, JsValue> {
+    let options: UniformBindGroupOptionsInput = options
+        .map(serde_wasm_bindgen::from_value)
+        .transpose()
+        .map_err(to_js_error)?
+        .unwrap_or_default();
+    let options = options.resolve();
+    if options.group_index != 0 || options.binding != 0 {
+        return Err(to_js_error(
+            "bind group bindings must match ball helper layout @group(0) uniform @binding(0)",
+        ));
+    }
+
+    if !ball.state.helper().device().is_same(&device.inner) {
+        return Err(to_js_error("ball helper was created by a different device"));
+    }
+    if !buffer.inner().device().is_same(&device.inner) {
+        return Err(to_js_error("buffer was created by a different device"));
+    }
+
+    let layout = ball
+        .state
+        .helper()
+        .get_bind_group_layout(options.group_index);
+    let bind_group = belfast::BindGroup::create(
+        &device.inner,
+        &layout,
+        &[wgpu::BindGroupEntry {
+            binding: options.binding,
+            resource: buffer.inner().gpu().as_entire_binding(),
+        }],
+        &options.label,
+    );
+
+    let wrapper = JsValue::from(WasmBindGroup {
+        state: Rc::new(BindGroupState {
+            bind_group,
+            owner: BindGroupOwner::BallHelper(ball.state.clone()),
             group_index: options.group_index,
             source: BindGroupSource::Buffer(buffer.inner().clone()),
         }),

@@ -25,7 +25,9 @@ pub use device::{Device, DeviceOptions};
 pub use draw::{Draw, DrawOptions};
 pub use error::{BelfastError, BelfastResult};
 pub use geom::{Geom, GeometryData};
-pub use helpers::{AxisHelper, AxisHelperOptions, CameraHelper, CameraHelperOptions};
+pub use helpers::{
+    AxisHelper, AxisHelperOptions, BallHelper, BallHelperOptions, CameraHelper, CameraHelperOptions,
+};
 pub use mesh::{
     Mesh, MeshIndexFormat, MeshLayoutSignature, VertexAttributeDescriptor, VertexBufferBinding,
     VertexBufferLayoutDescriptor,
