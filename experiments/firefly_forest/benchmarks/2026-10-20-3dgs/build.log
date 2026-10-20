@@ -1,0 +1,29 @@
+
+> @belfast/experiment-firefly-forest@0.1.0 build /Users/yi-wenlin/Development/belfast/experiments/firefly_forest
+> pnpm build:wasm:release && tsc --noEmit && vite build
+
+
+> @belfast/experiment-firefly-forest@0.1.0 build:wasm:release /Users/yi-wenlin/Development/belfast/experiments/firefly_forest
+> wasm-pack build . --target web --out-dir pkg --out-name experiment
+
+[INFO]: 🎯  Checking for the Wasm target...
+[INFO]: 🌀  Compiling to Wasm...
+    Finished `release` profile [optimized] target(s) in 0.10s
+[INFO]: ⬇️  Installing wasm-bindgen...
+[WARN  wasm_pack::install] could not download pre-built `wasm-bindgen`: no prebuilt wasm-bindgen binaries are available for this platform: Unrecognized target!. Falling back to `cargo install`.
+[INFO]: Optional fields missing from Cargo.toml: 'description', 'repository'. These are not necessary, but recommended
+[INFO]: License key is set in Cargo.toml but no LICENSE file(s) were found; Please add the LICENSE file(s) to your project directory
+[INFO]: ✨   Done in 0.40s
+[INFO]: 📦   Your wasm pkg is ready to publish at pkg.
+[WARN]: ⚠️   There's a newer version of wasm-pack available, the new version is: 0.15.0, you are using: 0.14.0. To update, navigate to: https://drager.github.io/wasm-pack/installer/
+vite v6.4.2 building for production...
+transforming...
+✓ 11 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                            5.22 kB │ gzip:   1.87 kB
+dist/assets/sort.worker-rni798dD.js       39.12 kB
+dist/assets/experiment_bg-CQC1HTE1.wasm  450.74 kB │ gzip: 152.11 kB
+dist/assets/index-uzHOfSXR.css             3.34 kB │ gzip:   1.14 kB
+dist/assets/index-BkkNskWN.js             53.98 kB │ gzip:  18.28 kB
+✓ built in 514ms

@@ -56,3 +56,41 @@ Validation: release Wasm build #26 succeeds; browser GPU/console error list empt
 Measurement support added: downloadable full JSON with config, 1,200 RAF intervals, 1,200 four-component GPU samples, and summary statistics. Serialization happens after timing. This supports the requested audit and does not change timed rendering.
 
 Decision: keep and commit. Aggregate result is still below 60, continue to opacity-bounded support.
+
+### Attempt 1.2 — opacity-bounded support — DISCARD
+
+Parent: `d5e6c3e`. The vertex shader unpacks alpha earlier and limits the quad's Gaussian-coordinate extent to `min(3, sqrt(max(0, 2 * log(255 * alpha))) + 0.0001)`. Padding is conservative for floating-point rounding; fragment thresholds and depth coverage remain unchanged. Hypothesis: avoid rasterizing tails already rejected below alpha 1/255. Possible cost: four extra logarithm/square-root calculations per splat. Evidence patch: [`patches/r1-opacity-support.patch`](patches/r1-opacity-support.patch), **not applied** to the renderer.
+
+| Run                  | Mean FPS | Frame P95 ms | GPU total ms | Forest GPU ms |
+| -------------------- | -------: | -----------: | -----------: | ------------: |
+| Support 1            |  63.2558 |        19.90 |      12.7880 |       12.6020 |
+| Support 2            |  63.9475 |        20.50 |      12.9697 |       12.7588 |
+| Strip return/control |  63.4937 |        18.00 |      13.0187 |       12.8173 |
+
+Support aggregate: **63.5997 FPS**. Gain versus fresh unchanged strip control: **0.1060 FPS**, below 1. The older strip aggregate was slower, illustrating why rechecking the parent matters. GPU savings are small and do not meet the user's FPS criterion. Release build #29 loaded with no browser errors; #30 restores the unchanged accepted shader. Decision: **discard**, no optimization commit for this patch. Raw runs are retained for audit.
+
+### Sustained confirmation and stop decision
+
+Accepted source remains `d5e6c3e`. Three 1,200-frame strip runs combine to **60.6207 FPS**, versus **48.0582 FPS** for three original runs: **+12.5625 FPS / +26.14%**. A separate **3,600-frame** run at the same seed, camera, resolution and other controls confirms **62.5536 FPS** over **57.5506 seconds**. GPU total mean **13.0833 ms**, P95 **14.2868 ms**; forest mean **12.8698 ms**. Wall-clock frame P95 is **21.8 ms**: the target is an average, not every frame staying below 16.67 ms.
+
+The 3,600-frame run is sustained confirmation, **not** used for a direct percentage against 1,200-frame runs because it covers a longer simulation interval. The UI correctly marks its frame count as incompatible with the saved 1,200-frame baseline. All records have identical other config fields, complete interval/sample counts, and recomputable FPS.
+
+Camera verification: changed FOV 40→55→40; visible splat count updates, then orbit changes the view and sorting; forest and firefly occlusion remain present, no browser/GPU error. Screenshots are included. The page is restored to the default view afterward. This does not claim 60 FPS during continuous orbit/sorting.
+
+**Stop in round 1:** average-60 target reached without changing resolution, scene count, cutoff, HDR or firefly parameters. Candidates 1.3 (ellipse basis) and 1.4 (projection/color reuse) are **not attempted**, not measured failures. No new round needed, and no claim of five completed rounds. They remain future options if the target expands to continuous movement, wider FOV, a larger viewport, or 100,000 fireflies.
+
+## Reproducing and interpreting the results
+
+1. Use the same browser/display and canvas size recorded in the JSON (833×988 CSS pixels, DPR 2, 1666×1976 output), default view, 10,000 fireflies and recorded controls.
+2. Run the default 1,200-frame benchmark; download the full JSON using the new link. The original 1,200-frame baseline remains saved in the browser.
+3. Original renderer is available at `247c4b8`, accepted renderer at `d5e6c3e`. Benchmark export support is measurement-only and lives in the accepted commit; do not change the timed draw loop when comparing.
+4. Compare total-frame/total-time FPS and GPU total/forest times. Use fresh parent controls because GPU scheduling and other local workload produced visible run-to-run variation.
+5. Source PLY remains local and ignored. No tests were executed; release Wasm compilation, TypeScript checking, actual UI runs and static review provide the stated verification.
+
+## Final validation / source state
+
+- `pnpm --dir experiments/firefly_forest build` passed (release Rust/Wasm, TypeScript, Vite production bundle). Build log kept as `build.log`.
+- Fresh read-only reviewer found no actionable source or measurement issue. Independently recomputed all nine raw runs including component means/P95s and checked discarded source equals the accepted commit.
+- Nine runs total **13,200 measured frames**, each preceded by the documented warmup/reset. [Machine-readable decision summary](summary.json).
+- Four-vertex implementation committed as `d5e6c3e`. This final journal update records the failed attempt and sustained confirmation; it introduces no further renderer optimization.
+- `.ply` assets remain ignored and all unrelated pre-existing workspace changes remain outside these commits. No push performed.

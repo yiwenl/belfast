@@ -25,6 +25,11 @@ simplification both in ordinary viewing and in the next benchmark.
    GPU readback are excluded. The first N simulation frames are measured.
 4. Press **儲存為基準**, change **視角外簡化**, and run again. The baseline
    survives reloads in this origin's localStorage; it can be replaced or cleared.
+5. **下載本次完整結果 JSON** exports the configuration, summary statistics,
+   every measured frame interval and the GPU samples after timing finishes.
+
+The [2026-10-20 3DGS optimization journal](benchmarks/2026-10-20-3dgs/README.md)
+records candidate changes, retained/discarded decisions and raw benchmarks.
 
 Results include average FPS (`N × 1000 / total milliseconds`), mean and P95 frame
 time, and mean GPU times for the whole frame, all three firefly compute passes,

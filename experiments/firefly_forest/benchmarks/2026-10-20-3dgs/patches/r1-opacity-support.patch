@@ -1,0 +1,13 @@
+--- a/experiments/firefly_forest/src/splat.wgsl
++++ b/experiments/firefly_forest/src/splat.wgsl
+@@ -27,0 +28 @@
++    let color = unpack4x8unorm(packed.w);
+@@ -54 +55,4 @@
+-    let local = corners[vertex] * 3.0;
++    // Tails below the existing 1/255 fragment cutoff cannot contribute.
++    // A tiny pad keeps the bound conservative under floating-point rounding.
++    let support = min(3.0, sqrt(max(0.0, 2.0 * log(255.0 * color.a))) + 0.0001);
++    let local = corners[vertex] * support;
+@@ -58 +62 @@
+-    out.color = unpack4x8unorm(packed.w);
++    out.color = color;
