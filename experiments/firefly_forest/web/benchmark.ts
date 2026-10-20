@@ -1,4 +1,5 @@
 import type { ExperimentApp } from "../pkg/experiment";
+import { colorSettings } from "./color-controls";
 import {
   BASELINE_KEY,
   BENCHMARK_VERSION,
@@ -71,6 +72,7 @@ export function createBenchmark(
       camera: Array.from(app.benchmarkCamera()),
       cameraPath: moving.checked ? "forest-loop-v1" : "static",
       sortCadence: "threshold-v1",
+      colors: colorSettings(),
       cssSize: [canvas.clientWidth, canvas.clientHeight],
       dpr: window.devicePixelRatio,
       environment: app.benchmarkEnvironment(),

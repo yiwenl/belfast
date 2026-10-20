@@ -1,5 +1,6 @@
 use belfast::{BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device};
 use bytemuck::{Pod, Zeroable};
+use wgpu::util::DeviceExt;
 
 use crate::sorting::SortCamera;
 
@@ -134,6 +135,7 @@ pub struct FireflySystem {
     states: [Buffer; 2],
     params: Buffer,
     camera: Buffer,
+    appearance: wgpu::Buffer,
     clear: Compute,
     build: Compute,
     simulate_pipeline: Compute,
@@ -324,6 +326,17 @@ impl FireflySystem {
                     cache: None,
                 });
         let draw_layout = render_pipeline.get_bind_group_layout(0);
+        let appearance = device
+            .gpu()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("FireflyAppearance"),
+                contents: bytemuck::cast_slice(&[
+                    [0.60f32, 1.0, 0.08, 0.18],
+                    [1.0, 0.91, 0.14, 0.45],
+                    [1.0, 0.61, 0.08, 1.4],
+                ]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
         let draw_bindings = [0, 1].map(|index| {
             BindGroup::create(
                 device,
@@ -337,6 +350,10 @@ impl FireflySystem {
                         binding: 1,
                         resource: camera.gpu().as_entire_binding(),
                     },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: appearance.as_entire_binding(),
+                    },
                 ],
                 "FireflyDrawBindings",
             )
@@ -346,6 +363,7 @@ impl FireflySystem {
             states,
             params,
             camera,
+            appearance,
             clear,
             build,
             simulate_pipeline,
@@ -492,6 +510,33 @@ impl FireflySystem {
         // while zero still pauses it. Motion and cycle integration keep their rates.
         self.time += self.pending_dt * self.rates[0].sqrt();
         self.phase_time += self.pending_dt * self.rates[1].sqrt();
+    }
+
+    pub fn set_appearance(
+        &self,
+        device: &Device,
+        min_peak: f32,
+        max_peak: f32,
+        warm_share: f32,
+        colors: &[f32],
+    ) -> Result<(), String> {
+        if !(0.0..=3.0).contains(&min_peak)
+            || !(min_peak..=3.0).contains(&max_peak)
+            || !(0.0..=1.0).contains(&warm_share)
+            || colors.len() != 9
+            || colors.iter().any(|c| !(0.0..=1.0).contains(c))
+        {
+            return Err("Invalid firefly appearance settings".into());
+        }
+        let values = [
+            [colors[0], colors[1], colors[2], warm_share],
+            [colors[3], colors[4], colors[5], min_peak],
+            [colors[6], colors[7], colors[8], max_peak],
+        ];
+        device
+            .queue()
+            .write_buffer(&self.appearance, 0, bytemuck::cast_slice(&values));
+        Ok(())
     }
 
     pub fn set_occlusion(&mut self, device: &Device, view: &wgpu::TextureView) {

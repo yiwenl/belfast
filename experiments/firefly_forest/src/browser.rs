@@ -356,6 +356,31 @@ impl ExperimentApp {
         self.scene.load_ply(&self.device, bytes).map_err(js_error)
     }
 
+    #[wasm_bindgen(js_name = setForestGrade)]
+    pub fn set_forest_grade(
+        &self,
+        strength: f32,
+        brightness: f32,
+        colors: &[f32],
+    ) -> Result<(), JsValue> {
+        self.scene
+            .set_forest_grade(&self.device, strength, brightness, colors)
+            .map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setFireflyAppearance)]
+    pub fn set_firefly_appearance(
+        &self,
+        min_peak: f32,
+        max_peak: f32,
+        warm_share: f32,
+        colors: &[f32],
+    ) -> Result<(), JsValue> {
+        self.scene
+            .set_firefly_appearance(&self.device, min_peak, max_peak, warm_share, colors)
+            .map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = takeSortPositions)]
     pub fn take_sort_positions(&mut self) -> Vec<f32> {
         self.scene.take_sort_positions()

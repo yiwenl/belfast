@@ -158,6 +158,29 @@ impl Scene {
         self.fireflies.set_view_culling(enabled);
     }
 
+    pub fn set_forest_grade(
+        &self,
+        device: &Device,
+        strength: f32,
+        brightness: f32,
+        colors: &[f32],
+    ) -> Result<(), String> {
+        self.forest_color
+            .set_grade(device, strength, brightness, colors)
+    }
+
+    pub fn set_firefly_appearance(
+        &self,
+        device: &Device,
+        min_peak: f32,
+        max_peak: f32,
+        warm_share: f32,
+        colors: &[f32],
+    ) -> Result<(), String> {
+        self.fireflies
+            .set_appearance(device, min_peak, max_peak, warm_share, colors)
+    }
+
     pub fn begin_benchmark(&mut self, device: &Device, seed: u32, moving: bool) {
         // Finish orbital damping before capturing the view, so a completed run
         // does not resume old camera motion and invalidate the next A/B run.

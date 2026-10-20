@@ -15,7 +15,7 @@
       <span id="scene-info"></span>
     </aside>
     <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
-    <section id="firefly-controls" lang="zh-Hant" aria-label="螢火蟲與攝影機控制">
+    <section id="firefly-controls" lang="zh-Hant" aria-label="螢火蟲、攝影機與調色控制">
       <strong>螢火蟲</strong>
       <div class="control">
         <label for="particle-count">粒子數量</label>
@@ -69,6 +69,110 @@
         <output id="camera-fov-value" for="camera-fov">40°</output>
         <input id="camera-fov" type="range" min="20" max="100" step="1" value="40" disabled />
       </div>
+      <details class="appearance" open>
+        <summary>森林調色</summary>
+        <div class="appearance-body">
+          <div class="control">
+            <label for="grade-strength">調色強度</label
+            ><output id="grade-strength-value" for="grade-strength">100%</output>
+            <input
+              id="grade-strength"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+              data-unit="percent"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="forest-brightness">森林亮度</label
+            ><output id="forest-brightness-value" for="forest-brightness">1.00×</output>
+            <input
+              id="forest-brightness"
+              type="range"
+              min="0"
+              max="2"
+              step="0.05"
+              value="1"
+              disabled
+            />
+          </div>
+          <div class="color-control">
+            <label for="forest-foliage">植被顏色</label
+            ><input id="forest-foliage" type="color" value="#065c69" disabled />
+          </div>
+          <div class="color-control">
+            <label for="forest-shadow">樹幹／陰影色</label
+            ><input id="forest-shadow" type="color" value="#0e1a42" disabled />
+          </div>
+          <div class="color-control">
+            <label for="forest-highlight">亮部顏色</label
+            ><input id="forest-highlight" type="color" value="#2e4d80" disabled />
+          </div>
+          <small>強度 0：原始森林色彩</small>
+        </div>
+      </details>
+      <details class="appearance">
+        <summary>螢火蟲色彩</summary>
+        <div class="appearance-body">
+          <div class="color-control">
+            <label for="firefly-lime">主色</label
+            ><input id="firefly-lime" type="color" value="#99ff14" disabled />
+          </div>
+          <div class="color-control">
+            <label for="firefly-yellow">過渡色</label
+            ><input id="firefly-yellow" type="color" value="#ffe824" disabled />
+          </div>
+          <div class="color-control">
+            <label for="firefly-amber">暖色</label
+            ><input id="firefly-amber" type="color" value="#ff9c14" disabled />
+          </div>
+          <div class="control">
+            <label for="firefly-warm-share">暖色比例</label
+            ><output id="firefly-warm-share-value" for="firefly-warm-share">18%</output>
+            <input
+              id="firefly-warm-share"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.18"
+              data-unit="percent"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="firefly-peak-min">峰值亮度下限</label
+            ><output id="firefly-peak-min-value" for="firefly-peak-min">0.45×</output>
+            <input
+              id="firefly-peak-min"
+              type="range"
+              min="0"
+              max="3"
+              step="0.05"
+              value="0.45"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="firefly-peak-max">峰值亮度上限</label
+            ><output id="firefly-peak-max-value" for="firefly-peak-max">1.40×</output>
+            <input
+              id="firefly-peak-max"
+              type="range"
+              min="0"
+              max="3"
+              step="0.05"
+              value="1.4"
+              disabled
+            />
+          </div>
+          <small>上下限越接近，每隻螢火蟲的亮度越一致</small>
+        </div>
+      </details>
+      <button id="color-reset" type="button" disabled>恢復調色預設</button>
     </section>
     <details id="benchmark-panel" lang="zh-Hant" open>
       <summary>Benchmark <span>固定步長 · A/B 比較</span></summary>

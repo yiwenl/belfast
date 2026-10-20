@@ -112,6 +112,50 @@ aside span {
   font-size: 11px;
 }
 
+.appearance summary {
+  color: #edf4c7;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.appearance-body {
+  display: grid;
+  gap: 16px;
+  padding-top: 18px;
+}
+
+.color-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.color-control input {
+  width: 52px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid #dce88d40;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+#color-reset {
+  padding: 8px;
+  border: 1px solid #dce88d40;
+  border-radius: 4px;
+  background: #ffffff0a;
+  color: #edf4c7;
+  font: inherit;
+  cursor: pointer;
+}
+
+#firefly-controls :disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 @media (max-width: 640px) {
   #firefly-controls {
     top: auto;

@@ -1,6 +1,6 @@
 # Firefly forest
 
-Renders `public/forest.ply` with the Rust/WebGPU 3D Gaussian splatting pipeline from `experiments/particles`. The forest keeps its original PLY colors. The camera starts at the scan origin, looking along negative Z after converting PLY coordinates to Y-up.
+Renders `public/forest.ply` with the Rust/WebGPU 3D Gaussian splatting pipeline from `experiments/particles`. Original PLY colors are blended into the forest cache, then graded into a blue/teal night palette. The camera starts at the scan origin, looking along negative Z after converting PLY coordinates to Y-up.
 
 ## Render resolution and static forest cache
 
@@ -12,9 +12,42 @@ This optimization benefits a stationary camera. While the camera moves, the fore
 
 ## HDR output
 
-The renderer requests HDR through Belfast's surface selection helper. Supported browsers use an `rgba16float` canvas with `ExtendedSrgb` (`toneMapping.mode: "extended"`), preserving additive firefly emission above SDR white instead of clamping it to `1.0`. The firefly shader's peak multiplier is **3.0** for HDR, compared with **1.8** for the SDR fallback. The existing flash envelope and timings are unchanged.
+The renderer requests HDR through Belfast's surface selection helper. Supported browsers use an `rgba16float` canvas with `ExtendedSrgb` (`toneMapping.mode: "extended"`), preserving additive firefly emission above SDR white instead of clamping it to `1.0`. The firefly shader's base peak multiplier is **3.0** for HDR, compared with **1.8** for the SDR fallback, before applying each insect's brightness variation. The existing flash envelope and timings are unchanged.
 
-The browser canvas expects encoded extended sRGB, so the forest retains its original display RGB and existing blending. The color-cache copy applies no tone mapping or exposure adjustment. The overlay reports **HDR 輸出** or **SDR 輸出** from the selected surface mode; actual highlight headroom depends on the display and OS settings. Browsers without fp16 canvas support retain SDR output.
+The browser canvas expects encoded extended sRGB. The forest cache retains its original display RGB and existing blending; the final copy grades it before adding HDR fireflies. The overlay reports **HDR 輸出** or **SDR 輸出** from the selected surface mode; actual highlight headroom depends on the display and OS settings. Browsers without fp16 canvas support retain SDR output.
+
+## Night palette
+
+`src/forest-color.wgsl` grades the already-composited forest in its existing
+full-screen copy, so there is no extra pass or per-splat grading work. Source
+green dominance softly selects teal foliage; other colors and deep shadows
+shift toward navy, with subdued blue highlights. A luminance curve preserves
+texture while bringing the daylight scan into a night palette. The selection
+uses color rather than semantic tree/leaf labels. Hardware-sRGB attachments
+convert to display RGB before grading and back afterward; HDR/unorm targets
+already use display RGB.
+
+`src/firefly-draw.wgsl` keeps additive HDR emission after forest grading. A
+stable integer hash of particle index supplies independent hue and peak-light
+variation: mostly yellow-green, occasional amber, and peak multipliers from
+0.45 to 1.4, biased toward dimmer insects. Cores retain some of each insect's
+hue. This changes appearance only; cycle timing, flash duration, movement,
+billboard size and occlusion remain unchanged. No texture or simulation-buffer
+allocation is added. Earlier optimization journals measure the pre-grade look.
+
+The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** controls:
+
+- Forest grade strength (0–100%; 0 restores original colors), brightness
+  (0–2×), foliage color, tree/shadow color and highlight color.
+- Firefly main, transition and warm colors; warm-color share (0–100%);
+  minimum and maximum peak multipliers (0–3×). Equal limits remove individual
+  peak variation. Moving one limit across the other moves the other with it.
+- **恢復調色預設** restores the current night palette and 0.45–1.4× peak range,
+  without changing simulation controls or the camera. Reload also restores defaults.
+
+Changes update two small uniform buffers immediately, with no shader rebuild,
+particle reset or forest-cache rebuild. Color pickers use display RGB hex colors.
+Benchmark v4 records all color settings and locks these controls during a run.
 
 ## Manual benchmark
 
@@ -25,8 +58,8 @@ combining translation, yaw and pitch. Each camera pose uses the fixed simulation
 frame index, so slower rendering does not change the route. The camera starts
 at the scan origin; FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
-interactive view. Path version and sorting cadence are part of baseline
-compatibility; v3 baselines are stored separately from earlier v1/v2 results.
+interactive view. Path version, sorting cadence and color settings are part of
+baseline compatibility; v4 baselines are stored separately from earlier v1–v3 results.
 Moving measurements use the same sort thresholds as interactive viewing;
 only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search

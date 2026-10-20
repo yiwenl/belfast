@@ -1,7 +1,9 @@
-export const BENCHMARK_VERSION = 3;
+import { validColorSettings, type ColorSettings } from "./color-controls";
+
+export const BENCHMARK_VERSION = 4;
 export const WARMUP_FRAMES = 120;
 export const FIXED_DT = 1 / 60;
-export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v3";
+export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v4";
 
 export interface BenchmarkConfig {
   seed: number;
@@ -16,6 +18,7 @@ export interface BenchmarkConfig {
   camera: number[];
   cameraPath: "static" | "forest-loop-v1";
   sortCadence: "threshold-v1";
+  colors: ColorSettings;
   cssSize: number[];
   dpr: number;
   environment: string;
@@ -67,6 +70,7 @@ const labels: Record<keyof BenchmarkConfig, string> = {
   camera: "攝影機／輸出尺寸",
   cameraPath: "鏡頭路徑",
   sortCadence: "排序規則",
+  colors: "調色設定",
   cssSize: "視窗尺寸",
   dpr: "像素比例",
   environment: "GPU／輸出模式",
@@ -117,6 +121,7 @@ export function parseBaseline(raw: string): BenchmarkResult {
     c.fov > 100 ||
     !["static", "forest-loop-v1"].includes(c.cameraPath) ||
     c.sortCadence !== "threshold-v1" ||
+    !validColorSettings(c.colors) ||
     !Array.isArray(c.camera) ||
     c.camera.length !== 34 ||
     !c.camera.every(finite) ||

@@ -1,5 +1,6 @@
 import init, { ExperimentApp } from "../pkg/experiment";
 import { createBenchmark } from "./benchmark";
+import { bindColorControls } from "./color-controls";
 import { createFpsMeter } from "./fps";
 import { bindOrbitInput } from "./input";
 import { createSkeletonAdapter } from "./kinetic";
@@ -17,6 +18,7 @@ const fps = createFpsMeter(document.querySelector<HTMLElement>("#fps")!);
 let app: ExperimentApp | undefined;
 let detachInput: (() => void) | undefined;
 let detachControls: (() => void) | undefined;
+let detachColors: (() => void) | undefined;
 let benchmark: ReturnType<typeof createBenchmark> | undefined;
 let animationFrame = 0;
 let disposed = false;
@@ -36,6 +38,7 @@ function dispose() {
   benchmark?.dispose();
   detachInput?.();
   detachControls?.();
+  detachColors?.();
   app?.free();
   app = undefined;
   window.removeEventListener("pagehide", onPageHide);
@@ -118,8 +121,11 @@ async function start() {
       : "1920 × 1080 · SDR 輸出";
     detachInput = bindOrbitInput(canvas, created);
     detachControls = bindSceneControls(created);
+    detachColors = bindColorControls(created, reportError);
     benchmark = createBenchmark(created, canvas, (locked) => {
-      for (const input of document.querySelectorAll<HTMLInputElement>("#firefly-controls input")) {
+      for (const input of document.querySelectorAll<HTMLInputElement | HTMLButtonElement>(
+        "#firefly-controls input, #color-reset",
+      )) {
         input.disabled = locked;
       }
       if (locked) {
