@@ -136,6 +136,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "belfast-experiment-firefly-forest"
+version = "0.1.0"
+dependencies = [
+ "belfast",
+ "bytemuck",
+ "glam",
+ "half",
+ "naga",
+ "pollster",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+]
+
+[[package]]
 name = "belfast-experiment-particles"
 version = "0.1.0"
 dependencies = [

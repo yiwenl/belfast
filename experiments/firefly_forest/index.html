@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast — Firefly Forest</title>
+  </head>
+  <body>
+    <canvas aria-label="Interactive forest Gaussian splatting scene"></canvas>
+    <aside>
+      <strong>Firefly forest</strong>
+      <span>Drag to orbit · Shift + drag to pan · Scroll to zoom</span>
+      <span id="firefly-info">10,000 fireflies · flocking &amp; synchronized glow</span>
+      <span id="display-info" lang="zh-Hant"></span>
+      <span id="scene-info"></span>
+    </aside>
+    <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
+    <section id="firefly-controls" lang="zh-Hant" aria-label="螢火蟲與攝影機控制">
+      <strong>螢火蟲</strong>
+      <div class="control">
+        <label for="particle-count">粒子數量</label>
+        <output id="particle-count-value" for="particle-count">10,000 隻</output>
+        <input
+          id="particle-count"
+          type="range"
+          min="10000"
+          max="100000"
+          step="1000"
+          value="10000"
+          disabled
+        />
+      </div>
+      <div class="control">
+        <label for="movement-speed">移動速度</label>
+        <output id="movement-speed-value" for="movement-speed">0.27×</output>
+        <input id="movement-speed" type="range" min="0" max="1" step="0.01" value="0.27" disabled />
+      </div>
+      <div class="control">
+        <label for="blink-frequency">閃爍頻率</label>
+        <output id="blink-frequency-value" for="blink-frequency">0.28×</output>
+        <input
+          id="blink-frequency"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value="0.28"
+          disabled
+        />
+      </div>
+      <div class="control">
+        <label for="flash-duration">閃爍時長</label>
+        <output id="flash-duration-value" for="flash-duration">1.50 秒</output>
+        <input
+          id="flash-duration"
+          type="range"
+          min="0.1"
+          max="2"
+          step="0.05"
+          value="1.5"
+          disabled
+        />
+      </div>
+      <small>頻率控制間隔 · 時長從下次閃爍生效</small>
+      <small>速度／頻率：0 停止 · 1 原始速度</small>
+      <strong>攝影機</strong>
+      <div class="control">
+        <label for="camera-fov">視角 FOV</label>
+        <output id="camera-fov-value" for="camera-fov">40°</output>
+        <input id="camera-fov" type="range" min="20" max="100" step="1" value="40" disabled />
+      </div>
+    </section>
+    <details id="benchmark-panel" lang="zh-Hant" open>
+      <summary>Benchmark <span>固定步長 · A/B 比較</span></summary>
+      <div class="benchmark-body">
+        <div class="benchmark-fields">
+          <label
+            >Seed
+            <input
+              id="benchmark-seed"
+              type="number"
+              min="1"
+              max="4294967295"
+              step="1"
+              value="1831565813"
+              required
+            />
+          </label>
+          <label
+            >量測幀數
+            <input
+              id="benchmark-frames"
+              type="number"
+              min="1"
+              max="10000"
+              step="1"
+              value="1200"
+              required
+            />
+          </label>
+        </div>
+        <label class="benchmark-toggle">
+          <input id="view-culling" type="checkbox" checked />
+          視角外簡化
+        </label>
+        <small
+          >固定 1/60 秒 · 預熱 120 幀後重設 seed<br />量測期間鎖定視角、粒子參數與視窗尺寸</small
+        >
+        <small id="benchmark-gpu-support">等待 GPU…</small>
+        <div class="benchmark-buttons">
+          <button id="benchmark-start" disabled>開始量測</button>
+          <button id="benchmark-cancel" disabled>取消</button>
+          <button id="benchmark-save" disabled>儲存為基準</button>
+          <button id="benchmark-clear" disabled>清除基準</button>
+        </div>
+        <p id="benchmark-status" role="status">等待森林載入…</p>
+        <p id="benchmark-result-summary"></p>
+        <p id="benchmark-baseline-summary"></p>
+        <table aria-label="Benchmark 結果">
+          <thead>
+            <tr>
+              <th scope="col">指標</th>
+              <th scope="col">本次</th>
+              <th scope="col">基準</th>
+              <th scope="col">變化</th>
+            </tr>
+          </thead>
+          <tbody id="benchmark-values"></tbody>
+        </table>
+        <p id="benchmark-comparison"></p>
+        <small
+          >FPS 受螢幕更新率限制；GPU 耗時不含呈現與讀回。<br />固定視角量測不包含持續轉動時的排序成本。</small
+        >
+      </div>
+    </details>
+    <p id="status" role="status">Loading forest…</p>
+    <pre id="error" role="alert" hidden></pre>
+    <script type="module" src="./web/main.ts"></script>
+  </body>
+</html>

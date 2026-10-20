@@ -18,6 +18,21 @@ importers:
         specifier: ^3.5.3
         version: 3.8.3
 
+  experiments/firefly_forest:
+    devDependencies:
+      '@vitejs/plugin-basic-ssl':
+        specifier: ^2
+        version: 2.3.0(vite@6.4.2(tsx@4.23.15)(yaml@2.9.0))
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.3
+        version: 6.4.2(tsx@4.23.15)(yaml@2.9.0)
+
   experiments/particles:
     devDependencies:
       '@vitejs/plugin-basic-ssl':

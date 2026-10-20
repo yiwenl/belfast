@@ -2,5 +2,6 @@ packages:
   - "packages/belfast-wasm"
   - "web"
   - "experiments/particles"
+  - "experiments/firefly_forest"
 allowBuilds:
   esbuild: true
