@@ -172,7 +172,10 @@ impl SplatRenderer {
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                 }),
-                primitive: wgpu::PrimitiveState::default(),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleStrip,
+                    ..Default::default()
+                },
                 depth_stencil: depth_format.map(|format| wgpu::DepthStencilState {
                     format,
                     depth_write_enabled: Some(false),
@@ -209,7 +212,10 @@ impl SplatRenderer {
                     compilation_options: Default::default(),
                     targets: &[],
                 }),
-                primitive: Default::default(),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleStrip,
+                    ..Default::default()
+                },
                 depth_stencil: Some(wgpu::DepthStencilState {
                     format: crate::fireflies::DEPTH_FORMAT,
                     depth_write_enabled: Some(true),
@@ -258,7 +264,7 @@ impl SplatRenderer {
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_vertex_buffer(0, self.indices.slice(..));
-        pass.draw(0..6, 0..self.visible);
+        pass.draw(0..4, 0..self.visible);
     }
 
     /// Approximate opaque forest coverage without changing splat color blending.
@@ -266,7 +272,7 @@ impl SplatRenderer {
         pass.set_pipeline(&self.depth_pipeline);
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_vertex_buffer(0, self.indices.slice(..));
-        pass.draw(0..6, 0..self.visible);
+        pass.draw(0..4, 0..self.visible);
     }
     pub fn count(&self) -> u32 {
         self.count

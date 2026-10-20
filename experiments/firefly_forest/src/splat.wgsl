@@ -50,7 +50,7 @@ struct Vertex {
     if (abs(b) > 0.000001) { major = normalize(vec2<f32>(b, eigenvalues.x - a)); }
     else if (c > a) { major = vec2<f32>(0.0, 1.0); }
     let minor = vec2<f32>(-major.y, major.x);
-    let corners = array<vec2<f32>, 6>(vec2<f32>(-1,-1),vec2<f32>(1,-1),vec2<f32>(1,1),vec2<f32>(-1,-1),vec2<f32>(1,1),vec2<f32>(-1,1));
+    let corners = array<vec2<f32>, 4>(vec2<f32>(-1,-1),vec2<f32>(1,-1),vec2<f32>(-1,1),vec2<f32>(1,1));
     let local = corners[vertex] * 3.0;
     let offset = major * sqrt(eigenvalues.x) * local.x + minor * sqrt(eigenvalues.y) * local.y;
     out.position = vec4<f32>(clip.xy + offset * (2.0 / camera.viewport.xy) * clip.w, clip.zw);

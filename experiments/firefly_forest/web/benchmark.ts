@@ -36,6 +36,7 @@ export function createBenchmark(
   const cancel = get<HTMLButtonElement>("benchmark-cancel");
   const save = get<HTMLButtonElement>("benchmark-save");
   const clear = get<HTMLButtonElement>("benchmark-clear");
+  const download = get<HTMLAnchorElement>("benchmark-download");
   const status = get<HTMLElement>("benchmark-status");
   const comparison = get<HTMLElement>("benchmark-comparison");
   const summary = get<HTMLElement>("benchmark-result-summary");
@@ -185,6 +186,16 @@ export function createBenchmark(
           }
         : null,
     };
+    // Export after timing has ended, so serialization cannot affect samples.
+    const report = {
+      ...latest,
+      frameIntervalsMs: completed.intervals,
+      gpuFrameMs: samples,
+      gpuFrameLayout: ["total", "compute", "forest", "glow"],
+    };
+    download.href = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(report))}`;
+    download.download = `firefly-benchmark-${latest.createdAt.replaceAll(":", "-")}.json`;
+    download.hidden = false;
     run = null;
     app.endBenchmark();
     lockScene(false);
