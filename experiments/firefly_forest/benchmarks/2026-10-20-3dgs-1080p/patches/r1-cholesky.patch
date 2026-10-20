@@ -1,0 +1,35 @@
+--- a/experiments/firefly_forest/src/splat.wgsl
++++ b/experiments/firefly_forest/src/splat.wgsl
+@@ -46,7 +46,22 @@
+-    let mean = (a + c) * 0.5;
+-    let spread = length(vec2<f32>((a - c) * 0.5, b));
+-    let eigenvalues = max(vec2<f32>(mean + spread, mean - spread), vec2<f32>(0.1));
+-    var major = vec2<f32>(1.0, 0.0);
+-    if (abs(b) > 0.000001) { major = normalize(vec2<f32>(b, eigenvalues.x - a)); }
+-    else if (c > a) { major = vec2<f32>(0.0, 1.0); }
+-    let minor = vec2<f32>(-major.y, major.x);
++    var axis_x: vec2<f32>;
++    var axis_y: vec2<f32>;
++    // L * transpose(L) is the same covariance; a disk transformed by L
++    // has the same Gaussian support without an eigensystem/normalization.
++    let determinant = a * c - b * b;
++    if (a > 0.1 && c > 0.1 && (a - 0.1) * (c - 0.1) > b * b
++        && determinant > 0.00001 * a * c) {
++        let x = sqrt(a);
++        let y = b / x;
++        axis_x = vec2<f32>(x, y);
++        axis_y = vec2<f32>(0.0, sqrt(max(0.0, c - y * y)));
++    } else {
++        // Preserve the original minimum eigenvalue for degenerate/rounded data.
++        let mean = (a + c) * 0.5;
++        let spread = length(vec2<f32>((a - c) * 0.5, b));
++        let eigenvalues = max(vec2<f32>(mean + spread, mean - spread), vec2<f32>(0.1));
++        var major = vec2<f32>(1.0, 0.0);
++        if (abs(b) > 0.000001) { major = normalize(vec2<f32>(b, eigenvalues.x - a)); }
++        else if (c > a) { major = vec2<f32>(0.0, 1.0); }
++        axis_x = major * sqrt(eigenvalues.x);
++        axis_y = vec2<f32>(-major.y, major.x) * sqrt(eigenvalues.y);
++    }
+@@ -55 +70 @@
+-    let offset = major * sqrt(eigenvalues.x) * local.x + minor * sqrt(eigenvalues.y) * local.y;
++    let offset = axis_x * local.x + axis_y * local.y;

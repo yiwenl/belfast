@@ -8,6 +8,8 @@ import type { SortReply, SortRequest } from "./sort-protocol";
 import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
+const RENDER_WIDTH = 1920;
+const RENDER_HEIGHT = 1080;
 const status = document.querySelector<HTMLElement>("#status")!;
 const errorOutput = document.querySelector<HTMLElement>("#error")!;
 const sceneInfo = document.querySelector<HTMLElement>("#scene-info")!;
@@ -112,8 +114,8 @@ async function start() {
     }
     app = created;
     document.querySelector<HTMLElement>("#display-info")!.textContent = created.hdrEnabled()
-      ? "HDR 輸出"
-      : "SDR 輸出";
+      ? "1920 × 1080 · HDR 輸出"
+      : "1920 × 1080 · SDR 輸出";
     detachInput = bindOrbitInput(canvas, created);
     detachControls = bindSceneControls(created);
     benchmark = createBenchmark(created, canvas, (locked) => {
@@ -157,7 +159,8 @@ async function start() {
     function frame(timestampMs: number) {
       if (disposed) return;
       try {
-        created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
+        // Keep the drawing buffer fixed; CSS scales the 16:9 image to the window.
+        created.resize(RENDER_WIDTH, RENDER_HEIGHT, 1);
         // Use the current clock so input received earlier in this RAF is not dated in the future.
         if (!benchmark?.tick(timestampMs)) created.frame(performance.now());
         fps.tick(timestampMs);
