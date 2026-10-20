@@ -47,7 +47,54 @@ The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** co
 
 Changes update two small uniform buffers immediately, with no shader rebuild,
 particle reset or forest-cache rebuild. Color pickers use display RGB hex colors.
-Benchmark v4 records all color settings and locks these controls during a run.
+Benchmark v5 records all color and local-light settings and locks these controls during a run.
+
+## Firefly light volume
+
+The **螢火蟲照亮森林** controls enable local lighting (on by default), set
+strength (0–1×, default 0.1), world-space radius (0.25–2, default 0.9), and
+update frequency (1–120 Hz, default 30 Hz, or **每幀更新** at the slider's
+rightmost position). Every-frame mode samples the latest particle state each rendered
+frame, keeping lighting in step with the sprites; frequency is capped by actual
+rendered FPS. Benchmark metadata uses `hz: 0` for this mode. Radius uses the
+scan's scene units, not meters. A lower frequency saves updates but makes light
+transitions more stepped; for short 0.1-second flashes, increase the update
+frequency to avoid missing flashes.
+
+`light_volume.rs` renders the latest simulated particle buffer into a real
+**96 × 128 × 32 RGBA16Float 3D texture**, using X/Z/Y axis order. Four-vertex quads cover spherical light cross-sections in Y slices, reject
+unlit/out-of-slice particles in the vertex shader, and use One + One additive
+blending with a smooth finite-radius falloff. wgpu 30 currently drops
+`depth_slice` in its WebGPU backend, so blending uses a 2D array of slices;
+a single compute pass copies them into the 3D texture for trilinear sampling. More
+nearby insects contribute more light; there is no density normalization. All
+slices clear on each update so old light does not accumulate over time. The
+volume plus staging array cost **6 MiB** and include a 2-unit border around
+simulation bounds. The staging workaround can be removed after a wgpu backend
+upgrade that correctly forwards `depth_slice`.
+
+Billboards and the light volume share `firefly-appearance.wgsl`, including each
+insect's stable hue, peak multiplier and current fixed-duration flash envelope.
+There is no CPU particle readback. Updates use simulation time (the benchmark's
+fixed timestep), with cadence reset alongside the seed. Disabling lighting
+skips volume generation; enabling it or changing update frequency, radius, count or firefly
+appearance forces a fresh volume. Strength changes apply immediately.
+
+The existing forest copy pass reconstructs world coordinates from cached depth
+and the inverse camera matrix, trilinearly samples this volume, and adds warm
+light modulated by the source forest color **after** night grading. No extra
+full-screen pass or static forest-cache invalidation is required for changing
+lights. Both merged R32Float and fallback Depth32Float paths are supported.
+Volume generation is included in the benchmark's forest GPU span and whole-frame
+timing; control values are recorded and locked during measurement.
+
+This is an artistic, isotropic light field: it has no surface normals, shadows
+or light occlusion, so light can bleed through nearby geometry. The existing
+alpha-thresholded splat-center depth approximates one surface, not all translucent
+Gaussian layers. Offscreen insects still contribute their simulated emission.
+A held low-rate light snapshot may lag the visible sprites by one update interval.
+The previous 60 FPS optimization results predate this feature; use the benchmark
+to measure its cost for the chosen particle count and radius.
 
 ## Manual benchmark
 
@@ -58,8 +105,8 @@ combining translation, yaw and pitch. Each camera pose uses the fixed simulation
 frame index, so slower rendering does not change the route. The camera starts
 at the scan origin; FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
-interactive view. Path version, sorting cadence and color settings are part of
-baseline compatibility; v4 baselines are stored separately from earlier v1–v3 results.
+interactive view. Path version, sorting cadence, color and local-light settings are part of
+baseline compatibility; v5 baselines are stored separately from earlier v1–v4 results.
 Moving measurements use the same sort thresholds as interactive viewing;
 only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search
@@ -87,7 +134,7 @@ resolution baseline, remaining candidates and accepted static color cache.
 
 Results include average FPS (`N × 1000 / total milliseconds`), mean and P95 frame
 time, and mean GPU times for the whole frame, all three firefly compute passes,
-forest color/depth rendering including cache rebuild/copy, and firefly glow rendering. GPU whole-frame time
+forest color/depth rendering including cache rebuild/copy and light-volume updates, and firefly glow rendering. GPU whole-frame time
 also reports P95. It spans the first compute timestamp through the last glow
 timestamp, including inter-pass gaps but excluding presentation, timestamp
 resolve/readback and CPU work. Pass timings use `timestamp-query` when the
@@ -208,7 +255,9 @@ Deploy `dist/` as a static site, including `forest.ply`. For HTTPS preview on th
 - `src/scene.rs`: forest renderer, orbit camera, frame updates and sort request lifecycle.
 - `src/ply.rs`: binary little-endian 3DGS parsing, covariance and color packing.
 - `src/splat.rs` / `src/splat.wgsl`: projected anisotropic Gaussian ellipses and alpha blending.
-- `src/forest_color.rs` / `src/forest-color.wgsl`: same-format forest color cache and full-resolution copy.
+- `src/forest_color.rs` / `src/forest-color.wgsl`: forest cache, night grading and depth-reconstructed local lighting.
+- `src/light_volume.rs` / `src/light-volume*.wgsl`: additive 3D light field and update cadence.
+- `src/firefly-appearance.wgsl`: shared particle hue and emission for sprites and illumination.
 - `src/sorting.rs`: frustum culling, radix depth sorting and camera motion threshold.
 - `src/fireflies.rs`: particle initialization, tuning, compute dispatch and glow renderer.
 - `src/firefly-{state,update,noise,draw}.wgsl`: particle layout, flocking/phase synchronization, curl field and emissive billboards.

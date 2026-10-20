@@ -1,5 +1,6 @@
 import type { ExperimentApp } from "../pkg/experiment";
 import { colorSettings } from "./color-controls";
+import { lightSettings } from "./light-controls";
 import {
   BASELINE_KEY,
   BENCHMARK_VERSION,
@@ -73,6 +74,7 @@ export function createBenchmark(
       cameraPath: moving.checked ? "forest-loop-v1" : "static",
       sortCadence: "threshold-v1",
       colors: colorSettings(),
+      lighting: lightSettings(),
       cssSize: [canvas.clientWidth, canvas.clientHeight],
       dpr: window.devicePixelRatio,
       environment: app.benchmarkEnvironment(),
@@ -118,7 +120,7 @@ export function createBenchmark(
       ["GPU 整幀平均 ms", (r) => r.gpu?.total.mean, false],
       ["GPU 整幀 P95 ms", (r) => r.gpu?.total.p95, false],
       ["螢火蟲 compute ms", (r) => r.gpu?.compute.mean, false],
-      ["3DGS 繪製 ms", (r) => r.gpu?.forest.mean, false],
+      ["森林＋光照 ms", (r) => r.gpu?.forest.mean, false],
       ["螢火蟲繪製 ms", (r) => r.gpu?.glow.mean, false],
     ];
     rows.replaceChildren(

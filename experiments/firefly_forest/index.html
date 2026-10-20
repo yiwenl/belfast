@@ -69,6 +69,56 @@
         <output id="camera-fov-value" for="camera-fov">40°</output>
         <input id="camera-fov" type="range" min="20" max="100" step="1" value="40" disabled />
       </div>
+      <details class="lighting" open>
+        <summary>螢火蟲照亮森林</summary>
+        <div class="appearance-body">
+          <label class="benchmark-toggle">
+            <input id="light-enabled" type="checkbox" checked disabled />
+            啟用局部光照
+          </label>
+          <div class="control">
+            <label for="light-hz">光照更新頻率</label>
+            <output id="light-hz-value" for="light-hz">30 次／秒</output>
+            <input
+              id="light-hz"
+              type="range"
+              min="1"
+              max="121"
+              step="1"
+              value="30"
+              aria-valuetext="30 次／秒"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="light-strength">光照強度</label>
+            <output id="light-strength-value" for="light-strength">0.10×</output>
+            <input
+              id="light-strength"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value="0.1"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="light-radius">光照半徑</label>
+            <output id="light-radius-value" for="light-radius">0.90</output>
+            <input
+              id="light-radius"
+              type="range"
+              min="0.25"
+              max="2"
+              step="0.05"
+              value="0.9"
+              disabled
+            />
+          </div>
+          <small>頻率拉到最右：每幀更新。往左可選 1–120 次／秒，以降低光照更新成本。</small>
+        </div>
+      </details>
       <details class="appearance" open>
         <summary>森林調色</summary>
         <div class="appearance-body">

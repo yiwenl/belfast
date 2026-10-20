@@ -6,6 +6,7 @@ use crate::{
     forest_color::ForestColor,
     gpu_timing::{render_timestamps, GpuTiming},
     input::SkeletonInput,
+    light_volume::LightVolume,
     ply::GaussianCloud,
     sorting::{SortCamera, SortGate},
     splat::SplatRenderer,
@@ -23,6 +24,7 @@ pub struct Scene {
     pending_sort: Option<SortCamera>,
     fireflies: FireflySystem,
     forest_color: ForestColor,
+    light_volume: LightVolume,
     depth: wgpu::TextureView,
     depth_size: [u32; 2],
     forest_camera: Option<SortCamera>,
@@ -48,6 +50,8 @@ impl Scene {
         let depth = depth_view(device, [1, 1]);
         let mut fireflies = FireflySystem::new(device);
         fireflies.set_occlusion(device, &depth);
+        let light_volume = LightVolume::new(device, &fireflies);
+        let forest_color = ForestColor::new(device, &light_volume, &depth);
         Ok(Self {
             camera,
             control,
@@ -58,7 +62,8 @@ impl Scene {
             sort_gate: SortGate::default(),
             pending_sort: None,
             fireflies,
-            forest_color: ForestColor::new(device),
+            forest_color,
+            light_volume,
             depth,
             depth_size: [1, 1],
             forest_camera: None,
@@ -147,6 +152,7 @@ impl Scene {
     }
 
     pub fn set_firefly_count(&mut self, count: u32) -> u32 {
+        self.light_volume.invalidate();
         self.fireflies.set_count(count)
     }
 
@@ -170,7 +176,7 @@ impl Scene {
     }
 
     pub fn set_firefly_appearance(
-        &self,
+        &mut self,
         device: &Device,
         min_peak: f32,
         max_peak: f32,
@@ -178,7 +184,21 @@ impl Scene {
         colors: &[f32],
     ) -> Result<(), String> {
         self.fireflies
-            .set_appearance(device, min_peak, max_peak, warm_share, colors)
+            .set_appearance(device, min_peak, max_peak, warm_share, colors)?;
+        self.light_volume.invalidate();
+        Ok(())
+    }
+
+    pub fn set_light_volume(
+        &mut self,
+        device: &Device,
+        enabled: bool,
+        strength: f32,
+        radius: f32,
+        hz: f32,
+    ) -> Result<(), String> {
+        self.light_volume
+            .configure(device, enabled, strength, radius, hz)
     }
 
     pub fn begin_benchmark(&mut self, device: &Device, seed: u32, moving: bool) {
@@ -196,6 +216,7 @@ impl Scene {
         // Force a sort of this exact view even below the ordinary motion threshold.
         self.sort_gate = SortGate::default();
         self.fireflies.reset(device, seed);
+        self.light_volume.invalidate();
     }
 
     // forest-loop-v1: 20 seconds / 1200 fixed steps, never driven by wall time.
@@ -220,6 +241,7 @@ impl Scene {
     pub fn reset_benchmark(&mut self, device: &Device, seed: u32, frames: u32) {
         self.benchmark_path_started = true;
         self.fireflies.reset(device, seed);
+        self.light_volume.invalidate();
         self.gpu_timing = device
             .gpu()
             .features()
@@ -272,7 +294,8 @@ impl Scene {
         if self.depth_size != self.viewport {
             self.depth = depth_view(device, self.viewport);
             self.fireflies.set_occlusion(device, &self.depth);
-            self.forest_color.resize(device, self.viewport);
+            self.forest_color
+                .resize(device, self.viewport, &self.light_volume, &self.depth);
             self.depth_size = self.viewport;
             self.forest_dirty = true;
         }
@@ -283,6 +306,8 @@ impl Scene {
             self.forest_dirty = true;
         }
         self.fireflies.update(device, delta_seconds, &camera);
+        self.forest_color.update_camera(device, &camera);
+        self.light_volume.advance(delta_seconds);
         if let Some(splats) = &self.splats {
             splats.update_camera(device, &camera);
         }
@@ -326,6 +351,10 @@ impl Scene {
                 splats.draw_depth(&mut pass);
             }
         }
+        let light_updated = self.splats.is_some()
+            && self
+                .light_volume
+                .render(&mut encoder, &self.fireflies, queries);
         if self.forest_dirty {
             let attachments = [
                 Some(wgpu::RenderPassColorAttachment {
@@ -351,11 +380,13 @@ impl Scene {
                 label: Some("ForestGaussians"),
                 color_attachments: &attachments[..if merged { 2 } else { 1 }],
                 depth_stencil_attachment: None,
-                // Start the forest span before rebuilding; finish after copying.
-                timestamp_writes: queries.map(|query_set| wgpu::RenderPassTimestampWrites {
-                    query_set,
-                    beginning_of_pass_write_index: Some(8),
-                    end_of_pass_write_index: None,
+                // Volume updates start this span earlier; finish after copying.
+                timestamp_writes: queries.filter(|_| !light_updated).map(|query_set| {
+                    wgpu::RenderPassTimestampWrites {
+                        query_set,
+                        beginning_of_pass_write_index: Some(8),
+                        end_of_pass_write_index: None,
+                    }
                 }),
                 occlusion_query_set: None,
                 multiview_mask: None,
@@ -379,7 +410,8 @@ impl Scene {
                 depth_stencil_attachment: None,
                 timestamp_writes: queries.map(|query_set| wgpu::RenderPassTimestampWrites {
                     query_set,
-                    beginning_of_pass_write_index: (!self.forest_dirty).then_some(8),
+                    beginning_of_pass_write_index: (!self.forest_dirty && !light_updated)
+                        .then_some(8),
                     end_of_pass_write_index: Some(9),
                 }),
                 occlusion_query_set: None,

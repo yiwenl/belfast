@@ -18,9 +18,10 @@ const BODY_RADIUS: f32 = 0.012;
 // Covers the largest glow billboard as well as its diagonal.
 const VIEW_SPRITE_MARGIN: f32 = 0.1;
 const DEFAULT_FLASH_DURATION_SECONDS: f32 = 1.5;
-const STATE_SHADER: &str = include_str!("firefly-state.wgsl");
+pub(crate) const STATE_SHADER: &str = include_str!("firefly-state.wgsl");
 const NOISE_SHADER: &str = include_str!("firefly-noise.wgsl");
 const UPDATE_SHADER: &str = include_str!("firefly-update.wgsl");
+pub(crate) const APPEARANCE_SHADER: &str = include_str!("firefly-appearance.wgsl");
 const DRAW_SHADER: &str = include_str!("firefly-draw.wgsl");
 
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
@@ -127,7 +128,7 @@ fn simulation_shader() -> String {
     format!("{STATE_SHADER}\n{NOISE_SHADER}\n{UPDATE_SHADER}")
 }
 fn draw_shader() -> String {
-    format!("{STATE_SHADER}\n{DRAW_SHADER}")
+    format!("{STATE_SHADER}\n{APPEARANCE_SHADER}\n{DRAW_SHADER}")
 }
 
 pub struct FireflySystem {
@@ -382,6 +383,21 @@ impl FireflySystem {
             pending_dt: 0.,
             view_culling: true,
         }
+    }
+
+    pub(crate) fn light_sources(&self) -> ([&wgpu::Buffer; 2], &wgpu::Buffer) {
+        (
+            [self.states[0].gpu(), self.states[1].gpu()],
+            &self.appearance,
+        )
+    }
+
+    pub(crate) fn light_bounds(&self) -> ([f32; 3], [f32; 3], u32) {
+        (self.settings.min, self.settings.max, self.capacity)
+    }
+
+    pub(crate) fn light_state(&self) -> (usize, u32) {
+        (self.current, self.count)
     }
 
     pub fn set_count(&mut self, count: u32) -> u32 {

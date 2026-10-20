@@ -1,3 +1,8 @@
+use crate::{
+    fireflies::merged_depth,
+    light_volume::{LightVolume, PARAMS_SHADER},
+    sorting::SortCamera,
+};
 use belfast::Device;
 use wgpu::util::DeviceExt;
 
@@ -8,10 +13,11 @@ pub struct ForestColor {
     layout: wgpu::BindGroupLayout,
     pipeline: wgpu::RenderPipeline,
     grade: wgpu::Buffer,
+    inverse_camera: wgpu::Buffer,
 }
 
 impl ForestColor {
-    pub fn new(device: &Device) -> Self {
+    pub fn new(device: &Device, lights: &LightVolume, depth: &wgpu::TextureView) -> Self {
         let layout = device
             .gpu()
             .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -37,13 +43,65 @@ impl ForestColor {
                         },
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D3,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 5,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: if merged_depth(device) { 6 } else { 7 },
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: if merged_depth(device) {
+                                wgpu::TextureSampleType::Float { filterable: false }
+                            } else {
+                                wgpu::TextureSampleType::Depth
+                            },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
                 ],
             });
         let shader = device
             .gpu()
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("ForestColorCopyShader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("forest-color.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(
+                    format!("{PARAMS_SHADER}\n{}", include_str!("forest-color.wgsl")).into(),
+                ),
             });
         let pipeline_layout =
             device
@@ -66,7 +124,11 @@ impl ForestColor {
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
-                    entry_point: Some("fs_main"),
+                    entry_point: Some(if merged_depth(device) {
+                        "fs_main"
+                    } else {
+                        "fs_depth"
+                    }),
                     compilation_options: wgpu::PipelineCompilationOptions {
                         constants: &[(
                             "srgb_attachment",
@@ -98,13 +160,29 @@ impl ForestColor {
                 ]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
-        let (view, bind_group) = Self::target(device, &layout, &grade, [1, 1]);
+        let inverse_camera = device
+            .gpu()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("ForestInverseCamera"),
+                contents: bytemuck::cast_slice(&glam::Mat4::IDENTITY.to_cols_array()),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+        let (view, bind_group) = Self::target(
+            device,
+            &layout,
+            &grade,
+            &inverse_camera,
+            lights,
+            depth,
+            [1, 1],
+        );
         Self {
             view,
             bind_group,
             layout,
             pipeline,
             grade,
+            inverse_camera,
         }
     }
 
@@ -112,6 +190,9 @@ impl ForestColor {
         device: &Device,
         layout: &wgpu::BindGroupLayout,
         grade: &wgpu::Buffer,
+        inverse_camera: &wgpu::Buffer,
+        lights: &LightVolume,
+        depth: &wgpu::TextureView,
         size: [u32; 2],
     ) -> (wgpu::TextureView, wgpu::BindGroup) {
         let texture = device.gpu().create_texture(&wgpu::TextureDescriptor {
@@ -141,13 +222,54 @@ impl ForestColor {
                     binding: 1,
                     resource: grade.as_entire_binding(),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&lights.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&lights.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: lights.params.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: inverse_camera.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: if merged_depth(device) { 6 } else { 7 },
+                    resource: wgpu::BindingResource::TextureView(depth),
+                },
             ],
         });
         (view, bind_group)
     }
 
-    pub fn resize(&mut self, device: &Device, size: [u32; 2]) {
-        (self.view, self.bind_group) = Self::target(device, &self.layout, &self.grade, size);
+    pub fn resize(
+        &mut self,
+        device: &Device,
+        size: [u32; 2],
+        lights: &LightVolume,
+        depth: &wgpu::TextureView,
+    ) {
+        (self.view, self.bind_group) = Self::target(
+            device,
+            &self.layout,
+            &self.grade,
+            &self.inverse_camera,
+            lights,
+            depth,
+            size,
+        );
+    }
+
+    pub fn update_camera(&self, device: &Device, camera: &SortCamera) {
+        let inverse = (camera.projection * camera.view).inverse().to_cols_array();
+        device
+            .queue()
+            .write_buffer(&self.inverse_camera, 0, bytemuck::cast_slice(&inverse));
     }
 
     pub fn set_grade(

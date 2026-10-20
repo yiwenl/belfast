@@ -63,7 +63,11 @@ impl ExperimentApp {
         let gpu_error = Arc::new(Mutex::new(None));
         let pending = gpu_error.clone();
         gpu.on_uncaptured_error(Arc::new(move |error| {
-            *pending.lock().unwrap() = Some(error.to_string());
+            // Preserve the cause instead of a later invalid-command-buffer cascade.
+            pending
+                .lock()
+                .unwrap()
+                .get_or_insert_with(|| error.to_string());
         }));
         let pending = gpu_error.clone();
         gpu.set_device_lost_callback(move |reason, message| {
@@ -370,7 +374,7 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setFireflyAppearance)]
     pub fn set_firefly_appearance(
-        &self,
+        &mut self,
         min_peak: f32,
         max_peak: f32,
         warm_share: f32,
@@ -378,6 +382,19 @@ impl ExperimentApp {
     ) -> Result<(), JsValue> {
         self.scene
             .set_firefly_appearance(&self.device, min_peak, max_peak, warm_share, colors)
+            .map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setLightVolume)]
+    pub fn set_light_volume(
+        &mut self,
+        enabled: bool,
+        strength: f32,
+        radius: f32,
+        hz: f32,
+    ) -> Result<(), JsValue> {
+        self.scene
+            .set_light_volume(&self.device, enabled, strength, radius, hz)
             .map_err(js_error)
     }
 

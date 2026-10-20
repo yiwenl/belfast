@@ -112,7 +112,8 @@ aside span {
   font-size: 11px;
 }
 
-.appearance summary {
+.appearance summary,
+.lighting summary {
   color: #edf4c7;
   font-size: 13px;
   cursor: pointer;
