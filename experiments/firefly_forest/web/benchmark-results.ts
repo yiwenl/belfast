@@ -1,10 +1,11 @@
 import { validLightSettings, type LightSettings } from "./light-controls";
 import { validColorSettings, type ColorSettings } from "./color-controls";
+import { validFogSettings, type FogSettings } from "./fog-controls";
 
-export const BENCHMARK_VERSION = 5;
+export const BENCHMARK_VERSION = 6;
 export const WARMUP_FRAMES = 120;
 export const FIXED_DT = 1 / 60;
-export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v5";
+export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v6";
 
 export interface BenchmarkConfig {
   seed: number;
@@ -21,6 +22,7 @@ export interface BenchmarkConfig {
   sortCadence: "threshold-v1";
   colors: ColorSettings;
   lighting: LightSettings;
+  fog: FogSettings;
   cssSize: number[];
   dpr: number;
   environment: string;
@@ -74,6 +76,7 @@ const labels: Record<keyof BenchmarkConfig, string> = {
   sortCadence: "排序規則",
   colors: "調色設定",
   lighting: "局部光照設定",
+  fog: "體積霧設定",
   cssSize: "視窗尺寸",
   dpr: "像素比例",
   environment: "GPU／輸出模式",
@@ -126,6 +129,7 @@ export function parseBaseline(raw: string): BenchmarkResult {
     c.sortCadence !== "threshold-v1" ||
     !validColorSettings(c.colors) ||
     !validLightSettings(c.lighting) ||
+    !validFogSettings(c.fog) ||
     !Array.isArray(c.camera) ||
     c.camera.length !== 34 ||
     !c.camera.every(finite) ||

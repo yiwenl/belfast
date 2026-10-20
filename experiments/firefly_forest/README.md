@@ -10,6 +10,17 @@ The static forest color and occlusion depth are cached together. Camera, FOV, vi
 
 This optimization benefits a stationary camera. While the camera moves, the forest still renders every changed frame and also incurs the copy pass; the fixed-camera benchmark does not establish moving-camera performance. Firefly simulation and glow continue every frame.
 
+Forest splats whose centers are within **0.5 scene units in front of the camera**
+are clipped in the vertex shader, before covariance projection. From **0.5 to
+1.0 units**, opacity smoothly increases to its original value to avoid a hard
+pop as the camera moves. Both merged and separate occlusion passes use this
+faded opacity, including the separate depth pass's ellipse bounds, so hidden
+splats do not leave invisible occluders or near-surface light-map samples.
+The distances use camera-space forward depth and can be adjusted with
+`NEAR_HIDE_DISTANCE` / `NEAR_VISIBLE_DISTANCE` in `src/splat.wgsl`. Firefly
+billboards are unaffected; the worker's visible count still includes these
+near-camera splats because clipping happens on the GPU.
+
 ## HDR output
 
 The renderer requests HDR through Belfast's surface selection helper. Supported browsers use an `rgba16float` canvas with `ExtendedSrgb` (`toneMapping.mode: "extended"`), preserving additive firefly emission above SDR white instead of clamping it to `1.0`. The firefly shader's base peak multiplier is **3.0** for HDR, compared with **1.8** for the SDR fallback, before applying each insect's brightness variation. The existing flash envelope and timings are unchanged.
@@ -47,11 +58,46 @@ The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** co
 
 Changes update two small uniform buffers immediately, with no shader rebuild,
 particle reset or forest-cache rebuild. Color pickers use display RGB hex colors.
-Benchmark v5 records all color and local-light settings and locks these controls during a run.
+Benchmark v6 records all color, local-light and fog settings and locks these controls during a run.
+
+## Animated volumetric fog
+
+The **體積霧** controls toggle fog, density (0–0.2, default 0.06), animation
+speed (0–2×, default 1) and light intensity (0–4×, default 0.7). Speed zero freezes
+the density field. A blue light at **(0, 2.2, -10)** shines from the brighter
+front opening toward the foreground. The position and cone direction are in
+`src/fog.rs` and `src/fog.wgsl`; these are scan units rather than meters.
+
+Each frame ray marches at **480 × 270** for a 1920 × 1080 canvas (one quarter
+in each dimension), with **32 midpoint samples** over at most 32 scene units.
+The existing forest depth stops the camera ray at a visible surface. A seeded
+32³ noise texture, sampled at two scales with slow world-space wind, animates
+the density without CPU texture uploads. Height falloff, Beer–Lambert
+transmittance and forward scattering give the light volume depth and motion.
+Depth-aware four-tap upsampling composites scattering/transmittance in the
+existing forest-copy pass, after grading. Fog animation does not invalidate
+the static forest cache. Additional textures occupy about **1.52 MiB** at 1080p.
+
+Firefly local lighting is **off by default** and can still be enabled separately.
+Fog does not sample the firefly light volume; sprites retain their existing
+emission and are drawn afterward. This first version uses approximate splat
+surface depth and an unshadowed broad light cone, without light-space occlusion,
+multi-scattering or fog attenuation of firefly sprites. Thin geometry may show
+depth-upsample artifacts. It is an artistic approximation in the renderer's
+existing display-RGB pipeline, not calibrated physical lighting.
+
+The fog clock resets with the benchmark seed and advances by fixed simulation
+steps during measurement. Its GPU work is included in **森林＋光照＋霧 ms** and
+total GPU time. Disable **啟用體積霧** to compare against the same scene without
+ray marching. The design targets an approximately 10 FPS cost; use matched
+moving-camera measurements to establish the actual cost on a given GPU.
+The [first fog measurements](benchmarks/2026-10-20-volumetric-fog/README.md)
+record **68.73 → 65.92 FPS** with fog enabled, a **2.82 FPS** drop and
+**0.49 ms** additional whole-frame GPU time for the paired route/settings.
 
 ## Firefly light volume
 
-The **螢火蟲照亮森林** controls enable local lighting (on by default), set
+The **螢火蟲照亮森林** controls enable local lighting (off by default), set
 strength (0–1×, default 0.1), world-space radius (0.25–2, default 0.9), and
 update frequency (1–120 Hz, default 30 Hz, or **每幀更新** at the slider's
 rightmost position). Every-frame mode samples the latest particle state each rendered
@@ -105,8 +151,8 @@ combining translation, yaw and pitch. Each camera pose uses the fixed simulation
 frame index, so slower rendering does not change the route. The camera starts
 at the scan origin; FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
-interactive view. Path version, sorting cadence, color and local-light settings are part of
-baseline compatibility; v5 baselines are stored separately from earlier v1–v4 results.
+interactive view. Path version, sorting cadence, color, local-light and fog settings are part of
+baseline compatibility; v6 baselines are stored separately from earlier v1–v5 results.
 Moving measurements use the same sort thresholds as interactive viewing;
 only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search
@@ -257,6 +303,7 @@ Deploy `dist/` as a static site, including `forest.ply`. For HTTPS preview on th
 - `src/splat.rs` / `src/splat.wgsl`: projected anisotropic Gaussian ellipses and alpha blending.
 - `src/forest_color.rs` / `src/forest-color.wgsl`: forest cache, night grading and depth-reconstructed local lighting.
 - `src/light_volume.rs` / `src/light-volume*.wgsl`: additive 3D light field and update cadence.
+- `src/fog.rs` / `src/fog*.wgsl`: animated low-resolution volumetric scattering and depth guide.
 - `src/firefly-appearance.wgsl`: shared particle hue and emission for sprites and illumination.
 - `src/sorting.rs`: frustum culling, radix depth sorting and camera motion threshold.
 - `src/fireflies.rs`: particle initialization, tuning, compute dispatch and glow renderer.

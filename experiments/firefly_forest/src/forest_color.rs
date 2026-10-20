@@ -1,5 +1,6 @@
 use crate::{
     fireflies::merged_depth,
+    fog::{Fog, PARAMS_SHADER as FOG_PARAMS_SHADER},
     light_volume::{LightVolume, PARAMS_SHADER},
     sorting::SortCamera,
 };
@@ -17,7 +18,12 @@ pub struct ForestColor {
 }
 
 impl ForestColor {
-    pub fn new(device: &Device, lights: &LightVolume, depth: &wgpu::TextureView) -> Self {
+    pub fn new(
+        device: &Device,
+        lights: &LightVolume,
+        fog: &Fog,
+        depth: &wgpu::TextureView,
+    ) -> Self {
         let layout = device
             .gpu()
             .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -93,6 +99,36 @@ impl ForestColor {
                         },
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 8,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 9,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 10,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
                 ],
             });
         let shader = device
@@ -100,7 +136,11 @@ impl ForestColor {
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("ForestColorCopyShader"),
                 source: wgpu::ShaderSource::Wgsl(
-                    format!("{PARAMS_SHADER}\n{}", include_str!("forest-color.wgsl")).into(),
+                    format!(
+                        "{PARAMS_SHADER}\n{FOG_PARAMS_SHADER}\n{}",
+                        include_str!("forest-color.wgsl")
+                    )
+                    .into(),
                 ),
             });
         let pipeline_layout =
@@ -173,6 +213,7 @@ impl ForestColor {
             &grade,
             &inverse_camera,
             lights,
+            fog,
             depth,
             [1, 1],
         );
@@ -192,6 +233,7 @@ impl ForestColor {
         grade: &wgpu::Buffer,
         inverse_camera: &wgpu::Buffer,
         lights: &LightVolume,
+        fog: &Fog,
         depth: &wgpu::TextureView,
         size: [u32; 2],
     ) -> (wgpu::TextureView, wgpu::BindGroup) {
@@ -242,6 +284,18 @@ impl ForestColor {
                     binding: if merged_depth(device) { 6 } else { 7 },
                     resource: wgpu::BindingResource::TextureView(depth),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 8,
+                    resource: wgpu::BindingResource::TextureView(&fog.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 9,
+                    resource: wgpu::BindingResource::TextureView(&fog.distance),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 10,
+                    resource: fog.params.as_entire_binding(),
+                },
             ],
         });
         (view, bind_group)
@@ -252,6 +306,7 @@ impl ForestColor {
         device: &Device,
         size: [u32; 2],
         lights: &LightVolume,
+        fog: &Fog,
         depth: &wgpu::TextureView,
     ) {
         (self.view, self.bind_group) = Self::target(
@@ -260,6 +315,7 @@ impl ForestColor {
             &self.grade,
             &self.inverse_camera,
             lights,
+            fog,
             depth,
             size,
         );

@@ -69,11 +69,44 @@
         <output id="camera-fov-value" for="camera-fov">40°</output>
         <input id="camera-fov" type="range" min="20" max="100" step="1" value="40" disabled />
       </div>
-      <details class="lighting" open>
+      <details class="fog" open>
+        <summary>體積霧</summary>
+        <div class="appearance-body">
+          <label class="benchmark-toggle">
+            <input id="fog-enabled" type="checkbox" checked disabled />
+            啟用體積霧
+          </label>
+          <div class="control">
+            <label for="fog-density">霧的濃度</label>
+            <output id="fog-density-value" for="fog-density">0.060</output>
+            <input
+              id="fog-density"
+              type="range"
+              min="0"
+              max="0.2"
+              step="0.005"
+              value="0.06"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="fog-speed">霧的流動速度</label>
+            <output id="fog-speed-value" for="fog-speed">1.00×</output>
+            <input id="fog-speed" type="range" min="0" max="2" step="0.05" value="1" disabled />
+          </div>
+          <div class="control">
+            <label for="fog-light">霧的光源強度</label>
+            <output id="fog-light-value" for="fog-light">0.70×</output>
+            <input id="fog-light" type="range" min="0" max="4" step="0.05" value="0.7" disabled />
+          </div>
+          <small>光從前方林間開口照入。速度 0：停止流動。</small>
+        </div>
+      </details>
+      <details class="lighting">
         <summary>螢火蟲照亮森林</summary>
         <div class="appearance-body">
           <label class="benchmark-toggle">
-            <input id="light-enabled" type="checkbox" checked disabled />
+            <input id="light-enabled" type="checkbox" disabled />
             啟用局部光照
           </label>
           <div class="control">

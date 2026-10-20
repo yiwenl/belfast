@@ -8,6 +8,9 @@ struct Camera {
 @group(0) @binding(1) var positions: texture_2d<f32>;
 @group(0) @binding(2) var attributes: texture_2d<u32>;
 
+const NEAR_HIDE_DISTANCE: f32 = 0.5;
+const NEAR_VISIBLE_DISTANCE: f32 = 1.0;
+
 struct Vertex {
     @builtin(position) position: vec4<f32>,
     @location(0) gaussian: vec2<f32>,
@@ -21,10 +24,16 @@ fn project(vertex: u32, index: u32, depth_only: bool) -> Vertex {
     let uv = vec2<i32>(i32(index % size.x), i32(index / size.x));
     let p = textureLoad(positions, uv, 0);
     let center = camera.view * vec4<f32>(p.xyz, 1.0);
+    let depth = -center.z;
+    if depth <= NEAR_HIDE_DISTANCE { return out; }
     let clip = camera.projection * center;
     if (clip.w <= 0.0 || clip.z < 0.0 || clip.z > clip.w) { return out; }
 
     let packed = textureLoad(attributes, uv, 0);
+    var color = unpack4x8unorm(packed.w);
+    // Fade color and occlusion together so hidden foreground leaves no invisible wall.
+    color.a *= smoothstep(NEAR_HIDE_DISTANCE, NEAR_VISIBLE_DISTANCE, depth);
+    if depth_only && color.a < 0.3 { return out; }
     let xy = unpack2x16float(packed.x);
     let zw = unpack2x16float(packed.y);
     let uv_cov = unpack2x16float(packed.z);
@@ -34,7 +43,6 @@ fn project(vertex: u32, index: u32, depth_only: bool) -> Vertex {
         vec3<f32>(zw.x, uv_cov.x, uv_cov.y)
     ) * p.w;
     let focal = vec2<f32>(camera.projection[0][0], camera.projection[1][1]) * camera.viewport.xy * 0.5;
-    let depth = -center.z;
     // Limit the off-axis Jacobian for Gaussians intersecting the viewport edges.
     let slope = clamp(center.xy / depth, -1.3 / vec2<f32>(camera.projection[0][0], camera.projection[1][1]), 1.3 / vec2<f32>(camera.projection[0][0], camera.projection[1][1]));
     let rotation = mat3x3<f32>(camera.view[0].xyz, camera.view[1].xyz, camera.view[2].xyz);
@@ -54,14 +62,14 @@ fn project(vertex: u32, index: u32, depth_only: bool) -> Vertex {
     var extent = 3.0;
     if depth_only {
         // Bound the existing alpha >= 0.3 contour, with conservative rounding padding.
-        let alpha = unpack4x8unorm(packed.w).a;
+        let alpha = color.a;
         extent = min(3.0, sqrt(max(0.0, 2.0 * log(max(alpha, 0.000001) / 0.3))) + 0.001);
     }
     let local = corners[vertex] * extent;
     let offset = major * sqrt(eigenvalues.x) * local.x + minor * sqrt(eigenvalues.y) * local.y;
     out.position = vec4<f32>(clip.xy + offset * (2.0 / camera.viewport.xy) * clip.w, clip.zw);
     out.gaussian = local;
-    out.color = unpack4x8unorm(packed.w);
+    out.color = color;
     if (camera.viewport.z > 0.5) {
         // SH DC is display RGB; avoid applying the attachment's sRGB curve twice.
         let rgb = out.color.rgb;

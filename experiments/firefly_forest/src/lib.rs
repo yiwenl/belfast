@@ -1,4 +1,5 @@
 pub mod fireflies;
+mod fog;
 mod forest_color;
 pub mod gpu_timing;
 pub mod input;

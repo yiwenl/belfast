@@ -13,6 +13,38 @@ struct Grade {
 @group(0) @binding(5) var<uniform> inverse_camera: mat4x4<f32>;
 @group(0) @binding(6) var merged_depth: texture_2d<f32>;
 @group(0) @binding(7) var fallback_depth: texture_depth_2d;
+@group(0) @binding(8) var fog_scattering: texture_2d<f32>;
+@group(0) @binding(9) var fog_distance: texture_2d<f32>;
+@group(0) @binding(10) var<uniform> fog: FogParams;
+
+fn atmospheric_scattering(position: vec2<f32>, depth: f32) -> vec4<f32> {
+    if fog.controls.w == 0. { return vec4(0., 0., 0., 1.); }
+    let uv = position / vec2<f32>(textureDimensions(forest));
+    var distance = fog.light_position.w;
+    if depth < 1. {
+        let surface = fog.inverse_camera * vec4(uv.x * 2. - 1., 1. - uv.y * 2., depth, 1.);
+        distance = min(distance, length(surface.xyz / surface.w - fog.eye_time.xyz));
+    }
+    let size = vec2<i32>(textureDimensions(fog_scattering));
+    let point = uv * vec2<f32>(size) - 0.5;
+    let base = vec2<i32>(floor(point));
+    let fraction = fract(point);
+    var result = vec4(0.);
+    var weight_sum = 0.;
+    // Bilateral upsampling keeps distant mist off nearby tree silhouettes.
+    for (var y = 0; y < 2; y += 1) {
+        for (var x = 0; x < 2; x += 1) {
+            let pixel = clamp(base + vec2(x, y), vec2(0), size - 1);
+            let guide = textureLoad(fog_distance, pixel, 0).r;
+            let spatial = select(1. - fraction, fraction, vec2(x, y) == vec2(1));
+            let weight = spatial.x * spatial.y * exp(-abs(guide - distance) / max(0.15, distance * 0.04));
+            result += textureLoad(fog_scattering, pixel, 0) * weight;
+            weight_sum += weight;
+        }
+    }
+    if weight_sum < 0.0001 { return vec4(0., 0., 0., 1.); }
+    return result / weight_sum;
+}
 
 fn lighting(position: vec2<f32>, depth: f32) -> vec3<f32> {
     if volume.extent_strength.w <= 0. || depth >= 1. { return vec3(0.); }
@@ -54,6 +86,8 @@ fn shade_forest(position: vec4<f32>, depth: f32) -> vec4<f32> {
     rgb = mix(rgb, night_grade(rgb), grade.params.x) * grade.params.y;
     // shortcut: the nearest opaque-enough splat supplies one surface, not translucent layers or normals.
     rgb += lighting(position.xy, depth) * albedo;
+    let atmosphere = atmospheric_scattering(position.xy, depth);
+    rgb = rgb * atmosphere.a + atmosphere.rgb;
     if srgb_attachment {
         rgb = select(rgb / 12.92, pow((rgb + 0.055) / 1.055, vec3(2.4)), rgb > vec3(0.04045));
     }

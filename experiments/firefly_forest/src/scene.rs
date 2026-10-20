@@ -3,6 +3,7 @@ use glam::Mat4;
 
 use crate::{
     fireflies::{depth_view, merged_depth, FireflySystem},
+    fog::Fog,
     forest_color::ForestColor,
     gpu_timing::{render_timestamps, GpuTiming},
     input::SkeletonInput,
@@ -25,6 +26,7 @@ pub struct Scene {
     fireflies: FireflySystem,
     forest_color: ForestColor,
     light_volume: LightVolume,
+    fog: Fog,
     depth: wgpu::TextureView,
     depth_size: [u32; 2],
     forest_camera: Option<SortCamera>,
@@ -51,7 +53,8 @@ impl Scene {
         let mut fireflies = FireflySystem::new(device);
         fireflies.set_occlusion(device, &depth);
         let light_volume = LightVolume::new(device, &fireflies);
-        let forest_color = ForestColor::new(device, &light_volume, &depth);
+        let fog = Fog::new(device, &depth);
+        let forest_color = ForestColor::new(device, &light_volume, &fog, &depth);
         Ok(Self {
             camera,
             control,
@@ -64,6 +67,7 @@ impl Scene {
             fireflies,
             forest_color,
             light_volume,
+            fog,
             depth,
             depth_size: [1, 1],
             forest_camera: None,
@@ -201,6 +205,16 @@ impl Scene {
             .configure(device, enabled, strength, radius, hz)
     }
 
+    pub fn set_fog(
+        &mut self,
+        enabled: bool,
+        density: f32,
+        speed: f32,
+        light: f32,
+    ) -> Result<(), String> {
+        self.fog.configure(enabled, density, speed, light)
+    }
+
     pub fn begin_benchmark(&mut self, device: &Device, seed: u32, moving: bool) {
         // Finish orbital damping before capturing the view, so a completed run
         // does not resume old camera motion and invalidate the next A/B run.
@@ -216,6 +230,7 @@ impl Scene {
         // Force a sort of this exact view even below the ordinary motion threshold.
         self.sort_gate = SortGate::default();
         self.fireflies.reset(device, seed);
+        self.fog.reset();
         self.light_volume.invalidate();
     }
 
@@ -241,6 +256,7 @@ impl Scene {
     pub fn reset_benchmark(&mut self, device: &Device, seed: u32, frames: u32) {
         self.benchmark_path_started = true;
         self.fireflies.reset(device, seed);
+        self.fog.reset();
         self.light_volume.invalidate();
         self.gpu_timing = device
             .gpu()
@@ -294,8 +310,14 @@ impl Scene {
         if self.depth_size != self.viewport {
             self.depth = depth_view(device, self.viewport);
             self.fireflies.set_occlusion(device, &self.depth);
-            self.forest_color
-                .resize(device, self.viewport, &self.light_volume, &self.depth);
+            self.fog.resize(device, self.viewport, &self.depth);
+            self.forest_color.resize(
+                device,
+                self.viewport,
+                &self.light_volume,
+                &self.fog,
+                &self.depth,
+            );
             self.depth_size = self.viewport;
             self.forest_dirty = true;
         }
@@ -307,6 +329,7 @@ impl Scene {
         }
         self.fireflies.update(device, delta_seconds, &camera);
         self.forest_color.update_camera(device, &camera);
+        self.fog.update(device, &camera, delta_seconds);
         self.light_volume.advance(delta_seconds);
         if let Some(splats) = &self.splats {
             splats.update_camera(device, &camera);
@@ -395,6 +418,11 @@ impl Scene {
                 splats.draw(&mut pass);
             }
         }
+        // Fog uses the current depth, while its animation leaves the forest cache valid.
+        let fog_rendered = self.fog.render(
+            &mut encoder,
+            queries.filter(|_| !self.forest_dirty && !light_updated),
+        );
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("ForestColorCopy"),
@@ -410,7 +438,9 @@ impl Scene {
                 depth_stencil_attachment: None,
                 timestamp_writes: queries.map(|query_set| wgpu::RenderPassTimestampWrites {
                     query_set,
-                    beginning_of_pass_write_index: (!self.forest_dirty && !light_updated)
+                    beginning_of_pass_write_index: (!self.forest_dirty
+                        && !light_updated
+                        && !fog_rendered)
                         .then_some(8),
                     end_of_pass_write_index: Some(9),
                 }),

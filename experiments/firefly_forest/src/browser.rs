@@ -398,6 +398,19 @@ impl ExperimentApp {
             .map_err(js_error)
     }
 
+    #[wasm_bindgen(js_name = setFog)]
+    pub fn set_fog(
+        &mut self,
+        enabled: bool,
+        density: f32,
+        speed: f32,
+        light: f32,
+    ) -> Result<(), JsValue> {
+        self.scene
+            .set_fog(enabled, density, speed, light)
+            .map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = takeSortPositions)]
     pub fn take_sort_positions(&mut self) -> Vec<f32> {
         self.scene.take_sort_positions()

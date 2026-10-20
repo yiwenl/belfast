@@ -47,7 +47,7 @@ impl LightVolume {
                 max[0] - min[0] + 2. * MAX_RADIUS,
                 max[1] - min[1] + 2. * MAX_RADIUS,
                 max[2] - min[2] + 2. * MAX_RADIUS,
-                0.1,
+                0.0,
             ],
             dimensions_capacity: [DIMENSIONS[0], DIMENSIONS[1], DIMENSIONS[2], capacity],
         };
@@ -213,7 +213,7 @@ impl LightVolume {
             slices,
             resolve,
             resolve_binding,
-            enabled: true,
+            enabled: false,
             interval: 1. / 30.,
             elapsed: 0.,
             dirty: true,

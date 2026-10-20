@@ -113,7 +113,8 @@ aside span {
 }
 
 .appearance summary,
-.lighting summary {
+.lighting summary,
+.fog summary {
   color: #edf4c7;
   font-size: 13px;
   cursor: pointer;
