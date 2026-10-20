@@ -3,6 +3,7 @@ use glam::Mat4;
 
 use crate::{
     fireflies::{depth_view, FireflySystem},
+    forest_color::ForestColor,
     gpu_timing::{render_timestamps, GpuTiming},
     input::SkeletonInput,
     ply::GaussianCloud,
@@ -21,10 +22,11 @@ pub struct Scene {
     sort_gate: SortGate,
     pending_sort: Option<SortCamera>,
     fireflies: FireflySystem,
+    forest_color: ForestColor,
     depth: wgpu::TextureView,
     depth_size: [u32; 2],
-    depth_camera: Option<SortCamera>,
-    depth_dirty: bool,
+    forest_camera: Option<SortCamera>,
+    forest_dirty: bool,
     camera_frozen: bool,
     gpu_timing: Option<GpuTiming>,
 }
@@ -51,10 +53,11 @@ impl Scene {
             sort_gate: SortGate::default(),
             pending_sort: None,
             fireflies: FireflySystem::new(device),
+            forest_color: ForestColor::new(device),
             depth: depth_view(device, [1, 1]),
             depth_size: [1, 1],
-            depth_camera: None,
-            depth_dirty: true,
+            forest_camera: None,
+            forest_dirty: true,
             camera_frozen: false,
             gpu_timing: None,
         })
@@ -68,7 +71,7 @@ impl Scene {
         self.splats = Some(renderer);
         self.sort_gate = SortGate::default();
         self.pending_sort = None;
-        self.depth_dirty = true;
+        self.forest_dirty = true;
         Ok(count)
     }
 
@@ -113,7 +116,7 @@ impl Scene {
             }
         }
         self.pending_sort = None;
-        self.depth_dirty = true;
+        self.forest_dirty = true;
         Ok(())
     }
 
@@ -179,7 +182,7 @@ impl Scene {
         self.splats.is_some()
             && self.pending_sort.is_none()
             && !self.sort_gate.needs_sort(&self.sort_camera())
-            && !self.depth_dirty
+            && !self.forest_dirty
     }
 
     pub fn camera_snapshot(&self) -> Vec<f32> {
@@ -206,14 +209,15 @@ impl Scene {
         let camera = self.sort_camera();
         if self.depth_size != self.viewport {
             self.depth = depth_view(device, self.viewport);
+            self.forest_color.resize(device, self.viewport);
             self.depth_size = self.viewport;
-            self.depth_dirty = true;
+            self.forest_dirty = true;
         }
         if self
-            .depth_camera
+            .forest_camera
             .is_none_or(|old| old.view != camera.view || old.projection != camera.projection)
         {
-            self.depth_dirty = true;
+            self.forest_dirty = true;
         }
         self.fireflies.update(device, delta_seconds, &camera);
         if let Some(splats) = &self.splats {
@@ -229,7 +233,7 @@ impl Scene {
             .as_ref()
             .filter(|timing| timing.recording())
             .map(|timing| &timing.queries);
-        let had_depth = self.depth_dirty;
+        let had_depth = self.forest_dirty;
         let mut encoder = device
             .gpu()
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -238,7 +242,7 @@ impl Scene {
         if self.splats.is_some() {
             self.fireflies.simulate_profiled(&mut encoder, queries);
         }
-        if self.depth_dirty {
+        if self.forest_dirty {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("ForestOcclusion"),
                 color_attachments: &[],
@@ -258,11 +262,35 @@ impl Scene {
                 splats.draw_depth(&mut pass);
             }
         }
-        self.depth_camera = Some(self.sort_camera());
-        self.depth_dirty = false;
-        {
+        if self.forest_dirty {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("ForestGaussians"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.forest_color.view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                // Start the forest span before rebuilding; finish after copying.
+                timestamp_writes: queries.map(|query_set| wgpu::RenderPassTimestampWrites {
+                    query_set,
+                    beginning_of_pass_write_index: Some(8),
+                    end_of_pass_write_index: None,
+                }),
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            if let Some(splats) = &self.splats {
+                splats.draw(&mut pass);
+            }
+        }
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("ForestColorCopy"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view,
                     depth_slice: None,
@@ -273,14 +301,18 @@ impl Scene {
                     },
                 })],
                 depth_stencil_attachment: None,
-                timestamp_writes: render_timestamps(queries, 8),
+                timestamp_writes: queries.map(|query_set| wgpu::RenderPassTimestampWrites {
+                    query_set,
+                    beginning_of_pass_write_index: (!self.forest_dirty).then_some(8),
+                    end_of_pass_write_index: Some(9),
+                }),
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            if let Some(splats) = &self.splats {
-                splats.draw(&mut pass);
-            }
+            self.forest_color.draw(&mut pass);
         }
+        self.forest_camera = Some(self.sort_camera());
+        self.forest_dirty = false;
         if self.splats.is_some() {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("FireflyGlow"),

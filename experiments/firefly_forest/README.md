@@ -2,11 +2,19 @@
 
 Renders `public/forest.ply` with the Rust/WebGPU 3D Gaussian splatting pipeline from `experiments/particles`. The forest keeps its original PLY colors. The camera starts at the scan origin, looking along negative Z after converting PLY coordinates to Y-up.
 
+## Render resolution and static forest cache
+
+The drawing buffer is fixed at **1920 × 1080**, independent of device pixel ratio. CSS fits the canvas to the window at 16:9 without stretching it; pointer input remains relative to the displayed canvas.
+
+The static forest color and occlusion depth are cached together. Camera, FOV, viewport, asset or sorted-index changes invalidate both; otherwise a full-resolution texture copy precedes the animated firefly pass. The cache uses the selected surface format, preserving HDR values and the existing forest blending. At 1080p, the RGBA16Float color texture adds about **15.82 MiB** of GPU memory.
+
+This optimization benefits a stationary camera. While the camera moves, the forest still renders every changed frame and also incurs the copy pass; the fixed-camera benchmark does not establish moving-camera performance. Firefly simulation and glow continue every frame.
+
 ## HDR output
 
 The renderer requests HDR through Belfast's surface selection helper. Supported browsers use an `rgba16float` canvas with `ExtendedSrgb` (`toneMapping.mode: "extended"`), preserving additive firefly emission above SDR white instead of clamping it to `1.0`. The firefly shader's peak multiplier is **3.0** for HDR, compared with **1.8** for the SDR fallback. The existing flash envelope and timings are unchanged.
 
-The browser canvas expects encoded extended sRGB, so the forest retains its original display RGB and existing blending. This adds no post-processing pass. The overlay reports **HDR 輸出** or **SDR 輸出** from the selected surface mode; actual highlight headroom depends on the display and OS settings. Browsers without fp16 canvas support retain SDR output.
+The browser canvas expects encoded extended sRGB, so the forest retains its original display RGB and existing blending. The color-cache copy applies no tone mapping or exposure adjustment. The overlay reports **HDR 輸出** or **SDR 輸出** from the selected surface mode; actual highlight headroom depends on the display and OS settings. Browsers without fp16 canvas support retain SDR output.
 
 ## Manual benchmark
 
@@ -29,11 +37,13 @@ simplification both in ordinary viewing and in the next benchmark.
    every measured frame interval and the GPU samples after timing finishes.
 
 The [2026-10-20 3DGS optimization journal](benchmarks/2026-10-20-3dgs/README.md)
-records candidate changes, retained/discarded decisions and raw benchmarks.
+records candidate changes, retained/discarded decisions and raw benchmarks. The
+[1080p continuation](benchmarks/2026-10-20-3dgs-1080p/README.md) records the new
+resolution baseline, remaining candidates and accepted static color cache.
 
 Results include average FPS (`N × 1000 / total milliseconds`), mean and P95 frame
 time, and mean GPU times for the whole frame, all three firefly compute passes,
-forest color/depth rendering, and firefly glow rendering. GPU whole-frame time
+forest color/depth rendering including cache rebuild/copy, and firefly glow rendering. GPU whole-frame time
 also reports P95. It spans the first compute timestamp through the last glow
 timestamp, including inter-pass gaps but excluding presentation, timestamp
 resolve/readback and CPU work. Pass timings use `timestamp-query` when the
@@ -51,7 +61,7 @@ match so it can be the A/B variable. Changing visibility or viewport dimensions,
 cancellation, or a failed frame invalidates the active run; completed results
 and the saved baseline remain available.
 
-This first version measures a static camera, including its cached forest depth
+This first version measures a static camera, including its cached forest color/depth
 behavior; it does not measure continuous camera sorting. Keep the page visible
 and use identical display settings. FPS may reach the display refresh limit,
 so GPU times are useful even when FPS stays unchanged. Atomic grid insertion
@@ -136,6 +146,7 @@ Deploy `dist/` as a static site, including `forest.ply`. For HTTPS preview on th
 - `src/scene.rs`: forest renderer, orbit camera, frame updates and sort request lifecycle.
 - `src/ply.rs`: binary little-endian 3DGS parsing, covariance and color packing.
 - `src/splat.rs` / `src/splat.wgsl`: projected anisotropic Gaussian ellipses and alpha blending.
+- `src/forest_color.rs` / `src/forest-color.wgsl`: same-format forest color cache and full-resolution copy.
 - `src/sorting.rs`: frustum culling, radix depth sorting and camera motion threshold.
 - `src/fireflies.rs`: particle initialization, tuning, compute dispatch and glow renderer.
 - `src/firefly-{state,update,noise,draw}.wgsl`: particle layout, flocking/phase synchronization, curl field and emissive billboards.

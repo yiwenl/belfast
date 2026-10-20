@@ -1,0 +1,347 @@
+{
+  "resolution": [1920, 1080],
+  "roundsCompleted": 1,
+  "maximumRounds": 5,
+  "stopReason": "Completed both remaining candidates and confirmed fixed-camera mean FPS >=60; no further round needed.",
+  "protocol": {
+    "seed": 1831565813,
+    "frames": 1200,
+    "warmup": 120,
+    "dt": 0.016666666666666666,
+    "count": 10000,
+    "movement": 0.27,
+    "frequency": 0.28,
+    "duration": 1.5,
+    "fov": 40,
+    "camera": [
+      1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1.545456051826477, 0, 0, 0, 0,
+      2.7474775314331055, 0, 0, 0, 0, -1.000100016593933, -1, 0, 0, -0.020002000033855438, 0, 1920,
+      1080
+    ],
+    "cssSize": [833, 469],
+    "dpr": 2,
+    "environment": " / Rgba16Float / ExtendedSrgb",
+    "scene": "forest.ply:4116349",
+    "gpuTiming": true,
+    "browser": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+  },
+  "totalMeasuredFrames": 15600,
+  "runCount": 11,
+  "baseline": {
+    "runs": ["baseline-1", "baseline-2", "baseline-return"],
+    "frames": 3600,
+    "elapsedMs": 61673.59999999999,
+    "fps": 58.37181549317699,
+    "gpuTotalMeanMs": 14.320034702222264
+  },
+  "attempts": [
+    {
+      "name": "Cholesky covariance basis",
+      "decision": "discard",
+      "aggregate": {
+        "runs": ["r1-cholesky-1", "r1-cholesky-2"],
+        "frames": 2400,
+        "elapsedMs": 40877.200000000004,
+        "fps": 58.71243627254312,
+        "gpuTotalMeanMs": 14.049307306666718
+      },
+      "fpsGain": 0.3406207793661338,
+      "reason": "Less than 1 FPS repeatable improvement."
+    },
+    {
+      "name": "Static forest color cache",
+      "decision": "keep",
+      "aggregate": {
+        "runs": ["r1-color-cache-2", "r1-color-cache-3", "r1-color-cache-final"],
+        "frames": 3600,
+        "elapsedMs": 30100.299999999996,
+        "fps": 119.60013687571222,
+        "gpuTotalMeanMs": 1.127965582222223
+      },
+      "parentRun": "r1-color-cache-parent-return",
+      "parentFps": 59.506689543682874,
+      "fpsGain": 60.09344733202935,
+      "confirmationRun": "r1-color-cache-long",
+      "confirmationFps": 119.84978826537409,
+      "excludedRuns": [
+        {
+          "run": "r1-color-cache-1",
+          "reason": "Camera matrix differs from baseline; exploratory only, excluded from decision."
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "file": "runs/baseline-1.json",
+      "frames": 1200,
+      "fps": 56.62407278080822,
+      "gpu": {
+        "total": {
+          "mean": 14.492030293333348,
+          "p95": 17.235968
+        },
+        "compute": {
+          "mean": 0.16957439999999854,
+          "p95": 0.262144
+        },
+        "forest": {
+          "mean": 14.236057600000086,
+          "p95": 16.908288
+        },
+        "glow": {
+          "mean": 6.622194346666693,
+          "p95": 8.84736
+        }
+      },
+      "comparisonEligible": true
+    },
+    {
+      "file": "runs/baseline-2.json",
+      "frames": 1200,
+      "fps": 58.08747004864826,
+      "gpu": {
+        "total": {
+          "mean": 14.354841600000036,
+          "p95": 16.842752
+        },
+        "compute": {
+          "mean": 0.178858666666665,
+          "p95": 0.32767999999999997
+        },
+        "forest": {
+          "mean": 14.132783786666701,
+          "p95": 16.515072
+        },
+        "glow": {
+          "mean": 6.557422933333357,
+          "p95": 8.650751999999999
+        }
+      },
+      "comparisonEligible": true
+    },
+    {
+      "file": "runs/baseline-return.json",
+      "frames": 1200,
+      "fps": 60.53665746845789,
+      "gpu": {
+        "total": {
+          "mean": 14.11323221333341,
+          "p95": 16.646144
+        },
+        "compute": {
+          "mean": 0.19447807999999855,
+          "p95": 0.39321599999999995
+        },
+        "forest": {
+          "mean": 13.902697813333416,
+          "p95": 16.384
+        },
+        "glow": {
+          "mean": 6.415482880000033,
+          "p95": 8.454144
+        }
+      },
+      "comparisonEligible": true
+    },
+    {
+      "file": "runs/r1-cholesky-1.json",
+      "frames": 1200,
+      "fps": 56.711043057859435,
+      "gpu": {
+        "total": {
+          "mean": 14.25615530666669,
+          "p95": 16.777216
+        },
+        "compute": {
+          "mean": 0.16607914666666548,
+          "p95": 0.262144
+        },
+        "forest": {
+          "mean": 14.034042880000042,
+          "p95": 16.515072
+        },
+        "glow": {
+          "mean": 6.411332266666679,
+          "p95": 8.585215999999999
+        }
+      },
+      "comparisonEligible": true
+    },
+    {
+      "file": "runs/r1-cholesky-2.json",
+      "frames": 1200,
+      "fps": 60.86025977187545,
+      "gpu": {
+        "total": {
+          "mean": 13.842459306666749,
+          "p95": 15.859712
+        },
+        "compute": {
+          "mean": 0.1857399466666649,
+          "p95": 0.32767999999999997
+        },
+        "forest": {
+          "mean": 13.641482240000073,
+          "p95": 15.728639999999999
+        },
+        "glow": {
+          "mean": 6.185451520000002,
+          "p95": 8.060927999999999
+        }
+      },
+      "comparisonEligible": true
+    },
+    {
+      "file": "runs/r1-color-cache-1.json",
+      "frames": 1200,
+      "fps": 119.99760004799907,
+      "gpu": {
+        "total": {
+          "mean": 1.0821631999999997,
+          "p95": 2.1626879999999997
+        },
+        "compute": {
+          "mean": 0.6149461333333354,
+          "p95": 1.048576
+        },
+        "forest": {
+          "mean": 0.5224311466666681,
+          "p95": 1.6383999999999999
+        },
+        "glow": {
+          "mean": 0.4312268799999991,
+          "p95": 1.179648
+        }
+      },
+      "comparisonEligible": false
+    },
+    {
+      "file": "runs/r1-color-cache-2.json",
+      "frames": 1200,
+      "fps": 119.20608745753283,
+      "gpu": {
+        "total": {
+          "mean": 1.2922060800000001,
+          "p95": 2.228224
+        },
+        "compute": {
+          "mean": 0.6986683733333335,
+          "p95": 1.179648
+        },
+        "forest": {
+          "mean": 0.5136930133333337,
+          "p95": 1.441792
+        },
+        "glow": {
+          "mean": 0.5281655466666677,
+          "p95": 1.441792
+        }
+      },
+      "comparisonEligible": true
+    },
+    {
+      "file": "runs/r1-color-cache-3.json",
+      "frames": 1200,
+      "fps": 119.89569074904836,
+      "gpu": {
+        "total": {
+          "mean": 1.0253653333333348,
+          "p95": 1.572864
+        },
+        "compute": {
+          "mean": 0.7385907200000029,
+          "p95": 1.114112
+        },
+        "forest": {
+          "mean": 0.42576554666666716,
+          "p95": 0.6553599999999999
+        },
+        "glow": {
+          "mean": 0.2637823999999983,
+          "p95": 0.458752
+        }
+      },
+      "comparisonEligible": true
+    },
+    {
+      "file": "runs/r1-color-cache-final.json",
+      "frames": 1200,
+      "fps": 119.70074812967582,
+      "gpu": {
+        "total": {
+          "mean": 1.0663253333333342,
+          "p95": 1.703936
+        },
+        "compute": {
+          "mean": 0.6507724800000002,
+          "p95": 1.1796479999999998
+        },
+        "forest": {
+          "mean": 0.4071970133333364,
+          "p95": 1.3107199999999999
+        },
+        "glow": {
+          "mean": 0.3554235733333354,
+          "p95": 0.720896
+        }
+      },
+      "comparisonEligible": true
+    },
+    {
+      "file": "runs/r1-color-cache-long.json",
+      "frames": 3600,
+      "fps": 119.84978826537409,
+      "gpu": {
+        "total": {
+          "mean": 1.099930737777786,
+          "p95": 2.031616
+        },
+        "compute": {
+          "mean": 0.6397952000000052,
+          "p95": 1.114112
+        },
+        "forest": {
+          "mean": 0.380709546666662,
+          "p95": 1.114112
+        },
+        "glow": {
+          "mean": 0.39061276444444754,
+          "p95": 1.179648
+        }
+      },
+      "comparisonEligible": true
+    },
+    {
+      "file": "runs/r1-color-cache-parent-return.json",
+      "frames": 1200,
+      "fps": 59.506689543682874,
+      "gpu": {
+        "total": {
+          "mean": 13.534549333333477,
+          "p95": 15.40096
+        },
+        "compute": {
+          "mean": 0.17104895999999867,
+          "p95": 0.262144
+        },
+        "forest": {
+          "mean": 13.34236501333343,
+          "p95": 15.204352
+        },
+        "glow": {
+          "mean": 5.887754240000026,
+          "p95": 7.405568
+        }
+      },
+      "comparisonEligible": true
+    }
+  ],
+  "limitations": [
+    "Static camera only; sustained camera movement not benchmarked.",
+    "10,000 fireflies; not a claim about 100,000 fireflies.",
+    "120 Hz presentation ceiling; GPU timestamp timings exclude presentation/resolve/readback.",
+    "Cache adds 15.82 MiB in RGBA16Float at 1080p and a copy pass on changed frames.",
+    "Visual checks are not pixel-identical automated image tests."
+  ]
+}
