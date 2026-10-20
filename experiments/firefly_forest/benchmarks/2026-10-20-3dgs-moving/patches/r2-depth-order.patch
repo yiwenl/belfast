@@ -1,0 +1,39 @@
+--- a/experiments/firefly_forest/src/splat.rs
++++ b/experiments/firefly_forest/src/splat.rs
+@@ -70 +70,3 @@
+-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
++            usage: wgpu::BufferUsages::VERTEX
++                | wgpu::BufferUsages::COPY_DST
++                | wgpu::BufferUsages::STORAGE,
+@@ -107,0 +110,10 @@
++                    wgpu::BindGroupLayoutEntry {
++                        binding: 3,
++                        visibility: wgpu::ShaderStages::VERTEX,
++                        ty: wgpu::BindingType::Buffer {
++                            ty: wgpu::BufferBindingType::Storage { read_only: true },
++                            has_dynamic_offset: false,
++                            min_binding_size: None,
++                        },
++                        count: None,
++                    },
+@@ -128,0 +141,4 @@
++                },
++                wgpu::BindGroupEntry {
++                    binding: 3,
++                    resource: indices.as_entire_binding(),
+@@ -257 +273 @@
+-        data.extend([u32::from(self.srgb) as f32, 0.]);
++        data.extend([u32::from(self.srgb) as f32, self.visible as f32]);
+--- a/experiments/firefly_forest/src/splat.wgsl
++++ b/experiments/firefly_forest/src/splat.wgsl
+@@ -4 +4 @@
+-    // Width, height, sRGB render attachment, padding.
++    // Width, height, sRGB render attachment, visible count.
+@@ -9,0 +10 @@
++@group(0) @binding(3) var<storage, read> sorted_indices: array<u32>;
+@@ -77,2 +78,3 @@
+-@vertex fn vs_depth(@builtin(vertex_index) vertex: u32, @location(0) index: u32) -> Vertex {
+-    return project(vertex, index, true);
++@vertex fn vs_depth(@builtin(vertex_index) vertex: u32, @builtin(instance_index) instance: u32) -> Vertex {
++    // Near coverage rejects hidden fragments; minimum depth is independent of draw order.
++    return project(vertex, sorted_indices[u32(camera.viewport.w) - 1u - instance], true);

@@ -1,0 +1,366 @@
+{
+  "resolution": [1920, 1080],
+  "roundsCompleted": 3,
+  "stopReason": "Mean FPS target reached on 3600-frame moving route",
+  "targetFps": 60,
+  "minimumAcceptedGainFps": 1,
+  "testSuitesRun": false,
+  "completedRuns": 24,
+  "measuredFrames": 30120,
+  "legacyV2Runs": 19,
+  "protocolWarning": "Do not compare v2 eager sort retry measurements with v3 threshold-v1. Final acceptance uses matched v3 only.",
+  "finalAcceptance": {
+    "control": "r3-cadence-parent-1",
+    "candidates": ["r3-cadence-merged-1", "r3-cadence-merged-2"],
+    "controlFps": 38.61028706748434,
+    "aggregateCandidateFps": 66.65870465472179,
+    "gainFps": 28.048417587237445,
+    "gainPercent": 72.64493407731854,
+    "longConfirmation": "r3-cadence-merged-long",
+    "longFps": 63.190154973855066,
+    "longGpuMeanMs": 13.781638257777791,
+    "longFrameP95Ms": 25,
+    "passed": true
+  },
+  "decisions": [
+    {
+      "round": 1,
+      "candidate": "Depth opacity rejection",
+      "decision": "discard"
+    },
+    {
+      "round": 1,
+      "candidate": "Depth support bounds",
+      "decision": "keep",
+      "commit": "7edc93f",
+      "aggregateFps": 39.55500618046972,
+      "controlFps": 36.77157802162782
+    },
+    {
+      "round": 1,
+      "candidate": "Compute projection reuse",
+      "decision": "discard"
+    },
+    {
+      "round": 2,
+      "candidate": "Front-to-back depth",
+      "decision": "discard",
+      "aggregateFps": 40.04598614075164,
+      "controlFps": 39.53702147848692
+    },
+    {
+      "round": 2,
+      "candidate": "Circumscribed triangle",
+      "decision": "discard"
+    },
+    {
+      "round": 2,
+      "candidate": "Direct moving-frame color",
+      "decision": "discard"
+    },
+    {
+      "round": 3,
+      "candidate": "Combined color and occlusion",
+      "decision": "keep"
+    }
+  ],
+  "sampleChecks": {
+    "allFrameAndGpuCountsMatch": true,
+    "allFpsRecomputed": true,
+    "allPhysicalSizes1080p": true,
+    "allV2ConfigsAndCameraSamplesMatch": true,
+    "v3ShortConfigsAndCameraSamplesMatch": true,
+    "v3LongConfigMatchesExceptFrameCount": true,
+    "v3LongCommonCameraSamplesMatch": true
+  },
+  "runs": [
+    {
+      "file": "runs/baseline-1.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 36.66932519274314,
+      "gpuMeanMs": 25.005752320000006,
+      "gpuP95Ms": 29.425663999999998,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/baseline-2.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 36.80191369951237,
+      "gpuMeanMs": 24.921320106666645,
+      "gpuP95Ms": 28.901376,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r1-depth-bounds-1.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 39.32286034486149,
+      "gpuMeanMs": 23.190132053333375,
+      "gpuP95Ms": 26.935295999999997,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r1-depth-bounds-2.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 39.78990927900684,
+      "gpuMeanMs": 23.021922986666684,
+      "gpuP95Ms": 26.673151999999998,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r1-depth-bounds-parent.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 36.77157802162782,
+      "gpuMeanMs": 24.96288085333332,
+      "gpuP95Ms": 29.425663999999998,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r1-depth-reject-1.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 34.8186384171447,
+      "gpuMeanMs": 26.151430826666672,
+      "gpuP95Ms": 32.047104,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r1-depth-reject-2.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 36.818851251840954,
+      "gpuMeanMs": 24.709311146666703,
+      "gpuP95Ms": 31.653888,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r1-projection-1.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 36.482258981476136,
+      "gpuMeanMs": 25.028580693333332,
+      "gpuP95Ms": 30.867455999999997,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r1-projection-2.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 38.53787309478389,
+      "gpuMeanMs": 23.731186346666647,
+      "gpuP95Ms": 27.721728,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r2-depth-order-1.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 37.92847322091756,
+      "gpuMeanMs": 23.790387199999994,
+      "gpuP95Ms": 27.8528,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r2-depth-order-2.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 42.413917420102784,
+      "gpuMeanMs": 21.43431338666667,
+      "gpuP95Ms": 24.313855999999998,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r2-depth-order-parent.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 39.53702147848692,
+      "gpuMeanMs": 23.098490880000007,
+      "gpuP95Ms": 26.935295999999997,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r2-direct-1.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 37.93266951161687,
+      "gpuMeanMs": 23.91719936000002,
+      "gpuP95Ms": 29.032448,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r2-direct-2.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 37.368625924484235,
+      "gpuMeanMs": 24.360331946666676,
+      "gpuP95Ms": 28.377087999999997,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r2-triangle-1.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 27.08253402243336,
+      "gpuMeanMs": 34.322786986666685,
+      "gpuP95Ms": 43.25376,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r2-triangle-2.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 25.923189589247063,
+      "gpuMeanMs": 35.96490069333331,
+      "gpuP95Ms": 42.92608,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r3-cadence-merged-1.json",
+      "version": 3,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 66.4481261628422,
+      "gpuMeanMs": 13.255857493333314,
+      "gpuP95Ms": 15.532032,
+      "mergedOcclusion": true,
+      "cadence": "threshold-v1",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r3-cadence-merged-2.json",
+      "version": 3,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 66.87062206396176,
+      "gpuMeanMs": 13.131721386666653,
+      "gpuP95Ms": 15.597567999999999,
+      "mergedOcclusion": true,
+      "cadence": "threshold-v1",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r3-cadence-merged-long.json",
+      "version": 3,
+      "frames": 3600,
+      "path": "forest-loop-v1",
+      "fps": 63.190154973855066,
+      "gpuMeanMs": 13.781638257777791,
+      "gpuP95Ms": 16.908288,
+      "mergedOcclusion": true,
+      "cadence": "threshold-v1",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r3-cadence-parent-1.json",
+      "version": 3,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 38.61028706748434,
+      "gpuMeanMs": 23.818513066666696,
+      "gpuP95Ms": 28.114943999999998,
+      "mergedOcclusion": false,
+      "cadence": "threshold-v1",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r3-merged-1.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 65.99425849951054,
+      "gpuMeanMs": 13.211620693333321,
+      "gpuP95Ms": 15.335424,
+      "mergedOcclusion": true,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r3-merged-2.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 64.18553899806375,
+      "gpuMeanMs": 13.451864746666661,
+      "gpuP95Ms": 16.121855999999998,
+      "mergedOcclusion": true,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/r3-merged-parent.json",
+      "version": 2,
+      "frames": 1200,
+      "path": "forest-loop-v1",
+      "fps": 34.37568035200697,
+      "gpuMeanMs": 26.42176682666668,
+      "gpuP95Ms": 33.947648,
+      "mergedOcclusion": false,
+      "cadence": "eager-retry-v2",
+      "integrity": "passed"
+    },
+    {
+      "file": "runs/runtime-static.json",
+      "version": 3,
+      "frames": 120,
+      "path": "static",
+      "fps": 120.01200120012071,
+      "gpuMeanMs": 0.911496533333333,
+      "gpuP95Ms": 1.114112,
+      "mergedOcclusion": true,
+      "cadence": "threshold-v1",
+      "integrity": "passed"
+    }
+  ]
+}

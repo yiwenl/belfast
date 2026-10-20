@@ -2,7 +2,7 @@ use belfast::{BelfastResult, Device, OrbitalControl, OrbitalControlOptions, Pers
 use glam::Mat4;
 
 use crate::{
-    fireflies::{depth_view, FireflySystem},
+    fireflies::{depth_view, merged_depth, FireflySystem},
     forest_color::ForestColor,
     gpu_timing::{render_timestamps, GpuTiming},
     input::SkeletonInput,
@@ -45,6 +45,9 @@ impl Scene {
             ..Default::default()
         })?;
         control.update(0.0, &mut camera);
+        let depth = depth_view(device, [1, 1]);
+        let mut fireflies = FireflySystem::new(device);
+        fireflies.set_occlusion(device, &depth);
         Ok(Self {
             camera,
             control,
@@ -54,9 +57,9 @@ impl Scene {
             sort_positions: Vec::new(),
             sort_gate: SortGate::default(),
             pending_sort: None,
-            fireflies: FireflySystem::new(device),
+            fireflies,
             forest_color: ForestColor::new(device),
-            depth: depth_view(device, [1, 1]),
+            depth,
             depth_size: [1, 1],
             forest_camera: None,
             forest_dirty: true,
@@ -113,7 +116,7 @@ impl Scene {
             .ok_or("No Gaussian scene loaded")?
             .set_indices(device, indices)?;
         self.sort_gate.accept(camera);
-        if self.camera_frozen {
+        if self.camera_frozen && !self.benchmark_path_started {
             let current = self.sort_camera();
             if camera.view != current.view || camera.projection != current.projection {
                 self.sort_gate = SortGate::default();
@@ -245,6 +248,7 @@ impl Scene {
         let camera = self.sort_camera();
         if self.depth_size != self.viewport {
             self.depth = depth_view(device, self.viewport);
+            self.fireflies.set_occlusion(device, &self.depth);
             self.forest_color.resize(device, self.viewport);
             self.depth_size = self.viewport;
             self.forest_dirty = true;
@@ -269,7 +273,8 @@ impl Scene {
             .as_ref()
             .filter(|timing| timing.recording())
             .map(|timing| &timing.queries);
-        let had_depth = self.forest_dirty;
+        let merged = merged_depth(device);
+        let had_depth = self.forest_dirty && !merged;
         let mut encoder = device
             .gpu()
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -278,7 +283,7 @@ impl Scene {
         if self.splats.is_some() {
             self.fireflies.simulate_profiled(&mut encoder, queries);
         }
-        if self.forest_dirty {
+        if had_depth {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("ForestOcclusion"),
                 color_attachments: &[],
@@ -299,9 +304,8 @@ impl Scene {
             }
         }
         if self.forest_dirty {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("ForestGaussians"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            let attachments = [
+                Some(wgpu::RenderPassColorAttachment {
                     view: &self.forest_color.view,
                     depth_slice: None,
                     resolve_target: None,
@@ -309,7 +313,20 @@ impl Scene {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                         store: wgpu::StoreOp::Store,
                     },
-                })],
+                }),
+                merged.then_some(wgpu::RenderPassColorAttachment {
+                    view: &self.depth,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: wgpu::StoreOp::Store,
+                    },
+                }),
+            ];
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("ForestGaussians"),
+                color_attachments: &attachments[..if merged { 2 } else { 1 }],
                 depth_stencil_attachment: None,
                 // Start the forest span before rebuilding; finish after copying.
                 timestamp_writes: queries.map(|query_set| wgpu::RenderPassTimestampWrites {
@@ -361,14 +378,16 @@ impl Scene {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
+                depth_stencil_attachment: (!merged).then_some(
+                    wgpu::RenderPassDepthStencilAttachment {
+                        view: &self.depth,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: wgpu::StoreOp::Store,
+                        }),
+                        stencil_ops: None,
+                    },
+                ),
                 timestamp_writes: render_timestamps(queries, 10),
                 occlusion_query_set: None,
                 multiview_mask: None,

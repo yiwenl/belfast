@@ -45,12 +45,13 @@ impl ExperimentApp {
             })
             .await
             .map_err(js_error)?;
-        let timestamp_features = adapter.features() & wgpu::Features::TIMESTAMP_QUERY;
+        let optional_features = adapter.features()
+            & (wgpu::Features::TIMESTAMP_QUERY | wgpu::Features::FLOAT32_BLENDABLE);
         let adapter_name = adapter.get_info().name;
         let (gpu, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("ExperimentDevice"),
-                required_features: timestamp_features,
+                required_features: optional_features,
                 required_limits: wgpu::Limits {
                     max_texture_dimension_2d: adapter.limits().max_texture_dimension_2d.min(8192),
                     ..wgpu::Limits::downlevel_defaults()
@@ -160,7 +161,7 @@ impl ExperimentApp {
             wgpu::CurrentSurfaceTexture::Success(frame) => (frame, false),
             wgpu::CurrentSurfaceTexture::Suboptimal(frame) => (frame, true),
             wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
-                return Ok(false)
+                return Ok(false);
             }
             wgpu::CurrentSurfaceTexture::Outdated => {
                 self.surface.configure(self.device.gpu(), &self.config);
@@ -175,7 +176,7 @@ impl ExperimentApp {
                 return Ok(false);
             }
             wgpu::CurrentSurfaceTexture::Validation => {
-                return Err(js_error("WebGPU surface validation failed"))
+                return Err(js_error("WebGPU surface validation failed"));
             }
         };
         let view = frame
@@ -210,6 +211,11 @@ impl ExperimentApp {
             .gpu()
             .features()
             .contains(wgpu::Features::TIMESTAMP_QUERY)
+    }
+
+    #[wasm_bindgen(js_name = mergedOcclusion)]
+    pub fn merged_occlusion(&self) -> bool {
+        crate::fireflies::merged_depth(&self.device)
     }
 
     #[wasm_bindgen(js_name = benchmarkEnvironment)]

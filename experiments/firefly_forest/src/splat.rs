@@ -143,6 +143,26 @@ impl SplatRenderer {
                 label: Some("GaussianShader"),
                 source: wgpu::ShaderSource::Wgsl(SHADER.into()),
             });
+        let mut targets = vec![Some(wgpu::ColorTargetState {
+            format: device.format(),
+            blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+            write_mask: wgpu::ColorWrites::ALL,
+        })];
+        if crate::fireflies::merged_depth(device) {
+            let min = wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Min,
+            };
+            targets.push(Some(wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::R32Float,
+                blend: Some(wgpu::BlendState {
+                    color: min,
+                    alpha: min,
+                }),
+                write_mask: wgpu::ColorWrites::RED,
+            }));
+        }
         let pipeline = device
             .gpu()
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -164,13 +184,13 @@ impl SplatRenderer {
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
-                    entry_point: Some("fs_main"),
+                    entry_point: Some(if crate::fireflies::merged_depth(device) {
+                        "fs_merged"
+                    } else {
+                        "fs_main"
+                    }),
                     compilation_options: Default::default(),
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: device.format(),
-                        blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
+                    targets: &targets,
                 }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleStrip,

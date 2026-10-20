@@ -1,0 +1,30 @@
+diff --git a/experiments/firefly_forest/src/scene.rs b/experiments/firefly_forest/src/scene.rs
+index a82311e..1cc15e4 100644
+--- a/experiments/firefly_forest/src/scene.rs
++++ b/experiments/firefly_forest/src/scene.rs
+@@ -29,0 +30 @@ pub struct Scene {
++    forest_color_valid: bool,
+@@ -62,0 +64 @@ impl Scene {
++            forest_color_valid: false,
+@@ -301 +303 @@ impl Scene {
+-        if self.forest_dirty {
++        if self.forest_dirty || !self.forest_color_valid {
+@@ -305 +307,5 @@ impl Scene {
+-                    view: &self.forest_color.view,
++                    view: if self.forest_dirty {
++                        view
++                    } else {
++                        &self.forest_color.view
++                    },
+@@ -318 +324 @@ impl Scene {
+-                    end_of_pass_write_index: None,
++                    end_of_pass_write_index: self.forest_dirty.then_some(9),
+@@ -327 +333 @@ impl Scene {
+-        {
++        if !self.forest_dirty {
+@@ -342 +348 @@ impl Scene {
+-                    beginning_of_pass_write_index: (!self.forest_dirty).then_some(8),
++                    beginning_of_pass_write_index: self.forest_color_valid.then_some(8),
+@@ -349,0 +356,2 @@ impl Scene {
++        // Capture only once motion stops; changed frames render directly to the surface.
++        self.forest_color_valid = !self.forest_dirty;

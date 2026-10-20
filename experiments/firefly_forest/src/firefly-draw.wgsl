@@ -32,7 +32,7 @@ struct Vertex {
     out.color = mix(vec3(0.72, 1., 0.10), vec3(1., 0.87, 0.18), variation);
     return out;
 }
-@fragment fn fs_main(in: Vertex) -> @location(0) vec4<f32> {
+fn shade(in: Vertex) -> vec4<f32> {
     let r2 = dot(in.uv, in.uv);
     if r2 > 1. { discard; }
     let core = exp(-r2 * 100.);
@@ -40,4 +40,13 @@ struct Vertex {
     let rgb = (vec3(1., 1., 0.65) * core + in.color * halo) * in.brightness;
     // Additive emission; the surrounding forest supplies the background color.
     return vec4(rgb, 0.);
+}
+
+@group(1) @binding(0) var occlusion: texture_2d<f32>;
+@fragment fn fs_main(in: Vertex) -> @location(0) vec4<f32> {
+    return shade(in);
+}
+@fragment fn fs_occluded(in: Vertex) -> @location(0) vec4<f32> {
+    if in.position.z > textureLoad(occlusion, vec2<i32>(in.position.xy), 0).r { discard; }
+    return shade(in);
 }

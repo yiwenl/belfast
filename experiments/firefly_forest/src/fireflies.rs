@@ -6,6 +6,13 @@ use crate::sorting::SortCamera;
 pub const PARTICLE_COUNT: u32 = 10_000;
 const MAX_PARTICLE_COUNT: u32 = 100_000;
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+pub fn merged_depth(device: &Device) -> bool {
+    device
+        .gpu()
+        .features()
+        .contains(wgpu::Features::FLOAT32_BLENDABLE)
+}
+
 const BODY_RADIUS: f32 = 0.012;
 // Covers the largest glow billboard as well as its diagonal.
 const VIEW_SPRITE_MARGIN: f32 = 0.1;
@@ -132,6 +139,7 @@ pub struct FireflySystem {
     simulate_pipeline: Compute,
     compute_bindings: [BindGroup; 2],
     render_pipeline: wgpu::RenderPipeline,
+    occlusion_binding: Option<wgpu::BindGroup>,
     draw_bindings: [BindGroup; 2],
     current: usize,
     count: u32,
@@ -280,7 +288,11 @@ impl FireflySystem {
                     },
                     fragment: Some(wgpu::FragmentState {
                         module: &shader,
-                        entry_point: Some("fs_main"),
+                        entry_point: Some(if merged_depth(device) {
+                            "fs_occluded"
+                        } else {
+                            "fs_main"
+                        }),
                         compilation_options: Default::default(),
                         targets: &[Some(wgpu::ColorTargetState {
                             format: device.format(),
@@ -300,7 +312,7 @@ impl FireflySystem {
                         })],
                     }),
                     primitive: Default::default(),
-                    depth_stencil: Some(wgpu::DepthStencilState {
+                    depth_stencil: (!merged_depth(device)).then_some(wgpu::DepthStencilState {
                         format: DEPTH_FORMAT,
                         depth_write_enabled: Some(false),
                         depth_compare: Some(wgpu::CompareFunction::LessEqual),
@@ -339,6 +351,7 @@ impl FireflySystem {
             simulate_pipeline,
             compute_bindings,
             render_pipeline,
+            occlusion_binding: None,
             draw_bindings,
             current: 0,
             count,
@@ -481,11 +494,28 @@ impl FireflySystem {
         self.phase_time += self.pending_dt * self.rates[1].sqrt();
     }
 
+    pub fn set_occlusion(&mut self, device: &Device, view: &wgpu::TextureView) {
+        if merged_depth(device) {
+            self.occlusion_binding =
+                Some(device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("FireflyOcclusion"),
+                    layout: &self.render_pipeline.get_bind_group_layout(1),
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(view),
+                    }],
+                }));
+        }
+    }
+
     pub fn draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
         // Keep both buffers alive; rendering always uses this frame's output.
         debug_assert!(self.states[self.current].size() > 0);
         pass.set_pipeline(&self.render_pipeline);
         self.draw_bindings[self.current].bind(pass, 0);
+        if let Some(binding) = &self.occlusion_binding {
+            pass.set_bind_group(1, binding, &[]);
+        }
         pass.draw(0..6, 0..self.count);
     }
 }
@@ -503,8 +533,12 @@ pub fn depth_view(device: &Device, size: [u32; 2]) -> wgpu::TextureView {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: DEPTH_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: if merged_depth(device) {
+                wgpu::TextureFormat::R32Float
+            } else {
+                DEPTH_FORMAT
+            },
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         })
         .create_view(&Default::default())

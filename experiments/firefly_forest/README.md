@@ -25,8 +25,10 @@ combining translation, yaw and pitch. Each camera pose uses the fixed simulation
 frame index, so slower rendering does not change the route. The camera starts
 at the scan origin; FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
-interactive view. Path version is part of baseline compatibility; v2 baselines
-are stored separately from the earlier v1 results.
+interactive view. Path version and sorting cadence are part of baseline
+compatibility; v3 baselines are stored separately from earlier v1/v2 results.
+Moving measurements use the same sort thresholds as interactive viewing;
+only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search
 simplification both in ordinary viewing and in the next benchmark.
 
@@ -114,7 +116,20 @@ Tune `Settings::default()` in `src/fireflies.rs`:
 
 The ground is a configurable horizontal simulation plane in the scan's coordinates, not collision against a reconstructed terrain mesh. Soft forces turn particles before the bounds, with a final clamp keeping their bodies above the ground and below the ceiling.
 
-A separate Gaussian depth pass hides fireflies behind substantial forest coverage. This is approximate occlusion from splat centers and an alpha cutoff of `0.3`; the forest's original sorted color blending is unchanged. Depth is reused while the camera, viewport and sorted splat list are unchanged.
+On adapters supporting `float32-blendable`, the Gaussian color pass also writes
+an `R32Float` occlusion attachment using minimum blending. Fragments with alpha
+at least `0.3` contribute their original depth; other fragments contribute `1`.
+Fireflies compare their fragment depth against this texture, preserving the
+original `LessEqual` occlusion rule without rendering the forest twice. Devices
+without that optional feature retain the separate `Depth32Float` pass. Both
+paths use the existing approximate splat-center occlusion, alpha threshold and
+sorted forest color blending. Color/depth caches invalidate together.
+
+The moving-camera benchmark reached **63.19 FPS over 3,600 frames** at 1920 ×
+1080 with 10,000 fireflies on the recorded local browser/GPU, using the merged
+path. Two matched 1,200-frame runs averaged **66.66 FPS**, versus **38.61 FPS**
+for the separate-pass control. These results cover the recorded route and
+settings; see the moving-camera journal for raw data and discarded attempts.
 
 Unlit fireflies return clipped vertices before the billboard transform, avoiding rasterization, glow fragment calculations and additive blending. Particle simulation and the instanced draw count are unchanged; even very faint positive flashes still render.
 

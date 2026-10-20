@@ -78,7 +78,7 @@ fn project(vertex: u32, index: u32, depth_only: bool) -> Vertex {
     return project(vertex, index, true);
 }
 
-@fragment fn fs_main(in: Vertex) -> @location(0) vec4<f32> {
+fn shade(in: Vertex) -> vec4<f32> {
     let radius_squared = dot(in.gaussian, in.gaussian);
     let alpha = min(0.99, in.color.a * exp(-0.5 * radius_squared));
     if (radius_squared > 9.0 || alpha < 1.0 / 255.0) { discard; }
@@ -92,4 +92,17 @@ fn project(vertex: u32, index: u32, depth_only: bool) -> Vertex {
     // Only substantial coverage occludes the emissive particles. Low-opacity
     // Gaussian tails must not turn into large invisible walls.
     if r2 > 9.0 || alpha < 0.3 { discard; }
+}
+
+@fragment fn fs_main(in: Vertex) -> @location(0) vec4<f32> {
+    return shade(in);
+}
+struct ForestOutput {
+    @location(0) color: vec4<f32>,
+    @location(1) occlusion: f32,
+};
+@fragment fn fs_merged(in: Vertex) -> ForestOutput {
+    let color = shade(in);
+    // Min blending is the same nearest-depth reduction as the separate depth pass.
+    return ForestOutput(color, select(1.0, in.position.z, color.a >= 0.3));
 }

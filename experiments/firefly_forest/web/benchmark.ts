@@ -70,6 +70,7 @@ export function createBenchmark(
       fov: number("camera-fov"),
       camera: Array.from(app.benchmarkCamera()),
       cameraPath: moving.checked ? "forest-loop-v1" : "static",
+      sortCadence: "threshold-v1",
       cssSize: [canvas.clientWidth, canvas.clientHeight],
       dpr: window.devicePixelRatio,
       environment: app.benchmarkEnvironment(),
@@ -197,6 +198,7 @@ export function createBenchmark(
       gpuFrameMs: samples,
       gpuFrameLayout: ["total", "compute", "forest", "glow"],
       cameraSamples: completed.cameraSamples,
+      mergedOcclusion: app.mergedOcclusion(),
       cameraSampleLayout:
         "frame index, view[16], projection[16], width, height; every 60 frames and final",
     };
