@@ -36,3 +36,13 @@ Release watch builds #37/#38 passed. TypeScript initially ran before Wasm genera
 | baseline-2 | 36.8019 |           24.9213 |          28.9014 |
 
 Individual GPU pass spans can include overlap/pipeline waiting and must not be added to infer total frame duration. Use the whole-frame span for GPU comparisons. The UI saved baseline-1 in v2 storage; previous v1 results remain untouched.
+
+### R1.1 - depth opacity rejection - DISCARD
+
+Separate depth vertex entry skipped alpha bytes below 77 (less than the existing 0.3 depth cutoff) before covariance projection. Runs: 34.8186 / 36.8189 FPS, GPU total 26.1514 / 24.7093 ms. The faster run is only 0.0834 FPS over the two-run baseline aggregate, not a repeatable >=1 FPS improvement. Discarded the rejection; retained raw data and `patches/r1-depth-reject.patch`. Release build #39 passed and browser errors were empty. The next candidate uses a separate entry only to shrink depth support, without this rejection branch.
+
+### R1.2 - depth support bounds - KEEP
+
+Use the same covariance and alpha cutoff, but depth-only vertices cover radius min(3, sqrt(max(0, 2\*log(alpha/0.3))) + 0.001). Keep the original fragment test and three-sigma color footprint; the small padding conservatively covers floating-point edge uncertainty. This removes no accepted depth samples by design.
+
+Runs: 39.3229 / 39.7899 FPS (GPU total 23.1901 / 23.0219 ms). Returned to parent `f69d14a`: 36.7716 FPS / 24.9629 ms. Candidate aggregate **39.5550 FPS**, **+2.7834 FPS** versus the fresh control; both runs individually exceed +1 FPS. All sampled camera matrices match the baseline. Builds #40/#41 passed; restored the accepted shader afterward. Keep and commit independently. Target 60 FPS not yet reached.

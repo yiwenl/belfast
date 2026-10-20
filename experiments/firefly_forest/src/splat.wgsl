@@ -14,7 +14,7 @@ struct Vertex {
     @location(1) color: vec4<f32>,
 };
 
-@vertex fn vs_main(@builtin(vertex_index) vertex: u32, @location(0) index: u32) -> Vertex {
+fn project(vertex: u32, index: u32, depth_only: bool) -> Vertex {
     var out: Vertex;
     out.position = vec4<f32>(2.0, 2.0, 2.0, 1.0);
     let size = textureDimensions(positions);
@@ -51,7 +51,13 @@ struct Vertex {
     else if (c > a) { major = vec2<f32>(0.0, 1.0); }
     let minor = vec2<f32>(-major.y, major.x);
     let corners = array<vec2<f32>, 4>(vec2<f32>(-1,-1),vec2<f32>(1,-1),vec2<f32>(-1,1),vec2<f32>(1,1));
-    let local = corners[vertex] * 3.0;
+    var extent = 3.0;
+    if depth_only {
+        // Bound the existing alpha >= 0.3 contour, with conservative rounding padding.
+        let alpha = unpack4x8unorm(packed.w).a;
+        extent = min(3.0, sqrt(max(0.0, 2.0 * log(max(alpha, 0.000001) / 0.3))) + 0.001);
+    }
+    let local = corners[vertex] * extent;
     let offset = major * sqrt(eigenvalues.x) * local.x + minor * sqrt(eigenvalues.y) * local.y;
     out.position = vec4<f32>(clip.xy + offset * (2.0 / camera.viewport.xy) * clip.w, clip.zw);
     out.gaussian = local;
@@ -62,6 +68,14 @@ struct Vertex {
         out.color = vec4<f32>(select(rgb / 12.92, pow((rgb + 0.055) / 1.055, vec3<f32>(2.4)), rgb > vec3<f32>(0.04045)), out.color.a);
     }
     return out;
+}
+
+@vertex fn vs_main(@builtin(vertex_index) vertex: u32, @location(0) index: u32) -> Vertex {
+    return project(vertex, index, false);
+}
+
+@vertex fn vs_depth(@builtin(vertex_index) vertex: u32, @location(0) index: u32) -> Vertex {
+    return project(vertex, index, true);
 }
 
 @fragment fn fs_main(in: Vertex) -> @location(0) vec4<f32> {
