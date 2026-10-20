@@ -2,6 +2,7 @@
 members = [
   "crates/belfast",
   "crates/belfast-wasm",
+  "experiments/particles",
 ]
 resolver = "2"
 

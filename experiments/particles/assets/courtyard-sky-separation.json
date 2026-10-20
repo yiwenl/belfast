@@ -1,0 +1,17 @@
+{
+  "source": "courtyard-no-tree.ply",
+  "foreground": "courtyard-foreground.ply",
+  "sky": "courtyard-sky.ply",
+  "source_sha256": "88f88cdee9904caa923c3f1c1776c6c9ccb31902fabca839603150b9eff629f9",
+  "foreground_sha256": "6612c1afdd5acea8ee74491fbbf606c28fbe139136f258da124c5ba9c4ad0282",
+  "sky_sha256": "1c4fa682e30fe31d44a115f426ed223c23da337085ddebf01d494a715f25607a",
+  "source_records": 4281277,
+  "foreground_records": 3164376,
+  "sky_records": 1116901,
+  "active_foreground": 3005285,
+  "active_sky": 499603,
+  "coordinates": "Original PLY: +Y down, +Z forward",
+  "selection": "h=-y; h > max(2.4, 0.36*max(z,0), 0.60*abs(x)) OR (length(x,y,z)>24 AND h>3)",
+  "edge_selection": "Above h=0.9, outside protected facades: RGB R>0.42,G>0.47,B>0.55,B>=R-0.02,B>=G-0.02 OR min(RGB)>0.62 and max(scale)>0.045. See sky_edge_mask for facade volumes.",
+  "method": "Scene-specific roof envelope plus color/scale edge cleanup. Both partitions preserve record bytes and order. No semantic labels, inpainting or relighting; some mixed roof/sky fringes may remain."
+}

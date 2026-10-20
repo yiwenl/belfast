@@ -9,6 +9,7 @@ lib
 target
 packages/belfast-wasm/dist/
 *.tsbuildinfo
+*.ply
 cinder/xcode/build
 *.scssc
 npm-debug.log

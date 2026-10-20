@@ -1,0 +1,25 @@
+{
+  "source": "courtyard.ply",
+  "output": "courtyard-no-tree.ply",
+  "source_sha256": "79bececf74d5ba9e6fd164ac47120e503b59551390916598593e290afe9028cc",
+  "output_sha256": "88f88cdee9904caa923c3f1c1776c6c9ccb31902fabca839603150b9eff629f9",
+  "source_records": 4320000,
+  "removed_records": 38723,
+  "retained_records": 4281277,
+  "removed_position_min": [-1.6328125, -2.420654296875, 5.35888671875],
+  "removed_position_max": [1.618408203125, 0.7998046875, 6.799560546875],
+  "coordinates": "Original PLY: +Y down, +Z forward",
+  "crown_volume": {
+    "x": [-1.65, 1.7],
+    "y": [-2.6, 0.72],
+    "z": [5.1, 6.8]
+  },
+  "root_volume": {
+    "x": 0.05,
+    "z": 5.98,
+    "radius_x": 0.23,
+    "radius_z": 0.24,
+    "y": [0.72, 0.8]
+  },
+  "method": "Spatial Gaussian-center selection; retained records copied byte-for-byte. No background inpainting."
+}

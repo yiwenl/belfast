@@ -40,6 +40,8 @@ const device = await Device.create(canvas);
 
 ## Repo layout
 
+The independent particle experiment starts in [`experiments/particles`](experiments/particles/README.md): `pnpm --dir experiments/particles dev`, <http://localhost:5176>.
+
 ```
 crates/belfast          Native wgpu engine
 crates/belfast-wasm     wasm-bindgen facade

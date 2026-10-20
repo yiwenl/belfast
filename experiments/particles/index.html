@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast — Particle Experiment</title>
+  </head>
+  <body>
+    <canvas aria-label="Interactive courtyard Gaussian splat scene"></canvas>
+    <aside>
+      <strong id="scene-title">Courtyard</strong>
+      <span>Drag to orbit · Shift + drag to pan · Scroll to zoom</span>
+      <span id="scene-info">Gaussian splat scene</span>
+      <div id="petal-controls" class="petal-controls" hidden>
+        <label>Petals <select id="petal-count" aria-label="Petal count" disabled>
+          <option value="10000">10,000</option>
+          <option value="100000">100,000</option>
+          <option value="500000">500,000</option>
+        </select></label>
+        <span id="petal-info" role="status">GPU simulation</span>
+        <label class="petal-scale">Scale
+          <input id="petal-scale" type="range" min="0.2" max="1" step="0.01" value="0.5" aria-label="Petal scale" disabled />
+          <output id="petal-scale-value" for="petal-scale">0.50×</output>
+        </label>
+      </div>
+      <div class="sort-controls">
+        <label>Sorting <select id="sort-mode" aria-label="Splat sorting mode" disabled>
+          <option value="normal">Normal resort</option>
+          <option value="once">Sort once</option>
+        </select></label>
+        <span id="sort-message">Frustum culling stays active in both modes</span>
+      </div>
+      <span id="sort-info" title="Worker processing time, including visible-index generation; excludes message delivery and GPU drawing">Waiting for scene…</span>
+      <span id="sky-info"></span>
+      <div id="sky-controls" class="sky-controls">
+        <label>Sky <select id="sky-mode" aria-label="Sky background">
+          <option value="day">Day</option>
+          <option value="night">Night</option>
+          <option value="image" id="sky-image-option" disabled>My panorama</option>
+        </select></label>
+        <label class="sky-upload">Load panorama<input id="sky-image" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Load sky panorama" /></label>
+        <span id="sky-message" role="status"></span>
+      </div>
+      <a id="sky-compare" href="?sky=original">Compare scanned sky</a>
+      <a id="scene-variant" href="?tree=original">View original</a>
+    </aside>
+    <section id="shadow-debug" aria-label="Shadow map debug preview" hidden>
+      <div class="shadow-debug-heading">Shadow map · 2048 × 2048</div>
+      <div id="shadow-debug-preview"></div>
+      <div class="shadow-debug-legend">Raw depth · black: near · white: far / empty</div>
+      <div class="shadow-debug-legend">Cyan outline · shadow camera frustum</div>
+    </section>
+    <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
+    <p id="status" role="status">Loading scene…</p>
+    <pre id="error" role="alert" hidden></pre>
+    <script type="module" src="./web/main.ts"></script>
+  </body>
+</html>

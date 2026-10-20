@@ -1,5 +1,6 @@
 packages:
   - "packages/belfast-wasm"
   - "web"
+  - "experiments/particles"
 allowBuilds:
   esbuild: true
