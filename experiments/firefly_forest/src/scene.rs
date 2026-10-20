@@ -28,6 +28,8 @@ pub struct Scene {
     forest_camera: Option<SortCamera>,
     forest_dirty: bool,
     camera_frozen: bool,
+    benchmark_restore: Option<PerspectiveCamera>,
+    benchmark_path_started: bool,
     gpu_timing: Option<GpuTiming>,
 }
 
@@ -59,6 +61,8 @@ impl Scene {
             forest_camera: None,
             forest_dirty: true,
             camera_frozen: false,
+            benchmark_restore: None,
+            benchmark_path_started: false,
             gpu_timing: None,
         })
     }
@@ -151,19 +155,44 @@ impl Scene {
         self.fireflies.set_view_culling(enabled);
     }
 
-    pub fn begin_benchmark(&mut self, device: &Device, seed: u32) {
+    pub fn begin_benchmark(&mut self, device: &Device, seed: u32, moving: bool) {
         // Finish orbital damping before capturing the view, so a completed run
         // does not resume old camera motion and invalidate the next A/B run.
         self.control.update(10., &mut self.camera);
         self.control.set_enabled(false);
         self.camera_frozen = true;
+        self.benchmark_path_started = false;
+        if moving {
+            self.benchmark_restore = Some(self.camera.clone());
+            self.set_benchmark_camera(0.0);
+        }
         self.gpu_timing = None;
         // Force a sort of this exact view even below the ordinary motion threshold.
         self.sort_gate = SortGate::default();
         self.fireflies.reset(device, seed);
     }
 
+    // forest-loop-v1: 20 seconds / 1200 fixed steps, never driven by wall time.
+    fn set_benchmark_camera(&mut self, seconds: f32) {
+        let phase = seconds * std::f32::consts::TAU / 20.0;
+        let eye = glam::Vec3::new(
+            0.35 * phase.sin(),
+            0.06 * (2.0 * phase).sin(),
+            -0.4 * (1.0 - phase.cos()),
+        );
+        let yaw = 0.3 * phase.sin();
+        let pitch = 0.08 * (2.0 * phase).sin();
+        let forward = glam::Vec3::new(
+            yaw.sin() * pitch.cos(),
+            pitch.sin(),
+            -yaw.cos() * pitch.cos(),
+        );
+        self.camera
+            .look_at(eye.to_array(), (eye + forward).to_array());
+    }
+
     pub fn reset_benchmark(&mut self, device: &Device, seed: u32, frames: u32) {
+        self.benchmark_path_started = true;
         self.fireflies.reset(device, seed);
         self.gpu_timing = device
             .gpu()
@@ -173,6 +202,10 @@ impl Scene {
     }
 
     pub fn end_benchmark(&mut self) {
+        if let Some(camera) = self.benchmark_restore.take() {
+            self.camera = camera;
+        }
+        self.benchmark_path_started = false;
         self.camera_frozen = false;
         self.control.set_enabled(true);
         self.gpu_timing = None;
@@ -205,6 +238,9 @@ impl Scene {
     pub fn update(&mut self, device: &Device, delta_seconds: f32, now_ms: f64) {
         if !self.camera_frozen {
             self.control.update(delta_seconds, &mut self.camera);
+        }
+        if self.benchmark_restore.is_some() && self.benchmark_path_started {
+            self.set_benchmark_camera((now_ms * 0.001) as f32);
         }
         let camera = self.sort_camera();
         if self.depth_size != self.viewport {

@@ -20,12 +20,20 @@ The browser canvas expects encoded extended sRGB, so the forest retains its orig
 
 Open the **Benchmark** panel to select a seed (`1–4294967295`, default
 `1831565813`) and measurement length (`1–10000` frames, default `1200`).
+The default **固定移動路徑** option runs `forest-loop-v1`, a 20-second loop
+combining translation, yaw and pitch. Each camera pose uses the fixed simulation
+frame index, so slower rendering does not change the route. The camera starts
+at the scan origin; FOV remains the chosen control value. Disable this option
+to benchmark the current static view. Completion or cancellation restores the
+interactive view. Path version is part of baseline compatibility; v2 baselines
+are stored separately from the earlier v1 results.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search
 simplification both in ordinary viewing and in the next benchmark.
 
 1. Set the particle controls and camera, choose a seed and frame count, then
    press **開始量測**.
-2. The camera finishes orbital damping and is locked. The renderer waits for
+2. The camera finishes orbital damping and manual input is locked. Moving runs
+   first reset to the route origin. The renderer waits for
    the exact camera's Gaussian sort, warms up for 120 frames, resets both
    particle buffers and noise clocks to the seed, and drains the initial uploads.
 3. Each measured frame advances the simulation by exactly `1/60` second.
@@ -34,7 +42,8 @@ simplification both in ordinary viewing and in the next benchmark.
 4. Press **儲存為基準**, change **視角外簡化**, and run again. The baseline
    survives reloads in this origin's localStorage; it can be replaced or cleared.
 5. **下載本次完整結果 JSON** exports the configuration, summary statistics,
-   every measured frame interval and the GPU samples after timing finishes.
+   every measured frame interval, GPU samples and camera matrices sampled every
+   60 frames plus the last frame, after timing finishes.
 
 The [2026-10-20 3DGS optimization journal](benchmarks/2026-10-20-3dgs/README.md)
 records candidate changes, retained/discarded decisions and raw benchmarks. The
@@ -61,13 +70,18 @@ match so it can be the A/B variable. Changing visibility or viewport dimensions,
 cancellation, or a failed frame invalidates the active run; completed results
 and the saved baseline remain available.
 
-This first version measures a static camera, including its cached forest color/depth
-behavior; it does not measure continuous camera sorting. Keep the page visible
+Moving runs rebuild forest color/depth as the camera changes and keep the normal
+asynchronous sort worker active, including result handling/uploads in real FPS.
+Worker completion frames may vary with scheduling. Static runs retain cached
+forest color/depth. Keep the page visible
 and use identical display settings. FPS may reach the display refresh limit,
 so GPU times are useful even when FPS stays unchanged. Atomic grid insertion
 can vary neighbor accumulation order, and changing simplification changes
 particle trajectories: the seed reproduces initial conditions, not a guarantee
 of bit-identical simulation. Repeat longer runs when comparing performance.
+
+The [moving-camera journal](benchmarks/2026-10-20-3dgs-moving/README.md) records
+the exact route, matched baselines, optimization attempts and complete raw data.
 
 ## Fireflies
 

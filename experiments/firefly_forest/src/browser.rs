@@ -221,8 +221,8 @@ impl ExperimentApp {
     }
 
     #[wasm_bindgen(js_name = beginBenchmark)]
-    pub fn begin_benchmark(&mut self, seed: u32) {
-        self.scene.begin_benchmark(&self.device, seed);
+    pub fn begin_benchmark(&mut self, seed: u32, moving: bool) {
+        self.scene.begin_benchmark(&self.device, seed, moving);
         self.benchmark_frame = Some(0);
     }
 

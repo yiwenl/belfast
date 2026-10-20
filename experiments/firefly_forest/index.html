@@ -100,11 +100,15 @@
           </label>
         </div>
         <label class="benchmark-toggle">
+          <input id="benchmark-moving" type="checkbox" checked />
+          固定移動路徑（20 秒循環）
+        </label>
+        <label class="benchmark-toggle">
           <input id="view-culling" type="checkbox" checked />
           視角外簡化
         </label>
         <small
-          >固定 1/60 秒 · 預熱 120 幀後重設 seed<br />量測期間鎖定視角、粒子參數與視窗尺寸</small
+          >固定 1/60 秒 · 預熱 120 幀後重設 seed<br />量測期間鎖定手動操作、粒子參數與視窗尺寸</small
         >
         <small id="benchmark-gpu-support">等待 GPU…</small>
         <div class="benchmark-buttons">
@@ -130,7 +134,7 @@
         </table>
         <p id="benchmark-comparison"></p>
         <small
-          >FPS 受螢幕更新率限制；GPU 耗時不含呈現與讀回。<br />固定視角量測不包含持續轉動時的排序成本。</small
+          >FPS 受螢幕更新率限制；GPU 耗時不含呈現與讀回。<br />移動路徑包含排序與快取重建；路徑由固定幀序號驅動。</small
         >
       </div>
     </details>

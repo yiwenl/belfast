@@ -21,6 +21,7 @@ interface Run {
   intervals: number[];
   lastTimestamp: number | null;
   gpu: number[] | null;
+  cameraSamples: number[][];
 }
 
 export function createBenchmark(
@@ -31,6 +32,7 @@ export function createBenchmark(
   const get = <T extends HTMLElement>(id: string) => document.querySelector<T>(`#${id}`)!;
   const seed = get<HTMLInputElement>("benchmark-seed");
   const frames = get<HTMLInputElement>("benchmark-frames");
+  const moving = get<HTMLInputElement>("benchmark-moving");
   const culling = get<HTMLInputElement>("view-culling");
   const start = get<HTMLButtonElement>("benchmark-start");
   const cancel = get<HTMLButtonElement>("benchmark-cancel");
@@ -67,6 +69,7 @@ export function createBenchmark(
       duration: number("flash-duration"),
       fov: number("camera-fov"),
       camera: Array.from(app.benchmarkCamera()),
+      cameraPath: moving.checked ? "forest-loop-v1" : "static",
       cssSize: [canvas.clientWidth, canvas.clientHeight],
       dpr: window.devicePixelRatio,
       environment: app.benchmarkEnvironment(),
@@ -85,11 +88,12 @@ export function createBenchmark(
     seed.disabled = busy;
     frames.disabled = busy;
     culling.disabled = busy;
+    moving.disabled = busy;
   }
 
   function describe(result: BenchmarkResult) {
     const c = result.config;
-    return `${result.viewCulling ? "簡化開" : "簡化關"} · ${c.count.toLocaleString()} 隻 · seed ${c.seed} · ${c.frames} 幀`;
+    return `${c.cameraPath === "static" ? "固定視角" : "移動路徑 v1"} · ${result.viewCulling ? "簡化開" : "簡化關"} · ${c.count.toLocaleString()} 隻 · seed ${c.seed} · ${c.frames} 幀`;
   }
 
   function showResults() {
@@ -192,6 +196,9 @@ export function createBenchmark(
       frameIntervalsMs: completed.intervals,
       gpuFrameMs: samples,
       gpuFrameLayout: ["total", "compute", "forest", "glow"],
+      cameraSamples: completed.cameraSamples,
+      cameraSampleLayout:
+        "frame index, view[16], projection[16], width, height; every 60 frames and final",
     };
     download.href = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(report))}`;
     download.download = `firefly-benchmark-${latest.createdAt.replaceAll(":", "-")}.json`;
@@ -210,7 +217,7 @@ export function createBenchmark(
       if (document.hidden || !canvas.clientWidth || !canvas.clientHeight) return;
       try {
         lockScene(true);
-        app.beginBenchmark(seed.valueAsNumber);
+        app.beginBenchmark(seed.valueAsNumber, moving.checked);
         run = {
           phase: "settling",
           phaseStart: performance.now(),
@@ -220,8 +227,9 @@ export function createBenchmark(
           intervals: [],
           lastTimestamp: null,
           gpu: null,
+          cameraSamples: [],
         };
-        status.textContent = "固定視角，等待森林排序…";
+        status.textContent = "準備起始視角，等待森林排序…";
         buttons();
       } catch (error) {
         app.endBenchmark();
@@ -341,6 +349,10 @@ export function createBenchmark(
             return true;
           }
           if (!app.benchmarkFrame()) throw new Error("繪圖表面暫時不可用");
+          const frame = current.intervals.length;
+          if (frame % 60 === 0 || frame === current.config.frames - 1) {
+            current.cameraSamples.push([frame, ...app.benchmarkCamera()]);
+          }
           current.lastTimestamp = timestampMs;
           if (current.intervals.length % 30 === 0) {
             status.textContent = `量測中 ${current.intervals.length} / ${current.config.frames}`;

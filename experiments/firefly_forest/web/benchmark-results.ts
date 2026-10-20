@@ -1,7 +1,7 @@
-export const BENCHMARK_VERSION = 1;
+export const BENCHMARK_VERSION = 2;
 export const WARMUP_FRAMES = 120;
 export const FIXED_DT = 1 / 60;
-export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v1";
+export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v2";
 
 export interface BenchmarkConfig {
   seed: number;
@@ -14,6 +14,7 @@ export interface BenchmarkConfig {
   duration: number;
   fov: number;
   camera: number[];
+  cameraPath: "static" | "forest-loop-v1";
   cssSize: number[];
   dpr: number;
   environment: string;
@@ -63,6 +64,7 @@ const labels: Record<keyof BenchmarkConfig, string> = {
   duration: "閃爍時長",
   fov: "FOV",
   camera: "攝影機／輸出尺寸",
+  cameraPath: "鏡頭路徑",
   cssSize: "視窗尺寸",
   dpr: "像素比例",
   environment: "GPU／輸出模式",
@@ -111,6 +113,7 @@ export function parseBaseline(raw: string): BenchmarkResult {
     !finite(c.fov) ||
     c.fov < 20 ||
     c.fov > 100 ||
+    !["static", "forest-loop-v1"].includes(c.cameraPath) ||
     !Array.isArray(c.camera) ||
     c.camera.length !== 34 ||
     !c.camera.every(finite) ||
