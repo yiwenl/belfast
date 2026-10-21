@@ -58,13 +58,17 @@ The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** co
 
 Changes update two small uniform buffers immediately, with no shader rebuild,
 particle reset or forest-cache rebuild. Color pickers use display RGB hex colors.
-Benchmark v6 records all color, local-light and fog settings and locks these controls during a run.
+Benchmark v7 records all color, local-light and fog settings (including noise frequency) and locks these controls during a run.
 
 ## Animated volumetric fog
 
 The **體積霧** controls toggle fog, density (0–0.2, default 0.06), animation
 speed (0–2×, default 1) and light intensity (0–4×, default 0.7). Speed zero freezes
-the density field. A blue light at **(0, 2.2, -10)** shines from the brighter
+the density field. **霧的 Noise 頻率** (0.1–4×, default 1, step 0.05) scales both
+noise octaves together: lower values create broader fog patches, higher values
+create finer detail. It preserves their frequency ratio and the world-space wind
+speed; 1× matches the original density field. Changes take effect immediately
+without rebuilding the noise texture. A blue light at **(0, 2.2, -10)** shines from the brighter
 front opening toward the foreground. The position and cone direction are in
 `src/fog.rs` and `src/fog.wgsl`; these are scan units rather than meters.
 
@@ -152,7 +156,7 @@ frame index, so slower rendering does not change the route. The camera starts
 at the scan origin; FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
 interactive view. Path version, sorting cadence, color, local-light and fog settings are part of
-baseline compatibility; v6 baselines are stored separately from earlier v1–v5 results.
+baseline compatibility; v7 baselines are stored separately from earlier v1–v6 results.
 Moving measurements use the same sort thresholds as interactive viewing;
 only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search

@@ -405,9 +405,10 @@ impl ExperimentApp {
         density: f32,
         speed: f32,
         light: f32,
+        noise_frequency: f32,
     ) -> Result<(), JsValue> {
         self.scene
-            .set_fog(enabled, density, speed, light)
+            .set_fog(enabled, density, speed, light, noise_frequency)
             .map_err(js_error)
     }
 

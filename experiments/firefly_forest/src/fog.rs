@@ -21,6 +21,7 @@ pub struct Fog {
     pub distance: wgpu::TextureView,
     pub params: wgpu::Buffer,
     values: Params,
+    animation_speed: f32,
     pipeline: wgpu::RenderPipeline,
     layout: wgpu::BindGroupLayout,
     binding: wgpu::BindGroup,
@@ -205,6 +206,7 @@ impl Fog {
             distance,
             params,
             values,
+            animation_speed: 1.,
             pipeline,
             layout,
             binding,
@@ -290,14 +292,22 @@ impl Fog {
         density: f32,
         speed: f32,
         light: f32,
+        noise_frequency: f32,
     ) -> Result<(), String> {
         if !(0.0..=0.2).contains(&density)
             || !(0.0..=2.0).contains(&speed)
             || !(0.0..=4.0).contains(&light)
+            || !(0.1..=4.0).contains(&noise_frequency)
         {
             return Err("Invalid fog settings".into());
         }
-        self.values.controls = [density, speed, light, if enabled { 1. } else { 0. }];
+        self.values.controls = [
+            density,
+            noise_frequency,
+            light,
+            if enabled { 1. } else { 0. },
+        ];
+        self.animation_speed = speed;
         Ok(())
     }
 
@@ -309,7 +319,7 @@ impl Fog {
         self.values.inverse_camera = (camera.projection * camera.view).inverse().to_cols_array();
         let eye = camera.view.inverse().w_axis;
         self.values.eye_time[..3].copy_from_slice(&[eye.x, eye.y, eye.z]);
-        self.values.eye_time[3] += dt.clamp(0., 0.1) * self.values.controls[1];
+        self.values.eye_time[3] += dt.clamp(0., 0.1) * self.animation_speed;
         device
             .queue()
             .write_buffer(&self.params, 0, bytemuck::bytes_of(&self.values));

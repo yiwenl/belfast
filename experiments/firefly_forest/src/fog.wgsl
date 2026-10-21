@@ -20,7 +20,7 @@ struct FogOutput {
 
 fn density_at(p: vec3<f32>) -> f32 {
     let wind = vec3(0.08, 0.015, 0.035) * fog.eye_time.w;
-    let moving = p - wind;
+    let moving = (p - wind) * fog.controls.y;
     let broad = textureSampleLevel(noise, noise_sampler, moving * 0.035, 0.).r;
     let detail = textureSampleLevel(noise, noise_sampler, moving * 0.08 + vec3(0.31), 0.).r;
     let billows = smoothstep(0.23, 0.77, broad * 0.75 + detail * 0.25);

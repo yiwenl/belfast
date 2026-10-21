@@ -5,6 +5,7 @@ export interface FogSettings {
   density: number;
   speed: number;
   light: number;
+  noiseFrequency: number;
 }
 
 const input = (id: string) => document.getElementById(id) as HTMLInputElement;
@@ -15,6 +16,7 @@ export function fogSettings(): FogSettings {
     density: input("fog-density").valueAsNumber,
     speed: input("fog-speed").valueAsNumber,
     light: input("fog-light").valueAsNumber,
+    noiseFrequency: input("fog-noise-frequency").valueAsNumber,
   };
 }
 
@@ -26,7 +28,9 @@ export function validFogSettings(value: unknown): value is FogSettings {
     typeof c.enabled === "boolean" &&
     range(c.density, 0.2) &&
     range(c.speed, 2) &&
-    range(c.light, 4)
+    range(c.light, 4) &&
+    range(c.noiseFrequency, 4) &&
+    c.noiseFrequency >= 0.1
   );
 }
 
@@ -36,11 +40,12 @@ export function bindFogControls(app: ExperimentApp, onError: (error: unknown) =>
   const update = () => {
     try {
       const c = fogSettings();
-      app.setFog(c.enabled, c.density, c.speed, c.light);
+      app.setFog(c.enabled, c.density, c.speed, c.light, c.noiseFrequency);
       for (const [id, value] of [
         ["fog-density", c.density.toFixed(3)],
         ["fog-speed", `${c.speed.toFixed(2)}×`],
         ["fog-light", `${c.light.toFixed(2)}×`],
+        ["fog-noise-frequency", `${c.noiseFrequency.toFixed(2)}×`],
       ])
         (document.getElementById(`${id}-value`) as HTMLOutputElement).value = value;
     } catch (error) {

@@ -211,8 +211,10 @@ impl Scene {
         density: f32,
         speed: f32,
         light: f32,
+        noise_frequency: f32,
     ) -> Result<(), String> {
-        self.fog.configure(enabled, density, speed, light)
+        self.fog
+            .configure(enabled, density, speed, light, noise_frequency)
     }
 
     pub fn begin_benchmark(&mut self, device: &Device, seed: u32, moving: bool) {
