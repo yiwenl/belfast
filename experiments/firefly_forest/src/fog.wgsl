@@ -24,8 +24,10 @@ fn density_at(p: vec3<f32>) -> f32 {
     let broad = textureSampleLevel(noise, noise_sampler, moving * 0.035, 0.).r;
     let detail = textureSampleLevel(noise, noise_sampler, moving * 0.08 + vec3(0.31), 0.).r;
     let billows = smoothstep(0.23, 0.77, broad * 0.75 + detail * 0.25);
-    let height = exp(-max(p.y + 0.5, 0.) * 0.18);
-    return fog.controls.x * mix(0.2, 1.6, billows) * height;
+    // Keep the dense layer anchored to the firefly ground plane as noise drifts.
+    let above_ground = max(p.y + 0.45, 0.);
+    let height_density = 0.2 + 2.3 * exp(-above_ground / 0.8);
+    return fog.controls.x * mix(0.2, 1.6, billows) * height_density;
 }
 
 fn integrate(uv: vec2<f32>, depth: f32) -> FogOutput {

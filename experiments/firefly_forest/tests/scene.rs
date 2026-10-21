@@ -10,6 +10,6 @@ fn initial_view_starts_inside_the_scan() {
     }))
     .unwrap();
     let scene = Scene::new(&device).unwrap();
-    assert_eq!(scene.camera.position(), [0., 0., 0.]);
-    assert_eq!(scene.camera.look_at_target(), [0., 0., -1.]);
+    assert_eq!(scene.camera.position(), [0., 0., 5.]);
+    assert_eq!(scene.camera.look_at_target(), [0., 0., 0.]);
 }

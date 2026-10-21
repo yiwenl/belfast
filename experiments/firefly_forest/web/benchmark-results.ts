@@ -2,10 +2,10 @@ import { validLightSettings, type LightSettings } from "./light-controls";
 import { validColorSettings, type ColorSettings } from "./color-controls";
 import { validFogSettings, type FogSettings } from "./fog-controls";
 
-export const BENCHMARK_VERSION = 7;
+export const BENCHMARK_VERSION = 8;
 export const WARMUP_FRAMES = 120;
 export const FIXED_DT = 1 / 60;
-export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v7";
+export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v8";
 
 export interface BenchmarkConfig {
   seed: number;
@@ -16,6 +16,9 @@ export interface BenchmarkConfig {
   movement: number;
   frequency: number;
   duration: number;
+  movementRandomness: number;
+  blinkRandomness: number;
+  size: number;
   fov: number;
   camera: number[];
   cameraPath: "static" | "forest-loop-v1";
@@ -70,6 +73,9 @@ const labels: Record<keyof BenchmarkConfig, string> = {
   movement: "移動速度",
   frequency: "閃爍頻率",
   duration: "閃爍時長",
+  movementRandomness: "移動隨機程度",
+  blinkRandomness: "閃爍隨機程度",
+  size: "螢火蟲大小",
   fov: "FOV",
   camera: "攝影機／輸出尺寸",
   cameraPath: "鏡頭路徑",
@@ -122,6 +128,15 @@ export function parseBaseline(raw: string): BenchmarkResult {
     !finite(c.duration) ||
     c.duration < 0.1 ||
     c.duration > 2 ||
+    !finite(c.movementRandomness) ||
+    c.movementRandomness < 0 ||
+    c.movementRandomness > 2 ||
+    !finite(c.blinkRandomness) ||
+    c.blinkRandomness < 0 ||
+    c.blinkRandomness > 2 ||
+    !finite(c.size) ||
+    c.size < 0.25 ||
+    c.size > 3 ||
     !finite(c.fov) ||
     c.fov < 20 ||
     c.fov > 100 ||

@@ -1,5 +1,5 @@
 use belfast::{BelfastResult, Device, OrbitalControl, OrbitalControlOptions, PerspectiveCamera};
-use glam::Mat4;
+use glam::{Mat4, Vec3};
 
 use crate::{
     fireflies::{depth_view, merged_depth, FireflySystem},
@@ -39,10 +39,10 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(device: &Device) -> BelfastResult<Self> {
-        let mut camera = PerspectiveCamera::new(40.0_f32.to_radians(), 1.0, 0.02, 200.0);
+        let mut camera = PerspectiveCamera::new(50.0_f32.to_radians(), 1.0, 0.02, 200.0);
         let mut control = OrbitalControl::new(OrbitalControlOptions {
-            center: [0.0, 0.0, -1.0],
-            radius: 1.0,
+            center: [0.0, 0.0, 0.0],
+            radius: 5.0,
             min_radius: 0.05,
             max_radius: 100.0,
             rotate_sensitivity: 0.003,
@@ -99,8 +99,10 @@ impl Scene {
     }
 
     fn sort_camera(&self) -> SortCamera {
+        // All passes and sorting share scene-local coordinates, including fog and light volumes.
+        let scene_transform = Mat4::from_translation(Vec3::new(0., -0.5, 0.));
         SortCamera::new(
-            Mat4::from_cols_array(&self.camera.view_matrix()),
+            Mat4::from_cols_array(&self.camera.view_matrix()) * scene_transform,
             Mat4::from_cols_array(&self.camera.projection_matrix()),
             self.viewport,
         )
@@ -162,6 +164,14 @@ impl Scene {
 
     pub fn set_firefly_flash_duration(&mut self, seconds: f32) -> Result<(), String> {
         self.fireflies.set_flash_duration(seconds)
+    }
+
+    pub fn set_firefly_randomness(&mut self, movement: f32, blinking: f32) -> Result<(), String> {
+        self.fireflies.set_randomness(movement, blinking)
+    }
+
+    pub fn set_firefly_size(&mut self, scale: f32) -> Result<(), String> {
+        self.fireflies.set_size(scale)
     }
 
     pub fn set_view_culling(&mut self, enabled: bool) {

@@ -10,7 +10,7 @@
     <aside>
       <strong>Firefly forest</strong>
       <span>Drag to orbit · Shift + drag to pan · Scroll to zoom</span>
-      <span id="firefly-info">10,000 fireflies · flocking &amp; synchronized glow</span>
+      <span id="firefly-info">20,000 fireflies · flocking &amp; synchronized glow</span>
       <span id="display-info" lang="zh-Hant"></span>
       <span id="scene-info"></span>
     </aside>
@@ -19,14 +19,14 @@
       <strong>螢火蟲</strong>
       <div class="control">
         <label for="particle-count">粒子數量</label>
-        <output id="particle-count-value" for="particle-count">10,000 隻</output>
+        <output id="particle-count-value" for="particle-count">20,000 隻</output>
         <input
           id="particle-count"
           type="range"
           min="10000"
           max="100000"
           step="1000"
-          value="10000"
+          value="20000"
           disabled
         />
       </div>
@@ -63,11 +63,51 @@
       </div>
       <small>頻率控制間隔 · 時長從下次閃爍生效</small>
       <small>速度／頻率：0 停止 · 1 原始速度</small>
+      <div class="control">
+        <label for="movement-randomness">移動隨機程度</label>
+        <output id="movement-randomness-value" for="movement-randomness">0.60×</output>
+        <input
+          id="movement-randomness"
+          type="range"
+          min="0"
+          max="2"
+          step="0.05"
+          value="0.6"
+          disabled
+        />
+      </div>
+      <div class="control">
+        <label for="blink-randomness">閃爍隨機程度</label>
+        <output id="blink-randomness-value" for="blink-randomness">0.60×</output>
+        <input
+          id="blink-randomness"
+          type="range"
+          min="0"
+          max="2"
+          step="0.05"
+          value="0.6"
+          disabled
+        />
+      </div>
+      <small>隨機：0 無額外擾動 · 1 原始程度 · 2 加強</small>
+      <div class="control">
+        <label for="firefly-size">螢火蟲大小</label>
+        <output id="firefly-size-value" for="firefly-size">0.75×</output>
+        <input
+          id="firefly-size"
+          type="range"
+          min="0.25"
+          max="3"
+          step="0.05"
+          value="0.75"
+          disabled
+        />
+      </div>
       <strong>攝影機</strong>
       <div class="control">
         <label for="camera-fov">視角 FOV</label>
-        <output id="camera-fov-value" for="camera-fov">40°</output>
-        <input id="camera-fov" type="range" min="20" max="100" step="1" value="40" disabled />
+        <output id="camera-fov-value" for="camera-fov">50°</output>
+        <input id="camera-fov" type="range" min="20" max="100" step="1" value="50" disabled />
       </div>
       <details class="fog" open>
         <summary>體積霧</summary>
@@ -271,7 +311,7 @@
       </details>
       <button id="color-reset" type="button" disabled>恢復調色預設</button>
     </section>
-    <details id="benchmark-panel" lang="zh-Hant" open>
+    <details id="benchmark-panel" lang="zh-Hant">
       <summary>Benchmark <span>固定步長 · A/B 比較</span></summary>
       <div class="benchmark-body">
         <div class="benchmark-fields">

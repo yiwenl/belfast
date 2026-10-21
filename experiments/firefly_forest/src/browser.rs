@@ -355,6 +355,18 @@ impl ExperimentApp {
             .map_err(js_error)
     }
 
+    #[wasm_bindgen(js_name = setFireflyRandomness)]
+    pub fn set_firefly_randomness(&mut self, movement: f32, blinking: f32) -> Result<(), JsValue> {
+        self.scene
+            .set_firefly_randomness(movement, blinking)
+            .map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setFireflySize)]
+    pub fn set_firefly_size(&mut self, scale: f32) -> Result<(), JsValue> {
+        self.scene.set_firefly_size(scale).map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = loadPly)]
     pub fn load_ply(&mut self, bytes: &[u8]) -> Result<u32, JsValue> {
         self.scene.load_ply(&self.device, bytes).map_err(js_error)

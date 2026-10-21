@@ -4,7 +4,8 @@ use wgpu::util::DeviceExt;
 
 use crate::sorting::SortCamera;
 
-pub const PARTICLE_COUNT: u32 = 10_000;
+pub const PARTICLE_COUNT: u32 = 20_000;
+const MIN_PARTICLE_COUNT: u32 = 10_000;
 const MAX_PARTICLE_COUNT: u32 = 100_000;
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub fn merged_depth(device: &Device) -> bool {
@@ -80,6 +81,7 @@ struct SimParams {
     noise_phase: [f32; 4],
     clock: [f32; 4],
     controls: [f32; 4],
+    randomness: [f32; 4],
     grid_count: [u32; 4],
     neighbor_view: [[f32; 4]; 6],
     benchmark: [u32; 4],
@@ -152,6 +154,8 @@ pub struct FireflySystem {
     phase_time: f32,
     rates: [f32; 2],
     flash_duration: f32,
+    randomness: [f32; 2],
+    size: f32,
     pending_dt: f32,
     view_culling: bool,
 }
@@ -168,6 +172,8 @@ impl FireflySystem {
         );
         system.count = PARTICLE_COUNT;
         system.rates = [0.27, 0.28];
+        system.randomness = [0.6, 0.6];
+        system.size = 0.75;
         system
     }
 
@@ -191,7 +197,7 @@ impl FireflySystem {
             BufferUsage::uniform(),
             "FireflySimulationParams",
         );
-        let camera = Buffer::create(device, 128, BufferUsage::uniform(), "FireflyCamera");
+        let camera = Buffer::create(device, 144, BufferUsage::uniform(), "FireflyCamera");
         let heads = Buffer::create(
             device,
             u64::from(grid.iter().product::<u32>()) * 4,
@@ -380,6 +386,8 @@ impl FireflySystem {
             phase_time: 0.,
             rates: [1., 1.],
             flash_duration: DEFAULT_FLASH_DURATION_SECONDS,
+            randomness: [1., 1.],
+            size: 1.,
             pending_dt: 0.,
             view_culling: true,
         }
@@ -402,7 +410,7 @@ impl FireflySystem {
 
     pub fn set_count(&mut self, count: u32) -> u32 {
         self.count = count
-            .clamp(PARTICLE_COUNT, MAX_PARTICLE_COUNT)
+            .clamp(MIN_PARTICLE_COUNT, MAX_PARTICLE_COUNT)
             .min(self.capacity);
         self.count
     }
@@ -440,6 +448,22 @@ impl FireflySystem {
         Ok(())
     }
 
+    pub fn set_randomness(&mut self, movement: f32, blinking: f32) -> Result<(), String> {
+        if !movement.is_finite() || !blinking.is_finite() {
+            return Err("Firefly randomness must be finite".into());
+        }
+        self.randomness = [movement.clamp(0., 2.), blinking.clamp(0., 2.)];
+        Ok(())
+    }
+
+    pub fn set_size(&mut self, scale: f32) -> Result<(), String> {
+        if !scale.is_finite() {
+            return Err("Firefly size must be finite".into());
+        }
+        self.size = scale.clamp(0.25, 3.);
+        Ok(())
+    }
+
     pub fn update(&mut self, device: &Device, dt: f32, camera: &SortCamera) {
         self.pending_dt = if dt.is_finite() {
             dt.clamp(0., 0.1)
@@ -460,7 +484,7 @@ impl FireflySystem {
         ]
         .map(|plane| {
             let mut plane = plane / plane.truncate().length();
-            plane.w += s.neighbor_radius + VIEW_SPRITE_MARGIN;
+            plane.w += s.neighbor_radius + VIEW_SPRITE_MARGIN * self.size;
             plane.to_array()
         });
         self.params.write(
@@ -478,6 +502,7 @@ impl FireflySystem {
                     s.phase_jitter,
                     self.flash_duration,
                 ],
+                randomness: [self.randomness[0], self.randomness[1], 0., 0.],
                 grid_count: [self.grid[0], self.grid[1], self.grid[2], self.count],
                 neighbor_view,
                 benchmark: [u32::from(self.view_culling), 0, 0, 0],
@@ -486,6 +511,7 @@ impl FireflySystem {
         );
         let mut matrices = camera.view.to_cols_array().to_vec();
         matrices.extend(camera.projection.to_cols_array());
+        matrices.extend([self.size, 0., 0., 0.]);
         self.camera.write(device, &matrices, 0);
     }
 

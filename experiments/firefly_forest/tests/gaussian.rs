@@ -211,8 +211,8 @@ fn gpu_draws_anisotropic_gaussians_in_back_to_front_order() {
     }))
     .unwrap();
     let scene = belfast_experiment_firefly_forest::scene::Scene::new(&device).unwrap();
-    assert_eq!(scene.camera.position(), [0., 0., 0.]);
-    assert_eq!(scene.camera.look_at_target(), [0., 0., -1.]);
+    assert_eq!(scene.camera.position(), [0., 0., 5.]);
+    assert_eq!(scene.camera.look_at_target(), [0., 0., 0.]);
     let mut far = row();
     far[..3].copy_from_slice(&[0., 0., 4.]);
     far[3..6].copy_from_slice(&[1.772_453_8, -1.772_453_8, -1.772_453_8]);

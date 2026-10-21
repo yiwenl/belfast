@@ -68,18 +68,29 @@ function bindSceneControls(target: ExperimentApp) {
   const movement = document.querySelector<HTMLInputElement>("#movement-speed")!;
   const blinking = document.querySelector<HTMLInputElement>("#blink-frequency")!;
   const duration = document.querySelector<HTMLInputElement>("#flash-duration")!;
+  const movementRandomness = document.querySelector<HTMLInputElement>("#movement-randomness")!;
+  const blinkRandomness = document.querySelector<HTMLInputElement>("#blink-randomness")!;
+  const size = document.querySelector<HTMLInputElement>("#firefly-size")!;
   const fov = document.querySelector<HTMLInputElement>("#camera-fov")!;
   const countValue = document.querySelector<HTMLOutputElement>("#particle-count-value")!;
   const fireflyInfo = document.querySelector<HTMLElement>("#firefly-info")!;
   const movementValue = document.querySelector<HTMLOutputElement>("#movement-speed-value")!;
   const blinkingValue = document.querySelector<HTMLOutputElement>("#blink-frequency-value")!;
   const durationValue = document.querySelector<HTMLOutputElement>("#flash-duration-value")!;
+  const movementRandomnessValue = document.querySelector<HTMLOutputElement>(
+    "#movement-randomness-value",
+  )!;
+  const blinkRandomnessValue =
+    document.querySelector<HTMLOutputElement>("#blink-randomness-value")!;
+  const sizeValue = document.querySelector<HTMLOutputElement>("#firefly-size-value")!;
   const fovValue = document.querySelector<HTMLOutputElement>("#camera-fov-value")!;
   const updateControls = () => {
     try {
       const activeCount = target.setFireflyCount(count.valueAsNumber);
       target.setFireflyRates(movement.valueAsNumber, blinking.valueAsNumber);
       target.setFireflyFlashDuration(duration.valueAsNumber);
+      target.setFireflyRandomness(movementRandomness.valueAsNumber, blinkRandomness.valueAsNumber);
+      target.setFireflySize(size.valueAsNumber);
       const cameraFov = target.setCameraFov(fov.valueAsNumber);
       count.value = String(activeCount);
       countValue.value = `${activeCount.toLocaleString("en-US")} 隻`;
@@ -87,13 +98,25 @@ function bindSceneControls(target: ExperimentApp) {
       movementValue.value = `${movement.valueAsNumber.toFixed(2)}×`;
       blinkingValue.value = `${blinking.valueAsNumber.toFixed(2)}×`;
       durationValue.value = `${duration.valueAsNumber.toFixed(2)} 秒`;
+      movementRandomnessValue.value = `${movementRandomness.valueAsNumber.toFixed(2)}×`;
+      blinkRandomnessValue.value = `${blinkRandomness.valueAsNumber.toFixed(2)}×`;
+      sizeValue.value = `${size.valueAsNumber.toFixed(2)}×`;
       fov.value = String(cameraFov);
       fovValue.value = `${cameraFov.toFixed(0)}°`;
     } catch (error) {
       reportError(error);
     }
   };
-  const inputs = [count, movement, blinking, duration, fov];
+  const inputs = [
+    count,
+    movement,
+    blinking,
+    duration,
+    movementRandomness,
+    blinkRandomness,
+    size,
+    fov,
+  ];
   for (const input of inputs) {
     input.disabled = false;
     input.addEventListener("input", updateControls);

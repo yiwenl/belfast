@@ -1,6 +1,7 @@
 struct Camera {
     view: mat4x4<f32>,
     projection: mat4x4<f32>,
+    sprite: vec4<f32>, // x: visual size multiplier
 };
 @group(0) @binding(0) var<storage, read> particles: array<Firefly>;
 @group(0) @binding(1) var<uniform> camera: Camera;
@@ -23,7 +24,7 @@ struct Vertex {
     let emission = firefly_emission(index, p.flash.y);
     // Compute supplies a fixed-duration envelope independent of cycle speed.
     let brightness = emission.a;
-    let radius = mix(0.045, 0.07, variation);
+    let radius = mix(0.045, 0.07, variation) * camera.sprite.x;
     let center = camera.view * vec4(p.position_phase.xyz, 1.);
     var out: Vertex;
     out.position = camera.projection * (center + vec4(uv * radius, 0., 0.));

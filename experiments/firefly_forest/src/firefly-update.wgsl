@@ -6,6 +6,7 @@ struct SimParams {
     noise_phase: vec4<f32>, // curl scale, strength, animation speed, phase coupling
     clock: vec4<f32>, // dt, movement noise time, body radius, phase noise time
     controls: vec4<f32>, // movement rate, blinking rate, phase jitter, flash duration
+    randomness: vec4<f32>, // movement / blinking randomness multipliers, reserved
     grid_count: vec4<u32>, // grid dimensions, particle count
     neighbor_view: array<vec4<f32>, 6>, // inward world planes, expanded by neighbor + sprite radius
     benchmark: vec4<u32>, // x: offscreen simplification enabled
@@ -110,7 +111,7 @@ fn update_particles(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
     var force = vec3(0.);
-    var phase_rate = current.velocity_frequency.w;
+    var phase_rate = 0.22 + (current.velocity_frequency.w - 0.22) * params.randomness.y;
     if neighbors > 0. {
         force += (center / neighbors - position) * params.flock.z;
         force += (heading / neighbors - velocity) * params.flock.w;
@@ -125,7 +126,7 @@ fn update_particles(@builtin(global_invocation_id) id: vec3<u32>) {
     let blend = fraction * fraction * (3. - 2. * fraction);
     let random_a = petal_noise_hash(vec3<i32>(i32(id.x), interval, 29)).x;
     let random_b = petal_noise_hash(vec3<i32>(i32(id.x), interval + 1, 29)).x;
-    phase_rate += mix(random_a, random_b, blend) * params.controls.z;
+    phase_rate += mix(random_a, random_b, blend) * params.controls.z * params.randomness.y;
     if close_neighbors > 0. {
         force += separation / close_neighbors * params.flock.y;
     }
@@ -133,7 +134,7 @@ fn update_particles(@builtin(global_invocation_id) id: vec3<u32>) {
     // evaluation or neighbor search is needed for the individual wandering.
     let offset = individual * 13.
         + vec3(0.73, 0.41, -0.57) * params.clock.y * params.noise_phase.z * (0.7 + 0.3 * individual.x);
-    force += curl_noise(position * params.noise_phase.x + offset) * params.noise_phase.y;
+    force += curl_noise(position * params.noise_phase.x + offset) * params.noise_phase.y * params.randomness.x;
     let low = params.min_cell.xyz + vec3(params.clock.z);
     let high = params.max_neighbor.xyz - vec3(params.clock.z);
     // Smoothly turn inward before reaching a wall; clamp is only a safety net.

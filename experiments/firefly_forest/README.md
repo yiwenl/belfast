@@ -1,6 +1,8 @@
 # Firefly forest
 
-Renders `public/forest.ply` with the Rust/WebGPU 3D Gaussian splatting pipeline from `experiments/particles`. Original PLY colors are blended into the forest cache, then graded into a blue/teal night palette. The camera starts at the scan origin, looking along negative Z after converting PLY coordinates to Y-up.
+Renders `public/forest.ply` with the Rust/WebGPU 3D Gaussian splatting pipeline from `experiments/particles`. Original PLY colors are blended into the forest cache, then graded into a blue/teal night palette. The camera starts at **(0, 0, 5)**, looking toward **(0, 0, 0)** after converting PLY coordinates to Y-up. Orbital controls use the world origin as their look-at and rotation center, with an initial radius of **5 units**.
+
+The entire scene is translated **0.5 units down**. The shared view transform includes this translation for splat rendering/sorting, firefly rendering/culling, fog and local-light reconstruction. Simulation bounds, ground height and lights remain in scene-local coordinates, so they move together. Benchmark camera snapshots include the translation, preventing comparisons against baselines with the old placement.
 
 ## Render resolution and static forest cache
 
@@ -58,7 +60,7 @@ The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** co
 
 Changes update two small uniform buffers immediately, with no shader rebuild,
 particle reset or forest-cache rebuild. Color pickers use display RGB hex colors.
-Benchmark v7 records all color, local-light and fog settings (including noise frequency) and locks these controls during a run.
+Benchmark v8 records all color, local-light and fog settings (including noise frequency), firefly randomness and sprite size, and locks these controls during a run. The Benchmark panel is collapsed by default.
 
 ## Animated volumetric fog
 
@@ -67,7 +69,7 @@ speed (0–2×, default 1) and light intensity (0–4×, default 0.7). Speed zer
 the density field. **霧的 Noise 頻率** (0.1–4×, default 1, step 0.05) scales both
 noise octaves together: lower values create broader fog patches, higher values
 create finer detail. It preserves their frequency ratio and the world-space wind
-speed; 1× matches the original density field. Changes take effect immediately
+speed; 1× preserves the original noise scale. Changes take effect immediately
 without rebuilding the noise texture. A blue light at **(0, 2.2, -10)** shines from the brighter
 front opening toward the foreground. The position and cone direction are in
 `src/fog.rs` and `src/fog.wgsl`; these are scan units rather than meters.
@@ -78,6 +80,14 @@ The existing forest depth stops the camera ray at a visible surface. A seeded
 32³ noise texture, sampled at two scales with slow world-space wind, animates
 the density without CPU texture uploads. Height falloff, Beer–Lambert
 transmittance and forward scattering give the light volume depth and motion.
+Density is concentrated near the firefly ground plane **Y = -0.45**:
+`0.2 + 2.3 * exp(-heightAboveGround / 0.8)` multiplies the animated noise.
+It reaches **2.5× at ground level**, fades to about **1.05× at 0.8 units above
+ground** and **0.51× at 1.6 units**, with a 0.2× haze remaining aloft. The
+height profile stays anchored as the noise moves, so fog feels settled along
+the ground. This uses the simulation's flat ground approximation, not sampled
+terrain elevation. The density slider scales the whole profile. Sampling
+resolution, ray-march step count and texture reads are unchanged.
 Depth-aware four-tap upsampling composites scattering/transmittance in the
 existing forest-copy pass, after grading. Fog animation does not invalidate
 the static forest cache. Additional textures occupy about **1.52 MiB** at 1080p.
@@ -98,6 +108,7 @@ moving-camera measurements to establish the actual cost on a given GPU.
 The [first fog measurements](benchmarks/2026-10-20-volumetric-fog/README.md)
 record **68.73 → 65.92 FPS** with fog enabled, a **2.82 FPS** drop and
 **0.49 ms** additional whole-frame GPU time for the paired route/settings.
+Those measurements predate the denser ground profile.
 
 ## Firefly light volume
 
@@ -153,10 +164,10 @@ Open the **Benchmark** panel to select a seed (`1–4294967295`, default
 The default **固定移動路徑** option runs `forest-loop-v1`, a 20-second loop
 combining translation, yaw and pitch. Each camera pose uses the fixed simulation
 frame index, so slower rendering does not change the route. The camera starts
-at the scan origin; FOV remains the chosen control value. Disable this option
+at world origin (separate from the interactive starting position); FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
 interactive view. Path version, sorting cadence, color, local-light and fog settings are part of
-baseline compatibility; v7 baselines are stored separately from earlier v1–v6 results.
+baseline compatibility; v8 baselines are stored separately from earlier v1–v7 results.
 Moving measurements use the same sort thresholds as interactive viewing;
 only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search
@@ -217,15 +228,19 @@ the exact route, matched baselines, optimization attempts and complete raw data.
 
 ## Fireflies
 
-The **粒子數量** (particle count) slider selects **10,000–100,000 fireflies**, in steps of 1,000, defaulting to 10,000. Both particle buffers and grid links are allocated for 100,000 particles at startup; changing the active count updates compute dispatches, neighbor lookup bounds and draw instances without reallocating buffers or resetting active particles. Inactive particles are excluded from simulation and rendering.
+The **粒子數量** (particle count) slider selects **10,000–100,000 fireflies**, in steps of 1,000, defaulting to 20,000. Both particle buffers and grid links are allocated for 100,000 particles at startup; changing the active count updates compute dispatches, neighbor lookup bounds and draw instances without reallocating buffers or resetting active particles. Inactive particles are excluded from simulation and rendering.
 
 Fireflies run entirely on GPU compute. Each frame clears a spatial grid and inserts every active particle into an atomic linked list. Particles within the camera frustum and its guard band search the 27 adjacent cells for neighbors. The lists have one entry per particle, so crowded cells do not silently drop neighbors. Particle state alternates between two storage buffers; rendering uses the latest output without CPU readback.
 
-The compute shader skips neighbor searches, flocking forces and phase synchronization outside the expanded frustum. The guard band is one neighbor radius plus 0.1 scene units for the glow billboard (**1.0 unit** with the default settings), measured against normalized world-space planes and updated with the camera every frame, including FOV changes. Offscreen particles remain in the grid so visible particles can still interact with them. They continue moving with curl noise, drag and boundary constraints, and advance their own randomized cycles and fixed-duration flashes; neither state nor time freezes when leaving the view.
+The compute shader skips neighbor searches, flocking forces and phase synchronization outside the expanded frustum. The guard band is one neighbor radius plus `0.1 × size multiplier` scene units for the glow billboard (**0.975 units** with the default settings), measured against normalized world-space planes and updated with the camera every frame, including FOV and firefly size changes. Offscreen particles remain in the grid so visible particles can still interact with them. They continue moving with curl noise, drag and boundary constraints, and advance their own randomized cycles and fixed-duration flashes; neither state nor time freezes when leaving the view.
 
 Nearby fireflies separate, more distant neighbors attract, and their velocities align. Analytic curl noise adds wandering, with an individual sampling offset and animation rate so adjacent fireflies do not follow identical paths. This reuses one curl evaluation per particle. Motion integrates acceleration into velocity, then velocity into position using small time steps, drag and a speed limit.
 
-Each firefly has a continuous phase in `[0, 1)` and its own intrinsic frequency between 0.16 and 0.28 cycles per second. Neighbor differences use `fract(neighborPhase - phase + 0.5) - 0.5`, the signed shortest distance around the cycle. A positive average speeds the oscillator up; a negative average slows it down. Weaker coupling preserves individual timing alongside local synchronization. Each particle also has smooth random frequency drift, up to ±0.065 cycles per second, with an individual offset and rate. The phase never jumps to match a neighbor.
+Each firefly has a continuous phase in `[0, 1)` and its own intrinsic frequency between 0.16 and 0.28 cycles per second at 1× randomness. Neighbor differences use `fract(neighborPhase - phase + 0.5) - 0.5`, the signed shortest distance around the cycle. A positive average speeds the oscillator up; a negative average slows it down. Weaker coupling preserves individual timing alongside local synchronization. Each particle also has smooth random frequency drift, up to ±0.065 cycles per second at 1× randomness, with an individual offset and rate. The phase never jumps to match a neighbor.
+
+The **移動隨機程度** and **閃爍隨機程度** sliders range from **0–2×**, default **0.60×**. Movement randomness scales the curl force while preserving separation, cohesion and alignment. Blink randomness scales both the intrinsic-frequency spread around 0.22 cycles/second and the smooth frequency drift, leaving neighbor coupling and flash duration unchanged. Zero removes these disturbances, but does not reset existing velocities or phases, so particles do not instantly align or synchronize. These controls preserve seeded randomness and take effect without restarting the simulation.
+
+The **螢火蟲大小** slider ranges from **0.25–3×**, default **0.75×**, scaling each billboard's core and halo while retaining individual size variation. It also expands the offscreen simulation guard band to cover larger sprites. Physical boundary constraints and the separately controlled local-light radius stay unchanged.
 
 Each cycle wrap triggers a separate flash, with a smooth rise and fall and no glow between flashes. The **閃爍時長** (flash duration) slider selects **0.1–2 seconds**, in 0.05-second steps, with a **1.5-second default**. The GPU captures the selected duration at the start of each flash and tracks its age in unscaled seconds, including the fraction of the triggering frame after the cycle wraps. Duration changes apply to the next flash, so active pulses do not jump and expired pulses stay dark. Frequency, neighbor synchronization and jitter only affect the interval between flashes; even a frequency change during a flash leaves its duration unchanged.
 
@@ -233,16 +248,16 @@ The on-screen **移動速度** (movement speed) and **閃爍頻率** (blink freq
 
 Tune `Settings::default()` in `src/fireflies.rs`:
 
-| Parameter                    | Default                                          |
-| ---------------------------- | ------------------------------------------------ |
-| Population                   | `10,000` default, `100,000` maximum              |
-| X / Z bounds                 | `[-10, 10]` / `[-24, 6]`                         |
-| Ground / ceiling Y           | `-0.45` / `3.0`                                  |
-| Neighbor / separation radius | `0.9` / `0.22`                                   |
-| Maximum speed / acceleration | `0.32` / `0.65` scene units per second / second² |
-| Phase coupling               | `0.35`                                           |
-| Random frequency drift       | `±0.065` cycles per second                       |
-| Curl strength                | `0.12`                                           |
+| Parameter                    | Default                                               |
+| ---------------------------- | ----------------------------------------------------- |
+| Population                   | `20,000` default, `10,000` minimum, `100,000` maximum |
+| X / Z bounds                 | `[-10, 10]` / `[-24, 6]`                              |
+| Ground / ceiling Y           | `-0.45` / `3.0`                                       |
+| Neighbor / separation radius | `0.9` / `0.22`                                        |
+| Maximum speed / acceleration | `0.32` / `0.65` scene units per second / second²      |
+| Phase coupling               | `0.35`                                                |
+| Random frequency drift       | `±0.065` cycles per second                            |
+| Curl strength                | `0.12`                                                |
 
 The ground is a configurable horizontal simulation plane in the scan's coordinates, not collision against a reconstructed terrain mesh. Soft forces turn particles before the bounds, with a final clamp keeping their bodies above the ground and below the ceiling.
 
@@ -277,7 +292,7 @@ Open <http://localhost:5178> in a WebGPU-capable browser. The 242 MB PLY loads o
 - Drag to orbit.
 - Shift + drag or middle drag to pan.
 - Scroll to zoom.
-- The **攝影機 / 視角 FOV** slider changes the vertical field of view from **20° to 100°**, in 1° steps, defaulting to **40°**. Changes immediately update the projection, Gaussian visibility and firefly occlusion.
+- The **攝影機 / 視角 FOV** slider changes the vertical field of view from **20° to 100°**, in 1° steps, defaulting to **50°**. Changes immediately update the projection, Gaussian visibility and firefly occlusion.
 
 The `dev` command builds optimized Wasm, starts Vite, and recursively watches `.rs` / `.wgsl` files in this experiment's `src/` and the shared `crates/belfast/src/`. Saving a file rebuilds release Wasm and reloads the page after a successful build. Saves within 200 ms are combined; edits during a build queue one more build instead of starting overlapping builds. Compilation errors leave the watcher running so the next save retries. Reloading resets the camera and firefly controls. TypeScript and CSS retain Vite's usual hot reload.
 
