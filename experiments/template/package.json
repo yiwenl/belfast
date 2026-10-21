@@ -1,0 +1,23 @@
+{
+  "name": "@belfast/experiment-template",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:wasm": "wasm-pack build . --target web --out-dir pkg --out-name experiment --dev",
+    "build:wasm:release": "wasm-pack build . --target web --out-dir pkg --out-name experiment",
+    "watch:wasm": "node scripts/watch-wasm.mjs",
+    "dev": "node scripts/watch-wasm.mjs --vite",
+    "build": "pnpm build:wasm:release && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "preview:lan": "pnpm build && vite preview --mode lan",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}

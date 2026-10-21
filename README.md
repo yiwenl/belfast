@@ -40,6 +40,9 @@ const device = await Device.create(canvas);
 
 ## Repo layout
 
+Rust-owned experiment starter (Vite/TypeScript host, axes, mouse orbit, reserved Kinetic input):
+[`experiments/template`](experiments/template/README.md). Run `pnpm --dir experiments/template dev` and open <http://localhost:5174>.
+
 The independent particle experiment starts in [`experiments/particles`](experiments/particles/README.md): `pnpm --dir experiments/particles dev`, <http://localhost:5176>.
 
 ```

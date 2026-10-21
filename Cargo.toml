@@ -2,6 +2,7 @@
 members = [
   "crates/belfast",
   "crates/belfast-wasm",
+  "experiments/template",
   "experiments/particles",
   "experiments/firefly_forest",
   "experiments/image_volume",
