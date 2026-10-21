@@ -4,6 +4,7 @@ members = [
   "crates/belfast-wasm",
   "experiments/particles",
   "experiments/firefly_forest",
+  "experiments/image_volume",
 ]
 resolver = "2"
 

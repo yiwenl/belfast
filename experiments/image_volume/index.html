@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast — Image volume</title>
+  </head>
+  <body>
+    <canvas aria-label="A plane slicing a stack of photographs"></canvas>
+    <aside>
+      <strong>Image volume</strong>
+      <label><input id="face-on" type="checkbox" checked /> 正面顯示切面</label>
+      <label><input id="show-slices" type="checkbox" /> 顯示全部切面</label>
+      <span>拖曳旋轉平面 · 滾輪縮放</span>
+      <span class="legend"><i class="x">X</i><i class="y">Y</i><i class="z">Z</i></span>
+    </aside>
+    <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
+    <p id="status" role="status">Loading scene…</p>
+    <pre id="error" role="alert" hidden></pre>
+    <script type="module" src="./web/main.ts"></script>
+  </body>
+</html>

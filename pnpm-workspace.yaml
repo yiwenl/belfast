@@ -3,5 +3,6 @@ packages:
   - "web"
   - "experiments/particles"
   - "experiments/firefly_forest"
+  - "experiments/image_volume"
 allowBuilds:
   esbuild: true

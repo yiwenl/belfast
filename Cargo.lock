@@ -152,6 +152,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "belfast-experiment-image-volume"
+version = "0.1.0"
+dependencies = [
+ "belfast",
+ "glam",
+ "naga",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+]
+
+[[package]]
 name = "belfast-experiment-particles"
 version = "0.1.0"
 dependencies = [

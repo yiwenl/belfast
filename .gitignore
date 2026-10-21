@@ -52,3 +52,6 @@ note.txt
 # HDR / EXR environment maps (local assets for hdr-display example)
 archive/examples/hdr-display/public/*.hdr
 archive/examples/hdr-display/public/*.exr
+
+# Raw photo sequence for the image volume experiment (preprocessed frames live in the experiment)
+experiments/img_sequence/
