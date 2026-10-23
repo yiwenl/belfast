@@ -7,7 +7,8 @@
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let index = id.x;
     if index >= trail.z { return; }
-    let position = vec4(particles[index].position_phase.xyz, 1.);
+    // Reuse the fourth component for this frame's flash; no extra history storage.
+    let position = vec4(particles[index].position_phase.xyz, particles[index].flash.y);
     if trail.w != 0u {
         for (var slot = 0u; slot < CHUNK_FRAMES; slot++) {
             history[slot * trail.y + index] = position;

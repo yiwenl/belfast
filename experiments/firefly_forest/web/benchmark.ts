@@ -75,8 +75,8 @@ export function createBenchmark(
       size: number("firefly-size"),
       fov: number("camera-fov"),
       brushStrokes: get<HTMLInputElement>("brush-enabled").checked,
-      fireflyRenderMode:
-        get<HTMLSelectElement>("firefly-render-mode").value === "trails" ? "trails" : "particles",
+      fireflyRenderMode: get<HTMLSelectElement>("firefly-render-mode")
+        .value as BenchmarkConfig["fireflyRenderMode"],
       camera: Array.from(app.benchmarkCamera()),
       cameraPath: moving.checked ? "forest-loop-v1" : "static",
       sortCadence: "threshold-v1",

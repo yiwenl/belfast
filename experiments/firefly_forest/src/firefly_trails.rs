@@ -1,9 +1,7 @@
 use belfast::{BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device};
 
 use super::{merged_depth, APPEARANCE_SHADER, DEPTH_FORMAT, STATE_SHADER};
-use crate::gpu_timing::render_timestamps;
-
-const FRAMES: u32 = 256;
+pub(super) const FRAMES: u32 = 256;
 const CHUNKS: usize = 4;
 const CHUNK_FRAMES: u32 = FRAMES / CHUNKS as u32;
 const INDEX_COUNT: u32 = (FRAMES - 1) * 3 * 6;
@@ -36,6 +34,8 @@ pub(super) struct Trails {
     record_bindings: [[BindGroup; 2]; CHUNKS],
     pipeline: wgpu::RenderPipeline,
     binding: BindGroup,
+    depth_pipeline: wgpu::RenderPipeline,
+    depth_binding: BindGroup,
     indices: Buffer,
     occlusion: Option<wgpu::BindGroup>,
     depth: wgpu::TextureView,
@@ -90,60 +90,69 @@ impl Trails {
                 label: Some("FireflyTrailShader"),
                 source: wgpu::ShaderSource::Wgsl(draw_shader(merged_depth(device)).into()),
             });
-        let pipeline = device
-            .gpu()
-            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("FireflyTrails"),
-                layout: None,
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: Some("vs_main"),
-                    compilation_options: Default::default(),
-                    buffers: &[],
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: Some("fs_main"),
-                    compilation_options: Default::default(),
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: device.format(),
-                        blend: None,
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                primitive: Default::default(),
-                depth_stencil: Some(wgpu::DepthStencilState {
-                    format: DEPTH_FORMAT,
-                    depth_write_enabled: Some(true),
-                    depth_compare: Some(wgpu::CompareFunction::LessEqual),
-                    stencil: Default::default(),
-                    bias: Default::default(),
-                }),
-                multisample: Default::default(),
-                multiview_mask: None,
-                cache: None,
-            });
-        let binding = BindGroup::create(
-            device,
-            &pipeline.get_bind_group_layout(0),
-            &[
-                history[0].gpu(),
-                camera.gpu(),
-                appearance,
-                params.gpu(),
-                history[1].gpu(),
-                history[2].gpu(),
-                history[3].gpu(),
-            ]
-            .iter()
-            .enumerate()
-            .map(|(binding, buffer)| wgpu::BindGroupEntry {
-                binding: binding as u32,
-                resource: buffer.as_entire_binding(),
-            })
-            .collect::<Vec<_>>(),
-            "FireflyTrailDrawBindings",
-        );
+        let targets = [Some(wgpu::ColorTargetState {
+            format: device.format(),
+            blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+            write_mask: wgpu::ColorWrites::ALL,
+        })];
+        let create_pipeline = |depth_only: bool| {
+            device
+                .gpu()
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: Some("FireflyTrails"),
+                    layout: None,
+                    vertex: wgpu::VertexState {
+                        module: &shader,
+                        entry_point: Some("vs_main"),
+                        compilation_options: Default::default(),
+                        buffers: &[],
+                    },
+                    fragment: (!depth_only).then_some(wgpu::FragmentState {
+                        module: &shader,
+                        entry_point: Some("fs_main"),
+                        compilation_options: Default::default(),
+                        targets: &targets,
+                    }),
+                    primitive: Default::default(),
+                    depth_stencil: Some(wgpu::DepthStencilState {
+                        format: DEPTH_FORMAT,
+                        depth_write_enabled: Some(true),
+                        depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                        stencil: Default::default(),
+                        bias: Default::default(),
+                    }),
+                    multisample: Default::default(),
+                    multiview_mask: None,
+                    cache: None,
+                })
+        };
+        let pipeline = create_pipeline(false);
+        let depth_pipeline = create_pipeline(true);
+        let create_binding = |pipeline: &wgpu::RenderPipeline| {
+            BindGroup::create(
+                device,
+                &pipeline.get_bind_group_layout(0),
+                &[
+                    history[0].gpu(),
+                    camera.gpu(),
+                    appearance,
+                    params.gpu(),
+                    history[1].gpu(),
+                    history[2].gpu(),
+                    history[3].gpu(),
+                ]
+                .iter()
+                .enumerate()
+                .map(|(binding, buffer)| wgpu::BindGroupEntry {
+                    binding: binding as u32,
+                    resource: buffer.as_entire_binding(),
+                })
+                .collect::<Vec<_>>(),
+                "FireflyTrailDrawBindings",
+            )
+        };
+        let binding = create_binding(&pipeline);
+        let depth_binding = create_binding(&depth_pipeline);
         // Share each triangular ring between its two adjacent segments.
         let mut mesh = Vec::<u16>::with_capacity(INDEX_COUNT as usize);
         for node in 0..FRAMES as u16 - 1 {
@@ -161,6 +170,8 @@ impl Trails {
             record_bindings,
             pipeline,
             binding,
+            depth_pipeline,
+            depth_binding,
             indices,
             occlusion: None,
             depth: trail_depth(device, [1, 1]),
@@ -233,11 +244,44 @@ impl Trails {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
         count: u32,
-        queries: Option<&wgpu::QuerySet>,
+        max_age: f32,
+        fading: bool,
+        mut timestamps: Option<wgpu::RenderPassTimestampWrites<'_>>,
     ) {
         let Some(occlusion) = &self.occlusion else {
             return;
         };
+        let index_count = (max_age.ceil() as u32 * 3 * 6).min(INDEX_COUNT);
+        if fading {
+            // Fade the nearest solid surface once, independent of tube/instance order.
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("FireflyTrailFadeDepth"),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth,
+                    stencil_ops: None,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                }),
+                timestamp_writes: timestamps
+                    .as_ref()
+                    .map(|t| wgpu::RenderPassTimestampWrites {
+                        query_set: t.query_set,
+                        beginning_of_pass_write_index: t.beginning_of_pass_write_index,
+                        end_of_pass_write_index: None,
+                    }),
+                ..Default::default()
+            });
+            pass.set_pipeline(&self.depth_pipeline);
+            self.depth_binding.bind(&mut pass, 0);
+            pass.set_index_buffer(self.indices.gpu().slice(..), wgpu::IndexFormat::Uint16);
+            pass.draw_indexed(0..index_count, 0, 0..count);
+            if let Some(t) = &mut timestamps {
+                t.beginning_of_pass_write_index = None;
+            }
+        }
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("FireflyTrails"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -255,11 +299,17 @@ impl Trails {
                 view: &self.depth,
                 stencil_ops: None,
                 depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.),
+                    load: if fading {
+                        wgpu::LoadOp::Load
+                    } else {
+                        wgpu::LoadOp::Clear(1.)
+                    },
                     store: wgpu::StoreOp::Discard,
                 }),
             }),
-            timestamp_writes: render_timestamps(queries, 10),
+            timestamp_writes: timestamps.filter(|t| {
+                t.beginning_of_pass_write_index.is_some() || t.end_of_pass_write_index.is_some()
+            }),
             occlusion_query_set: None,
             multiview_mask: None,
         });
@@ -267,7 +317,7 @@ impl Trails {
         self.binding.bind(&mut pass, 0);
         pass.set_bind_group(1, occlusion, &[]);
         pass.set_index_buffer(self.indices.gpu().slice(..), wgpu::IndexFormat::Uint16);
-        pass.draw_indexed(0..INDEX_COUNT, 0, 0..count);
+        pass.draw_indexed(0..index_count, 0, 0..count);
     }
 }
 

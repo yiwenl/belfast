@@ -47,3 +47,25 @@
 - Updated full-ring wrap/reset and solid-rendering GPU tests, labels, memory notes and benchmark version v13. All 3 focused GPU tests, 14 standard Rust tests, 11 frontend tests and the release build passed.
 - Saved four 1,200-frame benchmark runs under `experiments/firefly_forest/benchmarks/2026-10-23-trails-256/`: 20,000 particles averaged 94.80 FPS static / 65.29 moving; 100,000 averaged 21.05 / 19.91 FPS. Browser console had no warnings/errors.
 - Preview restored to 20,000 particles in trail mode. Sampling remains once per render as requested; no fixed-time sampling or additional performance optimization was introduced.
+
+## Drag-transition follow-up
+
+- Added default **拖曳軌跡** mode while retaining explicit particle and 256-frame trail modes. Pressing starts visible history at zero and fades particles out over 0.25 seconds; release retracts the tail along the live curve and restores particles over 0.65 seconds. Regrabbing preserves the current transition.
+- Visible history age avoids rewriting all history buffers while idle. Fractional tail sampling keeps retraction continuous, and recording continues as the particle head moves.
+- Added a depth prepass only during fades so overlapping solid trails blend independently of instance order. Corrected timestamp ownership across depth, trail color and particle passes.
+- Verification: 17 standard Rust tests, 17 GPU tests and 11 frontend tests passed. The extended solid-trail GPU test reproduced the overlap-order bug before its fix and passed afterward. Release WASM/typecheck/Vite build and formatting checks passed.
+- Browser verified actual camera drag, hold/release and return to glowing particles. A 60-frame moving Drag run completed with 60 GPU timing samples and no console warnings/errors after reproducing and fixing the empty-timestamp-descriptor failure. No full performance comparison was run.
+- Focused independent review findings resolved. Preview remains at 20,000 particles in Drag mode; benchmark frame count restored to 1,200.
+
+## Drag-speed follow-up
+
+- Reused the transition's smooth curve to raise motion from the configured rate to 1× over 0.25 seconds and return over 0.65 seconds. Regrabbing continues from the current rate; slider values, blinking and explicit particle/trail modes retain their behavior.
+- Both motion integration and the wandering-noise clock use the effective rate. Benchmark version/key advanced to v15 because moving Drag runs now accelerate.
+- A GPU displacement test failed before the change and passed afterward, covering gradual acceleration/deceleration, regrabbing, zero speed, preserved settings and independent blinking. All 18 firefly GPU tests, 17 standard Rust tests, 11 frontend tests, release build and formatting checks passed. The watcher test hit sandbox EMFILE initially and passed with normal file-watcher access.
+- Browser drag/release showed longer trails followed by particles at the original 0.27× setting, with no console warnings/errors. Focused review found no issues; no full performance benchmark was run.
+
+## Release-flash follow-up
+
+- Stored the current flash intensity in history's unused fourth component without increasing GPU allocation. The whole trail samples its live head's flash; the existing particle fade smoothly blends between solid trail brightness and that envelope during release/regrab.
+- Kept ordinary alpha blending, with no halo or added glow. Fully held and manual trails retain solid colors. Advanced benchmark version/key to v16.
+- The GPU trail-render test failed before the change and passed afterward when checking live flash values 0→0.5→1→0 during retraction. Both history GPU tests, 17 standard Rust tests, 11 frontend tests and the release build passed. Browser hold/release completed without console warnings/errors; focused review found no issues. No full performance benchmark was run.

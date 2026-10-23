@@ -4,8 +4,11 @@ use wgpu::util::DeviceExt;
 
 use crate::sorting::SortCamera;
 
+#[path = "firefly_display.rs"]
+mod display;
 #[path = "firefly_trails.rs"]
 mod trails;
+pub use display::RenderMode;
 
 pub const PARTICLE_COUNT: u32 = 20_000;
 const MIN_PARTICLE_COUNT: u32 = 10_000;
@@ -150,7 +153,7 @@ pub struct FireflySystem {
     occlusion_binding: Option<wgpu::BindGroup>,
     draw_bindings: [BindGroup; 2],
     trails: trails::Trails,
-    trails_enabled: bool,
+    display: display::Display,
     current: usize,
     count: u32,
     capacity: u32,
@@ -385,7 +388,7 @@ impl FireflySystem {
             occlusion_binding: None,
             draw_bindings,
             trails,
-            trails_enabled: false,
+            display: display::Display::default(),
             current: 0,
             count,
             capacity: count,
@@ -427,12 +430,20 @@ impl FireflySystem {
         self.view_culling = enabled;
     }
 
-    pub fn set_trails_enabled(&mut self, enabled: bool) {
-        self.trails_enabled = enabled;
+    pub fn set_render_mode(&mut self, mode: RenderMode) {
+        self.display.set_mode(mode);
     }
 
-    pub fn trails_enabled(&self) -> bool {
-        self.trails_enabled
+    pub fn set_dragging(&mut self, dragging: bool) {
+        self.display.set_dragging(dragging);
+    }
+
+    pub fn trails_visible(&self) -> bool {
+        self.display.max_age() > 0. && self.display.particle_opacity() < 1.
+    }
+
+    pub fn particles_visible(&self) -> bool {
+        self.display.particle_opacity() > 0.
     }
 
     pub fn reset(&mut self, device: &Device, seed: u32) {
@@ -445,6 +456,7 @@ impl FireflySystem {
         self.phase_time = 0.;
         self.pending_dt = 0.;
         self.trails.reset();
+        self.display.reset();
     }
 
     /// Independent motion/cycle time scales. Active flashes always finish in real time.
@@ -487,6 +499,7 @@ impl FireflySystem {
         } else {
             0.
         };
+        self.display.update(self.pending_dt);
         let s = &self.settings;
         let view_projection = camera.projection * camera.view;
         // WebGPU clip depth is 0..w. Normalize in world space so the guard band
@@ -514,7 +527,7 @@ impl FireflySystem {
                 noise_phase: [0.65, s.noise_strength, 0.12, s.phase_coupling],
                 clock: [self.pending_dt, self.time, BODY_RADIUS, self.phase_time],
                 controls: [
-                    self.rates[0],
+                    self.display.movement_rate(self.rates[0]),
                     self.rates[1],
                     s.phase_jitter,
                     self.flash_duration,
@@ -531,8 +544,8 @@ impl FireflySystem {
         matrices.extend([
             self.size,
             u32::from(device.format().is_srgb()) as f32,
-            0.,
-            0.,
+            self.display.particle_opacity(),
+            self.display.max_age(),
         ]);
         self.camera.write(device, &matrices, 0);
         self.trails.update(device, self.count, camera.viewport);
@@ -578,7 +591,7 @@ impl FireflySystem {
         self.trails.advance(self.count);
         // Noise evolves faster than the slowed simulation at low slider values,
         // while zero still pauses it. Motion and cycle integration keep their rates.
-        self.time += self.pending_dt * self.rates[0].sqrt();
+        self.time += self.pending_dt * self.display.movement_rate(self.rates[0]).sqrt();
         self.phase_time += self.pending_dt * self.rates[1].sqrt();
     }
 
@@ -641,7 +654,18 @@ impl FireflySystem {
         view: &wgpu::TextureView,
         queries: Option<&wgpu::QuerySet>,
     ) {
-        self.trails.draw(encoder, view, self.count, queries);
+        self.trails.draw(
+            encoder,
+            view,
+            self.count,
+            self.display.max_age(),
+            self.particles_visible(),
+            queries.map(|query_set| wgpu::RenderPassTimestampWrites {
+                query_set,
+                beginning_of_pass_write_index: Some(10),
+                end_of_pass_write_index: (!self.particles_visible()).then_some(11),
+            }),
+        );
     }
 }
 

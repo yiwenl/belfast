@@ -309,6 +309,7 @@ impl ExperimentApp {
             _ => return,
         };
         self.scene.control.pointer_down([x, y], button, pan);
+        self.scene.set_firefly_dragging(true);
     }
 
     #[wasm_bindgen(js_name = pointerMove)]
@@ -320,6 +321,7 @@ impl ExperimentApp {
     pub fn pointer_up(&mut self) {
         self.scene.control.pointer_up(OrbitalPointerButton::Primary);
         self.scene.control.pointer_up(OrbitalPointerButton::Middle);
+        self.scene.set_firefly_dragging(false);
     }
 
     pub fn scroll(&mut self, delta: f32) {
@@ -367,9 +369,9 @@ impl ExperimentApp {
         self.scene.set_firefly_size(scale).map_err(js_error)
     }
 
-    #[wasm_bindgen(js_name = setFireflyTrails)]
-    pub fn set_firefly_trails(&mut self, enabled: bool) {
-        self.scene.set_firefly_trails(enabled);
+    #[wasm_bindgen(js_name = setFireflyRenderMode)]
+    pub fn set_firefly_render_mode(&mut self, mode: &str) -> Result<(), JsValue> {
+        self.scene.set_firefly_render_mode(mode).map_err(js_error)
     }
 
     #[wasm_bindgen(js_name = loadPly)]

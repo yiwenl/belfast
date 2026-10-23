@@ -123,6 +123,72 @@ fn gpu_rates_independently_slow_and_pause_motion_and_blinking() {
 
 #[test]
 #[ignore = "requires a GPU"]
+fn gpu_drag_smoothly_boosts_motion_and_restores_configured_rate() {
+    let device = device();
+    let settings = Settings {
+        noise_strength: 0.,
+        phase_jitter: 0.,
+        drag: 0.,
+        ..Default::default()
+    };
+    let mut input = particle(0., 0.2);
+    input.velocity_frequency[0] = 0.1;
+    let mut system = FireflySystem::with_particles(&device, &[input], settings);
+    system.set_rates(0.27, 0.).unwrap();
+    system.set_render_mode(RenderMode::Drag);
+    let mut x = 0.;
+    let mut advance = |system: &mut FireflySystem| {
+        let output = step(&device, system, 0.05)[0];
+        assert_eq!(output.position_phase[3], input.position_phase[3]);
+        let rate = (output.position_phase[0] - x) / 0.005;
+        x = output.position_phase[0];
+        rate
+    };
+    assert!((advance(&mut system) - 0.27).abs() < 1e-5);
+    system.set_dragging(true);
+    let first = advance(&mut system);
+    assert!(
+        (0.27..1.).contains(&first),
+        "first drag step must ease in: {first}"
+    );
+    let mut rate = first;
+    for _ in 1..5 {
+        let next = advance(&mut system);
+        assert!(next > rate);
+        rate = next;
+    }
+    assert!((rate - 1.).abs() < 1e-5);
+    let time = system.time;
+    advance(&mut system);
+    assert!((system.time - time - 0.05).abs() < 1e-5);
+    assert_eq!(system.rates, [0.27, 0.]);
+
+    system.set_dragging(false);
+    let released = advance(&mut system);
+    assert!((0.27..1.).contains(&released));
+    system.set_dragging(true);
+    assert!(advance(&mut system) > released);
+    system.set_dragging(false);
+    rate = 1.;
+    for _ in 0..14 {
+        let next = advance(&mut system);
+        assert!(next <= rate + 1e-5);
+        rate = next;
+    }
+    assert!((rate - 0.27).abs() < 1e-5);
+    system.set_rates(0., 0.).unwrap();
+    assert!(advance(&mut system).abs() < 1e-5);
+    system.set_dragging(true);
+    let from_paused = advance(&mut system);
+    assert!(from_paused > 0. && from_paused < 1.);
+    for mode in [RenderMode::Particles, RenderMode::Trails] {
+        system.set_render_mode(mode);
+        assert!(advance(&mut system).abs() < 1e-5);
+    }
+}
+
+#[test]
+#[ignore = "requires a GPU"]
 fn gpu_phase_randomness_is_individual_bounded_and_pauses_with_frequency() {
     let device = device();
     let input = [particle(-2., 0.2), particle(2., 0.2)];
@@ -429,17 +495,23 @@ fn gpu_trails_are_solid_without_flashes_and_respect_forest_depth() {
     let mut p = particle(-0.15, 0.2);
     p.position_phase[1] = 0.;
     p.velocity_frequency[0] = 0.2;
+    let mut far = p;
+    far.position_phase[2] = -4.;
     let mut system = FireflySystem::with_particles(
         &device,
-        &[p],
+        &[p, far],
         Settings {
             noise_strength: 0.,
             phase_jitter: 0.,
             drag: 0.,
+            separation: 0.,
+            cohesion: 0.,
+            alignment: 0.,
             ..Default::default()
         },
     );
-    system.set_trails_enabled(true);
+    system.count = 1;
+    system.set_render_mode(RenderMode::Trails);
     system.set_size(3.).unwrap();
     system.set_rates(1., 0.).unwrap();
     system
@@ -449,7 +521,7 @@ fn gpu_trails_are_solid_without_flashes_and_respect_forest_depth() {
     for _ in 0..256 {
         step(&device, &mut system, 0.00625);
     }
-    let mut render = |depth: f32| {
+    let render = |system: &mut FireflySystem, depth: f32| {
         system.update(&device, 0., &camera);
         let mut encoder = device.gpu().create_command_encoder(&Default::default());
         system.simulate(&mut encoder);
@@ -496,7 +568,7 @@ fn gpu_trails_are_solid_without_flashes_and_respect_forest_depth() {
         device.queue().submit([encoder.finish()]);
         read_buffer(&device, &staging, 64 * 256)
     };
-    let visible = render(1.);
+    let visible = render(&mut system, 1.);
     let red: Vec<_> = visible.chunks_exact(4).filter(|p| p[0] > 0).collect();
     assert!(red.len() > 5, "unlit fireflies still have visible trails");
     assert!(
@@ -505,12 +577,99 @@ fn gpu_trails_are_solid_without_flashes_and_respect_forest_depth() {
     );
     let clip = camera.projection * glam::Vec4::new(0., 0., -2., 1.);
     assert!(
-        render(clip.z / clip.w).chunks_exact(4).all(|p| p[0] == 0),
+        render(&mut system, clip.z / clip.w)
+            .chunks_exact(4)
+            .all(|p| p[0] == 0),
         "forest in front hides the entire trail"
     );
     assert!(
-        render(1.).chunks_exact(4).any(|p| p[0] > 0),
+        render(&mut system, 1.).chunks_exact(4).any(|p| p[0] > 0),
         "old trail depth must not persist across frames"
+    );
+
+    system.set_render_mode(RenderMode::Drag);
+    assert!(
+        render(&mut system, 1.).chunks_exact(4).all(|p| p[0] == 0),
+        "idle must hide pre-drag history"
+    );
+    system.set_dragging(true);
+    for _ in 0..60 {
+        step(&device, &mut system, 0.00625);
+    }
+    let grown = render(&mut system, 1.);
+    let red_sum = |pixels: &[u8]| pixels.chunks_exact(4).map(|p| u32::from(p[0])).sum::<u32>();
+    assert!(red_sum(&grown) > 0, "drag grows a new trail");
+    let head = step(&device, &mut system, 0.00625)[0].position_phase[0];
+    system.set_dragging(false);
+    for _ in 0..53 {
+        step(&device, &mut system, 0.00625);
+    }
+    let shrinking = render(&mut system, 1.);
+    assert!(red_sum(&shrinking) > 0 && red_sum(&shrinking) < red_sum(&grown));
+    assert!(
+        shrinking
+            .chunks_exact(4)
+            .any(|p| p[0] > 0 && p[0] < 255 && p[2] > 0),
+        "trail fades over the forest color without additive glow"
+    );
+    let mut live = step(&device, &mut system, 0.)[0];
+    let mut flash_brightness = |intensity: f32| {
+        live.flash[1] = intensity;
+        system.states[system.current].write(&device, &[live], 0);
+        render(&mut system, 1.)
+            .chunks_exact(4)
+            .map(|p| p[0])
+            .max()
+            .unwrap()
+    };
+    let dark = flash_brightness(0.);
+    let half = flash_brightness(0.5);
+    let bright = flash_brightness(1.);
+    assert!(
+        dark < half && half < bright,
+        "retracting trail follows the live flash"
+    );
+    assert_eq!(
+        flash_brightness(0.),
+        dark,
+        "flash decay must not retain old brightness"
+    );
+    for _ in 0..60 {
+        step(&device, &mut system, 0.00625);
+    }
+    assert_eq!(
+        red_sum(&render(&mut system, 1.)),
+        0,
+        "release collapses the whole trail"
+    );
+    assert!(
+        step(&device, &mut system, 0.)[0].position_phase[0] > head + 0.1,
+        "particle keeps moving during retraction"
+    );
+
+    system.count = 2;
+    let mut overlap = |particles: [Particle; 2]| {
+        for state in &system.states {
+            state.write(&device, &particles, 0);
+        }
+        system.trails.reset();
+        system.display.reset();
+        system.set_dragging(true);
+        for _ in 0..120 {
+            step(&device, &mut system, 0.0125);
+        }
+        system.set_dragging(false);
+        for _ in 0..26 {
+            step(&device, &mut system, 0.0125);
+        }
+        render(&mut system, 1.)
+    };
+    let near_first = overlap([p, far]);
+    let far_first = overlap([far, p]);
+    assert!(red_sum(&near_first) > 0);
+    assert!(
+        near_first == far_first,
+        "solid-trail fade must not depend on overlap draw order"
     );
 }
 
@@ -759,14 +918,22 @@ fn gpu_glow_pulses_and_forest_depth_occludes_only_distant_fireflies() {
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
-    let render = |brightness: f32, z: f32, occluded: bool| {
+    let render = |brightness: f32, z: f32, occluded: bool, drag_seconds: f32| {
         let p = Particle {
             position_phase: [0., 0., z, 0.],
             velocity_frequency: [0., 0., 0., 0.22],
             flash: [0.05, brightness, DEFAULT_FLASH_DURATION_SECONDS, 0.],
         };
         let mut system = FireflySystem::with_particles(&device, &[p], Settings::default());
+        system.set_render_mode(RenderMode::Drag);
+        system.set_dragging(true);
         system.update(&device, 0., &camera);
+        let mut remaining = drag_seconds;
+        while remaining > 0. {
+            let dt = remaining.min(0.1);
+            system.update(&device, dt, &camera);
+            remaining -= dt;
+        }
         let mut encoder = device.gpu().create_command_encoder(&Default::default());
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -841,19 +1008,29 @@ fn gpu_glow_pulses_and_forest_depth_occludes_only_distant_fireflies() {
             .map(|p| u32::from(p[0]) + u32::from(p[1]) + u32::from(p[2]))
             .sum::<u32>()
     };
-    let bright = render(1., -3., false);
-    let dark = render(0., -3., false);
+    let bright = render(1., -3., false, 0.);
+    let dark = render(0., -3., false, 0.);
+    let fading = render(1., -3., false, 0.125);
+    assert!(
+        fading > 0 && fading < bright,
+        "particle emission fades during drag"
+    );
+    assert_eq!(
+        render(1., -3., false, 0.25),
+        0,
+        "particle emission disappears at full trail visibility"
+    );
     assert!(
         bright > 20 && bright > dark * 10,
         "cycle must have a visible pulse: {bright} / {dark}"
     );
     assert_eq!(
-        render(1., -3., true),
+        render(1., -3., true, 0.),
         0,
         "forest must occlude a light behind it"
     );
     assert!(
-        render(1., -1., true) > bright,
+        render(1., -1., true, 0.) > bright,
         "light in front of forest stays visible"
     );
 }

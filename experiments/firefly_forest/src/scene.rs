@@ -204,8 +204,20 @@ impl Scene {
         self.fireflies.set_size(scale)
     }
 
-    pub fn set_firefly_trails(&mut self, enabled: bool) {
-        self.fireflies.set_trails_enabled(enabled);
+    pub fn set_firefly_render_mode(&mut self, mode: &str) -> Result<(), String> {
+        use crate::fireflies::RenderMode;
+        let mode = match mode {
+            "particles" => RenderMode::Particles,
+            "trails" => RenderMode::Trails,
+            "drag" => RenderMode::Drag,
+            _ => return Err("Unknown firefly render mode".into()),
+        };
+        self.fireflies.set_render_mode(mode);
+        Ok(())
+    }
+
+    pub fn set_firefly_dragging(&mut self, dragging: bool) {
+        self.fireflies.set_dragging(dragging);
     }
 
     pub fn set_view_culling(&mut self, enabled: bool) {
@@ -266,6 +278,7 @@ impl Scene {
         // does not resume old camera motion and invalidate the next A/B run.
         self.control.update(10., &mut self.camera);
         self.control.set_enabled(false);
+        self.fireflies.set_dragging(moving);
         self.camera_frozen = true;
         self.benchmark_path_started = false;
         if moving {
@@ -318,6 +331,7 @@ impl Scene {
         self.benchmark_path_started = false;
         self.camera_frozen = false;
         self.control.set_enabled(true);
+        self.fireflies.set_dragging(false);
         self.gpu_timing = None;
     }
 
@@ -497,9 +511,11 @@ impl Scene {
         }
         self.forest_camera = Some(self.sort_camera());
         self.forest_dirty = false;
-        if self.splats.is_some() && self.fireflies.trails_enabled() {
+        let draw_trails = self.splats.is_some() && self.fireflies.trails_visible();
+        if draw_trails {
             self.fireflies.draw_trails(&mut encoder, view, queries);
-        } else if self.splats.is_some() {
+        }
+        if self.splats.is_some() && self.fireflies.particles_visible() {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("FireflyGlow"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -521,7 +537,11 @@ impl Scene {
                         stencil_ops: None,
                     },
                 ),
-                timestamp_writes: render_timestamps(queries, 10),
+                timestamp_writes: queries.map(|query_set| wgpu::RenderPassTimestampWrites {
+                    query_set,
+                    beginning_of_pass_write_index: (!draw_trails).then_some(10),
+                    end_of_pass_write_index: Some(11),
+                }),
                 occlusion_query_set: None,
                 multiview_mask: None,
             });

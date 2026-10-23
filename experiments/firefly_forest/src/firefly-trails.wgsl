@@ -1,7 +1,7 @@
 struct Camera {
     view: mat4x4<f32>,
     projection: mat4x4<f32>,
-    sprite: vec4<f32>, // Size multiplier, sRGB attachment.
+    sprite: vec4<f32>, // Size, sRGB attachment, particle opacity, oldest visible age.
 };
 @group(0) @binding(0) var<storage, read> history: array<vec4<f32>>;
 @group(0) @binding(1) var<uniform> camera: Camera;
@@ -12,26 +12,36 @@ struct Camera {
 
 struct Vertex {
     @builtin(position) position: vec4<f32>,
-    @location(0) @interpolate(flat) color: vec3<f32>,
+    @location(0) @interpolate(flat) color: vec4<f32>,
 };
 
-fn history_position(age: u32, index: u32) -> vec3<f32> {
+fn history_sample(age: u32, index: u32) -> vec4<f32> {
     let slot = (trail.x + TRAIL_FRAMES - age) % TRAIL_FRAMES;
     let offset = (slot % CHUNK_FRAMES) * trail.y + index;
     switch slot / CHUNK_FRAMES {
-        case 0u: { return history[offset].xyz; }
-        case 1u: { return history1[offset].xyz; }
-        case 2u: { return history2[offset].xyz; }
-        default: { return history3[offset].xyz; }
+        case 0u: { return history[offset]; }
+        case 1u: { return history1[offset]; }
+        case 2u: { return history2[offset]; }
+        default: { return history3[offset]; }
     }
+}
+
+fn visible_position(age: u32, index: u32) -> vec3<f32> {
+    // A fractional tail retracts smoothly; zero age pins every node to the live head.
+    let sampled_age = min(f32(age), camera.sprite.w);
+    let newer = u32(floor(sampled_age));
+    let position = history_sample(newer, index).xyz;
+    let fraction = fract(sampled_age);
+    if fraction == 0. { return position; }
+    return mix(position, history_sample(min(newer + 1u, TRAIL_FRAMES - 1u), index).xyz, fraction);
 }
 
 @vertex fn vs_main(@builtin(vertex_index) vertex: u32, @builtin(instance_index) index: u32) -> Vertex {
     let age = vertex / 3u;
     let side = vertex % 3u;
-    let center = history_position(age, index);
-    let newer = history_position(max(age, 1u) - 1u, index);
-    let older = history_position(min(age + 1u, TRAIL_FRAMES - 1u), index);
+    let center = visible_position(age, index);
+    let newer = visible_position(max(age, 1u) - 1u, index);
+    let older = visible_position(min(age + 1u, TRAIL_FRAMES - 1u), index);
     let direction = newer - older;
     var tangent = vec3(1., 0., 0.);
     if dot(direction, direction) > 0.0000000001 {
@@ -43,15 +53,17 @@ fn history_position(age: u32, index: u32) -> vec3<f32> {
     let angle = f32(side) * 6.28318530718 / 3.;
     let radius = 0.003 * camera.sprite.x;
     let position = center + (normal * cos(angle) + binormal * sin(angle)) * radius;
-    // Keep the existing palette, with no flash envelope or HDR emission gain.
+    // Keep solid palette colors, with no HDR emission gain or glow.
     var color = firefly_emission(index, 1.).rgb;
     if camera.sprite.y > 0.5 {
         color = select(color / 12.92, pow((color + 0.055) / 1.055, vec3(2.4)), color > vec3(0.04045));
     }
-    return Vertex(camera.projection * camera.view * vec4(position, 1.), color);
+    // Crossfade toward the live head's flash as particles return, never an old tail flash.
+    let brightness = mix(1., history_sample(0u, index).w, camera.sprite.z);
+    return Vertex(camera.projection * camera.view * vec4(position, 1.), vec4(color, brightness));
 }
 
 @fragment fn fs_main(in: Vertex) -> @location(0) vec4<f32> {
     if in.position.z > forest_depth(vec2<i32>(in.position.xy)) { discard; }
-    return vec4(in.color, 1.);
+    return vec4(in.color.rgb, in.color.a * (1. - camera.sprite.z));
 }

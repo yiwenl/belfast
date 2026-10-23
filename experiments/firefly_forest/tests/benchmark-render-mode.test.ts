@@ -12,6 +12,9 @@ test("particle and trail measurements cannot share a comparable baseline", () =>
   const particles = { fireflyRenderMode: "particles" } as BenchmarkConfig;
   const trails = { ...particles, fireflyRenderMode: "trails" } as BenchmarkConfig;
   assert.equal(differences(particles, trails).length, 1);
+  const drag = { ...particles, fireflyRenderMode: "drag" } as BenchmarkConfig;
+  assert.equal(differences(particles, drag).length, 1);
+  assert.equal(differences(trails, drag).length, 1);
 });
 
 test("baseline loading validates the firefly render mode", () => {
@@ -30,7 +33,7 @@ test("baseline loading validates the firefly render mode", () => {
     brushStrokes: true,
   });
   baseline.config.fog.noiseFrequency = 1;
-  for (const mode of ["particles", "trails"]) {
+  for (const mode of ["particles", "trails", "drag"]) {
     baseline.config.fireflyRenderMode = mode;
     assert.equal(parseBaseline(JSON.stringify(baseline)).config.fireflyRenderMode, mode);
   }

@@ -1,7 +1,7 @@
 struct Camera {
     view: mat4x4<f32>,
     projection: mat4x4<f32>,
-    sprite: vec4<f32>, // x: visual size multiplier
+    sprite: vec4<f32>, // Size, sRGB attachment, particle opacity, oldest visible age.
 };
 @group(0) @binding(0) var<storage, read> particles: array<Firefly>;
 @group(0) @binding(1) var<uniform> camera: Camera;
@@ -13,7 +13,7 @@ struct Vertex {
 };
 @vertex fn vs_main(@builtin(vertex_index) vertex: u32, @builtin(instance_index) index: u32) -> Vertex {
     let p = particles[index];
-    if p.flash.y <= 0. {
+    if p.flash.y <= 0. || camera.sprite.z <= 0. {
         // All six vertices lie outside the clip volume (z > w), so an unlit
         // billboard produces no fragments or additive blending work.
         return Vertex(vec4(2., 2., 2., 1.), vec2(0.), 0., vec3(0.));
@@ -23,7 +23,7 @@ struct Vertex {
     let variation = fract(f32(index) * 0.61803398875);
     let emission = firefly_emission(index, p.flash.y);
     // Compute supplies a fixed-duration envelope independent of cycle speed.
-    let brightness = emission.a;
+    let brightness = emission.a * camera.sprite.z;
     let radius = mix(0.045, 0.07, variation) * camera.sprite.x;
     let center = camera.view * vec4(p.position_phase.xyz, 1.);
     var out: Vertex;

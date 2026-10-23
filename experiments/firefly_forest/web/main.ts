@@ -96,10 +96,16 @@ function bindSceneControls(target: ExperimentApp) {
       target.setFireflySize(size.valueAsNumber);
       const cameraFov = target.setCameraFov(fov.valueAsNumber);
       target.setBrushEnabled(brush.checked);
-      target.setFireflyTrails(renderMode.value === "trails");
+      target.setFireflyRenderMode(renderMode.value);
       count.value = String(activeCount);
       countValue.value = `${activeCount.toLocaleString("en-US")} 隻`;
-      fireflyInfo.textContent = `${activeCount.toLocaleString("en-US")} fireflies · ${renderMode.value === "trails" ? "256-frame trails" : "flocking & synchronized glow"}`;
+      const display =
+        renderMode.value === "drag"
+          ? "drag to grow trails"
+          : renderMode.value === "trails"
+            ? "256-frame trails"
+            : "flocking & synchronized glow";
+      fireflyInfo.textContent = `${activeCount.toLocaleString("en-US")} fireflies · ${display}`;
       movementValue.value = `${movement.valueAsNumber.toFixed(2)}×`;
       blinkingValue.value = `${blinking.valueAsNumber.toFixed(2)}×`;
       durationValue.value = `${duration.valueAsNumber.toFixed(2)} 秒`;
