@@ -4,6 +4,32 @@ Renders `public/forest.ply` with the Rust/WebGPU 3D Gaussian splatting pipeline 
 
 The entire scene is translated **0.5 units down**. The shared view transform includes this translation for splat rendering/sorting, firefly rendering/culling, fog and local-light reconstruction. Simulation bounds, ground height and lights remain in scene-local coordinates, so they move together. Benchmark camera snapshots include the translation, preventing comparisons against baselines with the old placement.
 
+## Brush stroke rendering
+
+**森林筆觸 / 使用短筆觸 splats** is enabled by default. Turn it off to compare
+with the original Gaussian falloff at full count and original size. Brush mode
+uses **2× width and height** and **50% of the original splats**. The worker keeps
+one deterministic member of each original index pair before culling and sorting;
+the subset stays fixed when moving the camera. Four short dry-brush masks from
+[Dino0040's CC0 brushstroke pack](https://opengameart.org/content/100-grunge-brushstrokes-and-splatters-set)
+replace Gaussian opacity; position, projected orientation, depth ordering and
+forest grading remain intact. A stable hash of the original splat index chooses
+the mask, flips and ±15% pigment variation, independent of sorting order.
+
+The browser decodes the bundled PNGs once into padded 256 × 256 alpha layers.
+Rust uploads an R8 texture array with averaged mipmaps (about 341 KiB) so distant
+brush details filter smoothly. Both merged and separate occlusion passes use
+the same brush alpha threshold, avoiding invisible Gaussian-shaped occluders.
+The separate depth pass uses the same enlarged bounds as the color pass, and
+worker frustum bounds expand by 2× too. Toggling requests a fresh sort and rebuilds
+the forest color/depth cache; stale worker results from the other mode are ignored.
+Firefly simulation and count are unchanged.
+This is a per-splat texture experiment: tiny/subpixel splats will remain subtle,
+and it does not merge strokes into the larger painted regions of the reference.
+No performance benchmark has been run for this style.
+
+Original PNGs and licensing information are in `public/brushes/`.
+
 ## Render resolution and static forest cache
 
 The drawing buffer is fixed at **1920 × 1080**, independent of device pixel ratio. CSS fits the canvas to the window at 16:9 without stretching it; pointer input remains relative to the displayed canvas.
@@ -60,7 +86,7 @@ The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** co
 
 Changes update two small uniform buffers immediately, with no shader rebuild,
 particle reset or forest-cache rebuild. Color pickers use display RGB hex colors.
-Benchmark v8 records all color, local-light and fog settings (including noise frequency), firefly randomness and sprite size, and locks these controls during a run. The Benchmark panel is collapsed by default.
+Benchmark v10 records all color, local-light and fog settings (including noise frequency), firefly randomness, sprite size and brush-rendering mode (2× size / 50% count), and locks these controls during a run. The Benchmark panel is collapsed by default.
 
 ## Animated volumetric fog
 
@@ -167,7 +193,7 @@ frame index, so slower rendering does not change the route. The camera starts
 at world origin (separate from the interactive starting position); FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
 interactive view. Path version, sorting cadence, color, local-light and fog settings are part of
-baseline compatibility; v8 baselines are stored separately from earlier v1–v7 results.
+baseline compatibility; v10 baselines are stored separately from earlier v1–v9 results.
 Moving measurements use the same sort thresholds as interactive viewing;
 only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search

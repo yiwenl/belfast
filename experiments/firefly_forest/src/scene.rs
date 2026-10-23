@@ -20,9 +20,10 @@ pub struct Scene {
     pub skeleton: SkeletonInput,
     pub viewport: [u32; 2],
     splats: Option<SplatRenderer>,
+    brush_enabled: bool,
     sort_positions: Vec<[f32; 4]>,
     sort_gate: SortGate,
-    pending_sort: Option<SortCamera>,
+    pending_sort: Option<(SortCamera, bool)>,
     fireflies: FireflySystem,
     forest_color: ForestColor,
     light_volume: LightVolume,
@@ -61,6 +62,7 @@ impl Scene {
             skeleton: SkeletonInput::default(),
             viewport: [1, 1],
             splats: None,
+            brush_enabled: true,
             sort_positions: Vec::new(),
             sort_gate: SortGate::default(),
             pending_sort: None,
@@ -81,7 +83,8 @@ impl Scene {
 
     pub fn load_ply(&mut self, device: &Device, bytes: &[u8]) -> Result<u32, String> {
         let mut cloud = GaussianCloud::parse(bytes)?;
-        let renderer = SplatRenderer::new(device, &mut cloud)?;
+        let mut renderer = SplatRenderer::new(device, &mut cloud)?;
+        renderer.set_brush_enabled(self.brush_enabled);
         let count = renderer.count();
         self.sort_positions = cloud.sort_positions;
         self.splats = Some(renderer);
@@ -89,6 +92,27 @@ impl Scene {
         self.pending_sort = None;
         self.forest_dirty = true;
         Ok(count)
+    }
+
+    pub fn upload_brush_masks(&mut self, device: &Device, pixels: &[u8]) -> Result<(), String> {
+        self.splats
+            .as_mut()
+            .ok_or("No Gaussian scene loaded")?
+            .upload_brush_masks(device, pixels)?;
+        self.forest_dirty = true;
+        Ok(())
+    }
+
+    pub fn set_brush_enabled(&mut self, enabled: bool) {
+        if self.brush_enabled == enabled {
+            return;
+        }
+        self.brush_enabled = enabled;
+        if let Some(splats) = &mut self.splats {
+            splats.set_brush_enabled(enabled);
+        }
+        self.sort_gate = SortGate::default();
+        self.forest_dirty = true;
     }
 
     pub fn take_sort_positions(&mut self) -> Vec<f32> {
@@ -116,12 +140,19 @@ impl Scene {
         {
             return Vec::new();
         }
-        self.pending_sort = Some(camera);
+        self.pending_sort = Some((camera, self.brush_enabled));
         camera.encode()
     }
 
     pub fn apply_sort(&mut self, device: &Device, indices: &[u32]) -> Result<(), String> {
-        let camera = self.pending_sort.ok_or("No Gaussian sort is pending")?;
+        let (camera, brush_enabled) = self
+            .pending_sort
+            .take()
+            .ok_or("No Gaussian sort is pending")?;
+        // A toggle can arrive while the worker is sorting the previous style.
+        if brush_enabled != self.brush_enabled {
+            return Ok(());
+        }
         self.splats
             .as_mut()
             .ok_or("No Gaussian scene loaded")?
@@ -133,7 +164,6 @@ impl Scene {
                 self.sort_gate = SortGate::default();
             }
         }
-        self.pending_sort = None;
         self.forest_dirty = true;
         Ok(())
     }

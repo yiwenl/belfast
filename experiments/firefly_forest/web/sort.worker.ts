@@ -18,7 +18,7 @@ scope.onmessage = async ({ data }) => {
     }
     if (!sorter) throw new Error("Gaussian sorter is not ready");
     const start = performance.now();
-    const indices = sorter.sort(data.camera);
+    const indices = sorter.sort(data.camera, data.brushStrokes);
     scope.postMessage({ type: "sorted", indices, milliseconds: performance.now() - start }, [
       indices.buffer,
     ]);

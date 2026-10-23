@@ -429,6 +429,18 @@ impl ExperimentApp {
         self.scene.take_sort_positions()
     }
 
+    #[wasm_bindgen(js_name = uploadBrushMasks)]
+    pub fn upload_brush_masks(&mut self, pixels: &[u8]) -> Result<(), JsValue> {
+        self.scene
+            .upload_brush_masks(&self.device, pixels)
+            .map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setBrushEnabled)]
+    pub fn set_brush_enabled(&mut self, enabled: bool) {
+        self.scene.set_brush_enabled(enabled);
+    }
+
     #[wasm_bindgen(js_name = requestSort)]
     pub fn request_sort(&mut self) -> Vec<f32> {
         self.scene.request_sort()
@@ -487,7 +499,8 @@ impl GaussianSorter {
         })
     }
 
-    pub fn sort(&mut self, camera: &[f32]) -> Result<Vec<u32>, JsValue> {
+    pub fn sort(&mut self, camera: &[f32], brush_enabled: bool) -> Result<Vec<u32>, JsValue> {
+        self.inner.set_brush_enabled(brush_enabled);
         Ok(self
             .inner
             .sort(&SortCamera::decode(camera).map_err(js_error)?)

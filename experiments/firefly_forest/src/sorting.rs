@@ -81,6 +81,7 @@ pub struct SplatSorter {
     visible_mask: Vec<bool>,
     frozen: bool,
     frozen_ready: bool,
+    brush_enabled: bool,
     sort_count: u32,
     did_sort: bool,
 }
@@ -97,6 +98,7 @@ impl SplatSorter {
             visible_mask: Vec::new(),
             frozen: false,
             frozen_ready: false,
+            brush_enabled: false,
             sort_count: 0,
             did_sort: false,
         }
@@ -107,6 +109,14 @@ impl SplatSorter {
         self.frozen = frozen;
         self.frozen_ready = false;
         self.frozen_order.clear();
+    }
+
+    pub fn set_brush_enabled(&mut self, enabled: bool) {
+        if self.brush_enabled != enabled {
+            self.brush_enabled = enabled;
+            self.frozen_ready = false;
+            self.frozen_order.clear();
+        }
     }
 
     pub fn sort_count(&self) -> u32 {
@@ -129,16 +139,26 @@ impl SplatSorter {
             matrix.row(3) - matrix.row(2),
         ]
         .map(|p| p / p.truncate().length());
+        // Match the doubled footprint in splat.wgsl, including occlusion passes.
+        let footprint_scale = if self.brush_enabled { 2.0 } else { 1.0 };
         let visible = |&[x, y, z, radius]: &[f32; 4]| {
             let p = Vec4::new(x, y, z, 1.);
             !planes
                 .iter()
-                .any(|plane| plane.dot(p) < -radius - SORT_TRANSLATION * 2.)
+                .any(|plane| plane.dot(p) < -radius * footprint_scale - SORT_TRANSLATION * 2.)
         };
         if !self.frozen || !self.frozen_ready {
             self.keys.clear();
             let depth_row = -camera.view.row(2);
             for (index, position) in self.positions.iter().enumerate() {
+                if self.brush_enabled {
+                    // Keep one stable member per pair, independent of view and brush texture.
+                    let pair_hash = (index as u32 / 2).wrapping_mul(0x9e37_79b9);
+                    let selected = (pair_hash ^ (pair_hash >> 16)) & 1;
+                    if index as u32 & 1 != selected {
+                        continue;
+                    }
+                }
                 // Frozen order must include offscreen / behind-camera splats too.
                 if !self.frozen && !visible(position) {
                     continue;

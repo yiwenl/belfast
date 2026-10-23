@@ -1,6 +1,6 @@
 export type SortRequest =
   | { type: "init"; positions: Float32Array }
-  | { type: "sort"; camera: Float32Array };
+  | { type: "sort"; camera: Float32Array; brushStrokes: boolean };
 
 export type SortReply =
   | { type: "ready" }

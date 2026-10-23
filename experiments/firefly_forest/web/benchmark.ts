@@ -74,6 +74,7 @@ export function createBenchmark(
       blinkRandomness: number("blink-randomness"),
       size: number("firefly-size"),
       fov: number("camera-fov"),
+      brushStrokes: get<HTMLInputElement>("brush-enabled").checked,
       camera: Array.from(app.benchmarkCamera()),
       cameraPath: moving.checked ? "forest-loop-v1" : "static",
       sortCadence: "threshold-v1",

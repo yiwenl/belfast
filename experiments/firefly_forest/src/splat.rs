@@ -2,6 +2,9 @@ use crate::{ply::GaussianCloud, sorting::SortCamera};
 use belfast::Device;
 
 pub const SHADER: &str = include_str!("splat.wgsl");
+const BRUSH_SIZE: u32 = 256;
+const BRUSH_LAYERS: u32 = 4;
+const BRUSH_MIPS: u32 = 9;
 
 pub struct SplatRenderer {
     pipeline: wgpu::RenderPipeline,
@@ -12,6 +15,9 @@ pub struct SplatRenderer {
     count: u32,
     visible: u32,
     srgb: bool,
+    brushes: wgpu::Texture,
+    brush_enabled: bool,
+    brush_ready: bool,
 }
 
 impl SplatRenderer {
@@ -64,6 +70,27 @@ impl SplatRenderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let brushes = device.gpu().create_texture(&wgpu::TextureDescriptor {
+            label: Some("ForestBrushMasks"),
+            size: wgpu::Extent3d {
+                width: BRUSH_SIZE,
+                height: BRUSH_SIZE,
+                depth_or_array_layers: BRUSH_LAYERS,
+            },
+            mip_level_count: BRUSH_MIPS,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::R8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        let brush_sampler = device.gpu().create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("ForestBrushSampler"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            ..Default::default()
+        });
         let indices = device.gpu().create_buffer(&wgpu::BufferDescriptor {
             label: Some("GaussianSortedIndices"),
             size: u64::from(count) * 4,
@@ -77,7 +104,7 @@ impl SplatRenderer {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -105,6 +132,22 @@ impl SplatRenderer {
                         },
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2Array,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
                 ],
             });
         let bind_group = device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
@@ -126,6 +169,19 @@ impl SplatRenderer {
                     resource: wgpu::BindingResource::TextureView(
                         &attribute_texture.create_view(&Default::default()),
                     ),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(&brushes.create_view(
+                        &wgpu::TextureViewDescriptor {
+                            dimension: Some(wgpu::TextureViewDimension::D2Array),
+                            ..Default::default()
+                        },
+                    )),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::Sampler(&brush_sampler),
                 },
             ],
         });
@@ -256,7 +312,69 @@ impl SplatRenderer {
             count,
             visible: 0,
             srgb: device.format().is_srgb(),
+            brushes,
+            brush_enabled: false,
+            brush_ready: false,
         })
+    }
+
+    pub fn set_brush_enabled(&mut self, enabled: bool) {
+        self.brush_enabled = enabled;
+    }
+
+    pub fn upload_brush_masks(&mut self, device: &Device, pixels: &[u8]) -> Result<(), String> {
+        let layer_size = (BRUSH_SIZE * BRUSH_SIZE) as usize;
+        if pixels.len() != layer_size * BRUSH_LAYERS as usize {
+            return Err("Expected four 256 × 256 brush alpha masks".into());
+        }
+        for layer in 0..BRUSH_LAYERS {
+            let offset = layer as usize * layer_size;
+            let mut data = pixels[offset..offset + layer_size].to_vec();
+            let mut size = BRUSH_SIZE;
+            for mip in 0..BRUSH_MIPS {
+                device.queue().write_texture(
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &self.brushes,
+                        mip_level: mip,
+                        origin: wgpu::Origin3d {
+                            x: 0,
+                            y: 0,
+                            z: layer,
+                        },
+                        aspect: wgpu::TextureAspect::All,
+                    },
+                    &data,
+                    wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(size),
+                        rows_per_image: Some(size),
+                    },
+                    wgpu::Extent3d {
+                        width: size,
+                        height: size,
+                        depth_or_array_layers: 1,
+                    },
+                );
+                if size == 1 {
+                    break;
+                }
+                let next = size / 2;
+                data = (0..next * next)
+                    .map(|i| {
+                        let p = ((i / next * 2) * size + i % next * 2) as usize;
+                        ((u32::from(data[p])
+                            + u32::from(data[p + 1])
+                            + u32::from(data[p + size as usize])
+                            + u32::from(data[p + size as usize + 1])
+                            + 2)
+                            / 4) as u8
+                    })
+                    .collect();
+                size = next;
+            }
+        }
+        self.brush_ready = true;
+        Ok(())
     }
 
     pub fn set_indices(&mut self, device: &Device, indices: &[u32]) -> Result<(), String> {
@@ -274,7 +392,10 @@ impl SplatRenderer {
 
     pub fn update_camera(&self, device: &Device, camera: &SortCamera) {
         let mut data = camera.encode();
-        data.extend([u32::from(self.srgb) as f32, 0.]);
+        data.extend([
+            u32::from(self.srgb) as f32,
+            u32::from(self.brush_enabled && self.brush_ready) as f32,
+        ]);
         device
             .queue()
             .write_buffer(&self.camera, 0, bytemuck::cast_slice(&data));

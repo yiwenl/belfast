@@ -2,10 +2,10 @@ import { validLightSettings, type LightSettings } from "./light-controls";
 import { validColorSettings, type ColorSettings } from "./color-controls";
 import { validFogSettings, type FogSettings } from "./fog-controls";
 
-export const BENCHMARK_VERSION = 8;
+export const BENCHMARK_VERSION = 10;
 export const WARMUP_FRAMES = 120;
 export const FIXED_DT = 1 / 60;
-export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v8";
+export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v10";
 
 export interface BenchmarkConfig {
   seed: number;
@@ -20,6 +20,7 @@ export interface BenchmarkConfig {
   blinkRandomness: number;
   size: number;
   fov: number;
+  brushStrokes: boolean;
   camera: number[];
   cameraPath: "static" | "forest-loop-v1";
   sortCadence: "threshold-v1";
@@ -77,6 +78,7 @@ const labels: Record<keyof BenchmarkConfig, string> = {
   blinkRandomness: "閃爍隨機程度",
   size: "螢火蟲大小",
   fov: "FOV",
+  brushStrokes: "森林筆觸",
   camera: "攝影機／輸出尺寸",
   cameraPath: "鏡頭路徑",
   sortCadence: "排序規則",
@@ -140,6 +142,7 @@ export function parseBaseline(raw: string): BenchmarkResult {
     !finite(c.fov) ||
     c.fov < 20 ||
     c.fov > 100 ||
+    typeof c.brushStrokes !== "boolean" ||
     !["static", "forest-loop-v1"].includes(c.cameraPath) ||
     c.sortCadence !== "threshold-v1" ||
     !validColorSettings(c.colors) ||

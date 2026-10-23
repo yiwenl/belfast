@@ -1,5 +1,6 @@
 import init, { ExperimentApp } from "../pkg/experiment";
 import { createBenchmark } from "./benchmark";
+import { loadBrushMasks } from "./brush-textures";
 import { bindColorControls } from "./color-controls";
 import { bindLightControls } from "./light-controls";
 import { bindFogControls } from "./fog-controls";
@@ -16,6 +17,7 @@ const RENDER_HEIGHT = 1080;
 const status = document.querySelector<HTMLElement>("#status")!;
 const errorOutput = document.querySelector<HTMLElement>("#error")!;
 const sceneInfo = document.querySelector<HTMLElement>("#scene-info")!;
+const brush = document.querySelector<HTMLInputElement>("#brush-enabled")!;
 const fps = createFpsMeter(document.querySelector<HTMLElement>("#fps")!);
 let app: ExperimentApp | undefined;
 let detachInput: (() => void) | undefined;
@@ -92,6 +94,7 @@ function bindSceneControls(target: ExperimentApp) {
       target.setFireflyRandomness(movementRandomness.valueAsNumber, blinkRandomness.valueAsNumber);
       target.setFireflySize(size.valueAsNumber);
       const cameraFov = target.setCameraFov(fov.valueAsNumber);
+      target.setBrushEnabled(brush.checked);
       count.value = String(activeCount);
       countValue.value = `${activeCount.toLocaleString("en-US")} 隻`;
       fireflyInfo.textContent = `${activeCount.toLocaleString("en-US")} fireflies · flocking & synchronized glow`;
@@ -116,6 +119,7 @@ function bindSceneControls(target: ExperimentApp) {
     blinkRandomness,
     size,
     fov,
+    brush,
   ];
   for (const input of inputs) {
     input.disabled = false;
@@ -205,7 +209,7 @@ async function start() {
           // Rust allows one pending sort and accumulates small camera movements.
           const camera = created.requestSort();
           if (camera.length) {
-            const message: SortRequest = { type: "sort", camera };
+            const message: SortRequest = { type: "sort", camera, brushStrokes: brush.checked };
             sortWorker!.postMessage(message, [camera.buffer]);
           }
         }
@@ -216,6 +220,8 @@ async function start() {
       }
     }
     animationFrame = requestAnimationFrame(frame);
+    const brushMasks = await loadBrushMasks(loading.signal);
+    if (disposed) return;
     const bytes = await loadPlyBytes(
       `${import.meta.env.BASE_URL}forest.ply`,
       loading.signal,
@@ -229,6 +235,7 @@ async function start() {
     await new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
     if (disposed) return;
     gaussianCount = created.loadPly(bytes);
+    created.uploadBrushMasks(brushMasks);
     const positions = created.takeSortPositions();
     const message: SortRequest = { type: "init", positions };
     sortWorker.postMessage(message, [positions.buffer]);
