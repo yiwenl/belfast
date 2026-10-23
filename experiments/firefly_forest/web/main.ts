@@ -66,6 +66,7 @@ function reportError(error: unknown) {
 }
 
 function bindSceneControls(target: ExperimentApp) {
+  const renderMode = document.querySelector<HTMLSelectElement>("#firefly-render-mode")!;
   const count = document.querySelector<HTMLInputElement>("#particle-count")!;
   const movement = document.querySelector<HTMLInputElement>("#movement-speed")!;
   const blinking = document.querySelector<HTMLInputElement>("#blink-frequency")!;
@@ -95,9 +96,10 @@ function bindSceneControls(target: ExperimentApp) {
       target.setFireflySize(size.valueAsNumber);
       const cameraFov = target.setCameraFov(fov.valueAsNumber);
       target.setBrushEnabled(brush.checked);
+      target.setFireflyTrails(renderMode.value === "trails");
       count.value = String(activeCount);
       countValue.value = `${activeCount.toLocaleString("en-US")} 隻`;
-      fireflyInfo.textContent = `${activeCount.toLocaleString("en-US")} fireflies · flocking & synchronized glow`;
+      fireflyInfo.textContent = `${activeCount.toLocaleString("en-US")} fireflies · ${renderMode.value === "trails" ? "256-frame trails" : "flocking & synchronized glow"}`;
       movementValue.value = `${movement.valueAsNumber.toFixed(2)}×`;
       blinkingValue.value = `${blinking.valueAsNumber.toFixed(2)}×`;
       durationValue.value = `${duration.valueAsNumber.toFixed(2)} 秒`;
@@ -111,6 +113,7 @@ function bindSceneControls(target: ExperimentApp) {
     }
   };
   const inputs = [
+    renderMode,
     count,
     movement,
     blinking,
@@ -158,9 +161,9 @@ async function start() {
     detachLights = bindLightControls(created, reportError);
     detachFog = bindFogControls(created, reportError);
     benchmark = createBenchmark(created, canvas, (locked) => {
-      for (const input of document.querySelectorAll<HTMLInputElement | HTMLButtonElement>(
-        "#firefly-controls input, #color-reset",
-      )) {
+      for (const input of document.querySelectorAll<
+        HTMLInputElement | HTMLSelectElement | HTMLButtonElement
+      >("#firefly-controls input, #firefly-controls select, #color-reset")) {
         input.disabled = locked;
       }
       if (locked) {

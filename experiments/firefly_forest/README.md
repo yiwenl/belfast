@@ -30,6 +30,28 @@ No performance benchmark has been run for this style.
 
 Original PNGs and licensing information are in `public/brushes/`.
 
+## Firefly trails
+
+Under **螢火蟲 → 顯示**, switch between the original glowing **粒子** and
+**軌跡 · 256 幀**. Trails follow ribbon02's three-sided tube geometry, using
+256 consecutive simulation positions from a GPU ring buffer. History is captured
+in both modes, so switching does not restart the simulation. Startup, increased
+particle counts and benchmark resets fill all slots at the current positions.
+
+Trails are opaque, unlit colors from the existing firefly palette: no halo,
+additive blending or blink fading. **大小** controls their thickness. Forest
+depth still occludes them, and a separate cleared depth buffer handles trail
+overlap without changing the cached forest. Trail length depends on movement
+speed and FPS; there is no extrapolation or time stretching.
+History reserves 409.6 MB for the 100,000-particle capacity, split into four
+64-frame buffers of 102.4 MB to stay within default WebGPU binding limits.
+Recording is included in
+the simulation GPU timing; the draw timing measures the selected mode.
+
+The [256-frame measurements](benchmarks/2026-10-23-trails-256/README.md) reached
+94.80 FPS static / 65.29 FPS moving at 20,000 particles, and 21.05 / 19.91 FPS at
+100,000 particles in single 1,200-frame local runs at 1920 × 1080.
+
 ## Render resolution and static forest cache
 
 The drawing buffer is fixed at **1920 × 1080**, independent of device pixel ratio. CSS fits the canvas to the window at 16:9 without stretching it; pointer input remains relative to the displayed canvas.
@@ -86,7 +108,7 @@ The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** co
 
 Changes update two small uniform buffers immediately, with no shader rebuild,
 particle reset or forest-cache rebuild. Color pickers use display RGB hex colors.
-Benchmark v10 records all color, local-light and fog settings (including noise frequency), firefly randomness, sprite size and brush-rendering mode (2× size / 50% count), and locks these controls during a run. The Benchmark panel is collapsed by default.
+Benchmark v13 records all color, local-light and fog settings (including noise frequency), firefly randomness, sprite size, particle/trail display and brush-rendering mode (2× size / 50% count), and locks these controls during a run. The version change separates 256-frame trails from previous 16/64-frame measurements. The Benchmark panel is collapsed by default.
 
 ## Animated volumetric fog
 
@@ -193,7 +215,7 @@ frame index, so slower rendering does not change the route. The camera starts
 at world origin (separate from the interactive starting position); FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
 interactive view. Path version, sorting cadence, color, local-light and fog settings are part of
-baseline compatibility; v10 baselines are stored separately from earlier v1–v9 results.
+baseline compatibility; v13 baselines are stored separately from earlier v1–v12 results.
 Moving measurements use the same sort thresholds as interactive viewing;
 only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search

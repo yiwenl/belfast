@@ -204,6 +204,10 @@ impl Scene {
         self.fireflies.set_size(scale)
     }
 
+    pub fn set_firefly_trails(&mut self, enabled: bool) {
+        self.fireflies.set_trails_enabled(enabled);
+    }
+
     pub fn set_view_culling(&mut self, enabled: bool) {
         self.fireflies.set_view_culling(enabled);
     }
@@ -493,7 +497,9 @@ impl Scene {
         }
         self.forest_camera = Some(self.sort_camera());
         self.forest_dirty = false;
-        if self.splats.is_some() {
+        if self.splats.is_some() && self.fireflies.trails_enabled() {
+            self.fireflies.draw_trails(&mut encoder, view, queries);
+        } else if self.splats.is_some() {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("FireflyGlow"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {

@@ -64,9 +64,7 @@ aside span {
   top: 72px;
   right: 28px;
   width: 204px;
-  display: grid;
-  gap: 18px;
-  padding: 18px;
+  padding: 0 16px;
   border: 1px solid #e4ef9c24;
   border-radius: 8px;
   background: #0b100de0;
@@ -76,22 +74,53 @@ aside span {
   overflow-y: auto;
 }
 
-#firefly-controls strong {
+.control-group + .control-group {
+  border-top: 1px solid #e4ef9c18;
+}
+
+.control-group > summary {
+  padding: 14px 0;
   color: #edf4c7;
   font-size: 13px;
   font-weight: 500;
+  cursor: pointer;
+}
+
+#firefly-controls summary:focus-visible,
+#firefly-controls button:focus-visible,
+#firefly-controls select:focus-visible,
+#firefly-controls input:focus-visible {
+  outline: 2px solid #dce88d;
+  outline-offset: 3px;
+}
+
+.control-body {
+  display: grid;
+  gap: 14px;
+  padding: 2px 0 18px;
 }
 
 .control {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
 }
 
 .control output {
   color: #edf4c7;
   font-variant-numeric: tabular-nums;
+}
+
+.control select {
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid #dce88d40;
+  border-radius: 4px;
+  background: #151d17;
+  color: #edf4c7;
+  font: inherit;
+  cursor: pointer;
 }
 
 .control input {
@@ -107,14 +136,7 @@ aside span {
   outline-offset: 5px;
 }
 
-#firefly-controls small {
-  color: #a0aa93;
-  font-size: 11px;
-}
-
-.appearance summary,
-.lighting summary,
-.fog summary {
+.appearance summary {
   color: #edf4c7;
   font-size: 13px;
   cursor: pointer;
@@ -122,8 +144,8 @@ aside span {
 
 .appearance-body {
   display: grid;
-  gap: 16px;
-  padding-top: 18px;
+  gap: 14px;
+  padding-top: 14px;
 }
 
 .color-control {
@@ -164,7 +186,7 @@ aside span {
     bottom: 56px;
     right: 16px;
     width: 180px;
-    padding: 14px;
+    padding: 0 14px;
   }
 
   aside {

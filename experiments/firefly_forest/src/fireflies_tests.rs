@@ -301,7 +301,13 @@ fn gpu_slower_frequency_only_increases_the_interval_between_flashes() {
 
 #[test]
 fn firefly_shaders_validate() {
-    for source in [simulation_shader(), draw_shader()] {
+    for source in [
+        simulation_shader(),
+        draw_shader(),
+        trails::record_shader(),
+        trails::draw_shader(false),
+        trails::draw_shader(true),
+    ] {
         let module = naga::front::wgsl::parse_str(&source).unwrap();
         naga::valid::Validator::new(
             naga::valid::ValidationFlags::all(),
@@ -310,6 +316,202 @@ fn firefly_shaders_validate() {
         .validate(&module)
         .unwrap();
     }
+}
+
+#[test]
+#[ignore = "requires a GPU"]
+fn gpu_trail_history_supports_maximum_population() {
+    let device = device();
+    let mut system = FireflySystem::new(&device);
+    system.set_count(MAX_PARTICLE_COUNT);
+    let output = step(&device, &mut system, 0.);
+    assert_eq!(output.len(), MAX_PARTICLE_COUNT as usize);
+    assert!(output
+        .iter()
+        .all(|p| p.position_phase.iter().all(|v| v.is_finite())));
+}
+
+#[test]
+#[ignore = "requires a GPU"]
+fn gpu_trail_history_wraps_and_resets_without_stale_positions() {
+    let device = device();
+    let settings = Settings {
+        noise_strength: 0.,
+        phase_jitter: 0.,
+        separation: 0.,
+        cohesion: 0.,
+        alignment: 0.,
+        drag: 0.,
+        ..Default::default()
+    };
+    let mut moving = particle(0., 0.2);
+    moving.velocity_frequency[0] = 0.1;
+    let mut system = FireflySystem::with_particles(&device, &[moving, particle(1., 0.2)], settings);
+    system.count = 1;
+    let history = |system: &FireflySystem| -> Vec<[f32; 4]> {
+        system
+            .trails
+            .history
+            .iter()
+            .flat_map(|chunk| {
+                bytemuck::cast_slice::<_, [f32; 4]>(&read_buffer(
+                    &device,
+                    chunk.gpu(),
+                    chunk.size(),
+                ))
+                .to_vec()
+            })
+            .collect()
+    };
+    step(&device, &mut system, 0.025);
+    for position in history(&system).iter().step_by(2) {
+        assert!(
+            (position[0] - 0.0025).abs() < 1e-5,
+            "initialize every slot at the particle"
+        );
+    }
+    for _ in 1..259 {
+        step(&device, &mut system, 0.025);
+    }
+    let positions = history(&system);
+    for age in 0..256 {
+        let slot = (258 + 256 - age) % 256;
+        assert!((positions[slot * 2][0] - (0.6475 - age as f32 * 0.0025)).abs() < 1e-5);
+    }
+    system.set_count(2);
+    let output = step(&device, &mut system, 0.1);
+    for (i, position) in history(&system).iter().enumerate() {
+        assert_eq!(
+            &position[..3],
+            &output[i % 2].position_phase[..3],
+            "count growth resets old paths"
+        );
+    }
+    system.reset(&device, 42);
+    let output = step(&device, &mut system, 0.);
+    for (i, position) in history(&system).iter().enumerate() {
+        assert_eq!(
+            &position[..3],
+            &output[i % 2].position_phase[..3],
+            "seed reset must not bridge scenes"
+        );
+    }
+}
+
+#[test]
+#[ignore = "requires a GPU"]
+fn gpu_trails_are_solid_without_flashes_and_respect_forest_depth() {
+    let device = device();
+    let mut camera = camera();
+    camera.projection = Mat4::perspective_rh(0.4, 1., 0.02, 100.);
+    let texture = device.gpu().create_texture(&wgpu::TextureDescriptor {
+        label: Some("TrailTestColor"),
+        size: wgpu::Extent3d {
+            width: 64,
+            height: 64,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: device.format(),
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        view_formats: &[],
+    });
+    let target = texture.create_view(&Default::default());
+    let forest_depth = depth_view(&device, [64, 64]);
+    let staging = device.gpu().create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: 64 * 256,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let mut p = particle(-0.15, 0.2);
+    p.position_phase[1] = 0.;
+    p.velocity_frequency[0] = 0.2;
+    let mut system = FireflySystem::with_particles(
+        &device,
+        &[p],
+        Settings {
+            noise_strength: 0.,
+            phase_jitter: 0.,
+            drag: 0.,
+            ..Default::default()
+        },
+    );
+    system.set_trails_enabled(true);
+    system.set_size(3.).unwrap();
+    system.set_rates(1., 0.).unwrap();
+    system
+        .set_appearance(&device, 0., 0., 0., &[1., 0., 0., 1., 0., 0., 1., 0., 0.])
+        .unwrap();
+    system.set_occlusion(&device, &forest_depth);
+    for _ in 0..256 {
+        step(&device, &mut system, 0.00625);
+    }
+    let mut render = |depth: f32| {
+        system.update(&device, 0., &camera);
+        let mut encoder = device.gpu().create_command_encoder(&Default::default());
+        system.simulate(&mut encoder);
+        {
+            let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &target,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &forest_depth,
+                    stencil_ops: None,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(depth),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                }),
+                ..Default::default()
+            });
+        }
+        system.draw_trails(&mut encoder, &target, None);
+        encoder.copy_texture_to_buffer(
+            texture.as_image_copy(),
+            wgpu::TexelCopyBufferInfo {
+                buffer: &staging,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(256),
+                    rows_per_image: Some(64),
+                },
+            },
+            wgpu::Extent3d {
+                width: 64,
+                height: 64,
+                depth_or_array_layers: 1,
+            },
+        );
+        device.queue().submit([encoder.finish()]);
+        read_buffer(&device, &staging, 64 * 256)
+    };
+    let visible = render(1.);
+    let red: Vec<_> = visible.chunks_exact(4).filter(|p| p[0] > 0).collect();
+    assert!(red.len() > 5, "unlit fireflies still have visible trails");
+    assert!(
+        red.iter().all(|p| p[..] == [255, 0, 0, 255]),
+        "solid red must replace blue without glow or blending"
+    );
+    let clip = camera.projection * glam::Vec4::new(0., 0., -2., 1.);
+    assert!(
+        render(clip.z / clip.w).chunks_exact(4).all(|p| p[0] == 0),
+        "forest in front hides the entire trail"
+    );
+    assert!(
+        render(1.).chunks_exact(4).any(|p| p[0] > 0),
+        "old trail depth must not persist across frames"
+    );
 }
 
 fn device() -> Device {

@@ -4,6 +4,9 @@ use wgpu::util::DeviceExt;
 
 use crate::sorting::SortCamera;
 
+#[path = "firefly_trails.rs"]
+mod trails;
+
 pub const PARTICLE_COUNT: u32 = 20_000;
 const MIN_PARTICLE_COUNT: u32 = 10_000;
 const MAX_PARTICLE_COUNT: u32 = 100_000;
@@ -146,6 +149,8 @@ pub struct FireflySystem {
     render_pipeline: wgpu::RenderPipeline,
     occlusion_binding: Option<wgpu::BindGroup>,
     draw_bindings: [BindGroup; 2],
+    trails: trails::Trails,
+    trails_enabled: bool,
     current: usize,
     count: u32,
     capacity: u32,
@@ -365,6 +370,7 @@ impl FireflySystem {
                 "FireflyDrawBindings",
             )
         });
+        let trails = trails::Trails::new(device, &states, &camera, &appearance, count);
         Self {
             settings,
             states,
@@ -378,6 +384,8 @@ impl FireflySystem {
             render_pipeline,
             occlusion_binding: None,
             draw_bindings,
+            trails,
+            trails_enabled: false,
             current: 0,
             count,
             capacity: count,
@@ -419,6 +427,14 @@ impl FireflySystem {
         self.view_culling = enabled;
     }
 
+    pub fn set_trails_enabled(&mut self, enabled: bool) {
+        self.trails_enabled = enabled;
+    }
+
+    pub fn trails_enabled(&self) -> bool {
+        self.trails_enabled
+    }
+
     pub fn reset(&mut self, device: &Device, seed: u32) {
         let particles = seeded_particles(&self.settings, self.capacity, seed);
         for state in &self.states {
@@ -428,6 +444,7 @@ impl FireflySystem {
         self.time = 0.;
         self.phase_time = 0.;
         self.pending_dt = 0.;
+        self.trails.reset();
     }
 
     /// Independent motion/cycle time scales. Active flashes always finish in real time.
@@ -511,8 +528,14 @@ impl FireflySystem {
         );
         let mut matrices = camera.view.to_cols_array().to_vec();
         matrices.extend(camera.projection.to_cols_array());
-        matrices.extend([self.size, 0., 0., 0.]);
+        matrices.extend([
+            self.size,
+            u32::from(device.format().is_srgb()) as f32,
+            0.,
+            0.,
+        ]);
         self.camera.write(device, &matrices, 0);
+        self.trails.update(device, self.count, camera.viewport);
     }
 
     pub fn simulate(&mut self, encoder: &mut wgpu::CommandEncoder) {
@@ -546,8 +569,13 @@ impl FireflySystem {
             });
             self.compute_bindings[self.current].bind_compute(&mut pass, 0);
             pipeline.dispatch(&mut pass, [count.div_ceil(64), 1, 1]);
+            if index == 2 {
+                // Record the freshly simulated state inside the same timing span.
+                self.trails.record(&mut pass, 1 - self.current, self.count);
+            }
         }
         self.current = 1 - self.current;
+        self.trails.advance(self.count);
         // Noise evolves faster than the slowed simulation at low slider values,
         // while zero still pauses it. Motion and cycle integration keep their rates.
         self.time += self.pending_dt * self.rates[0].sqrt();
@@ -582,6 +610,7 @@ impl FireflySystem {
     }
 
     pub fn set_occlusion(&mut self, device: &Device, view: &wgpu::TextureView) {
+        self.trails.set_occlusion(device, view);
         if merged_depth(device) {
             self.occlusion_binding =
                 Some(device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
@@ -604,6 +633,15 @@ impl FireflySystem {
             pass.set_bind_group(1, binding, &[]);
         }
         pass.draw(0..6, 0..self.count);
+    }
+
+    pub fn draw_trails(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        queries: Option<&wgpu::QuerySet>,
+    ) {
+        self.trails.draw(encoder, view, self.count, queries);
     }
 }
 

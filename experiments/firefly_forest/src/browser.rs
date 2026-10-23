@@ -367,6 +367,11 @@ impl ExperimentApp {
         self.scene.set_firefly_size(scale).map_err(js_error)
     }
 
+    #[wasm_bindgen(js_name = setFireflyTrails)]
+    pub fn set_firefly_trails(&mut self, enabled: bool) {
+        self.scene.set_firefly_trails(enabled);
+    }
+
     #[wasm_bindgen(js_name = loadPly)]
     pub fn load_ply(&mut self, bytes: &[u8]) -> Result<u32, JsValue> {
         self.scene.load_ply(&self.device, bytes).map_err(js_error)

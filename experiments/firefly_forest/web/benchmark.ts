@@ -75,6 +75,8 @@ export function createBenchmark(
       size: number("firefly-size"),
       fov: number("camera-fov"),
       brushStrokes: get<HTMLInputElement>("brush-enabled").checked,
+      fireflyRenderMode:
+        get<HTMLSelectElement>("firefly-render-mode").value === "trails" ? "trails" : "particles",
       camera: Array.from(app.benchmarkCamera()),
       cameraPath: moving.checked ? "forest-loop-v1" : "static",
       sortCadence: "threshold-v1",
@@ -127,7 +129,7 @@ export function createBenchmark(
       ["GPU 整幀 P95 ms", (r) => r.gpu?.total.p95, false],
       ["螢火蟲 compute ms", (r) => r.gpu?.compute.mean, false],
       ["森林＋光照＋霧 ms", (r) => r.gpu?.forest.mean, false],
-      ["螢火蟲繪製 ms", (r) => r.gpu?.glow.mean, false],
+      ["粒子／軌跡繪製 ms", (r) => r.gpu?.glow.mean, false],
     ];
     rows.replaceChildren(
       ...metrics.map(([label, read, higherIsBetter]) => {
