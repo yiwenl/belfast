@@ -31,6 +31,8 @@ test("baseline loading validates the firefly render mode", () => {
     blinkRandomness: 0.6,
     size: 0.75,
     brushStrokes: true,
+    flashRecovery: 0.65,
+    fireflyGlow: true,
   });
   baseline.config.fog.noiseFrequency = 1;
   for (const mode of ["particles", "trails", "drag"]) {
@@ -39,6 +41,29 @@ test("baseline loading validates the firefly render mode", () => {
   }
   for (const mode of [undefined, "unknown", true]) {
     baseline.config.fireflyRenderMode = mode;
+    assert.throws(() => parseBaseline(JSON.stringify(baseline)));
+  }
+  baseline.config.fireflyRenderMode = "drag";
+  const otherRecovery = { ...baseline.config, flashRecovery: 2 };
+  assert.deepEqual(differences(baseline.config, otherRecovery), ["閃爍恢復"]);
+  for (const recovery of [0.1, 0.65, 5]) {
+    baseline.config.flashRecovery = recovery;
+    assert.equal(parseBaseline(JSON.stringify(baseline)).config.flashRecovery, recovery);
+  }
+  for (const recovery of [undefined, null, "1", -1, 0, 5.1]) {
+    baseline.config.flashRecovery = recovery;
+    assert.throws(() => parseBaseline(JSON.stringify(baseline)));
+  }
+  baseline.config.flashRecovery = 0.65;
+  assert.deepEqual(differences(baseline.config, { ...baseline.config, fireflyGlow: false }), [
+    "粒子 Glow",
+  ]);
+  for (const glow of [true, false]) {
+    baseline.config.fireflyGlow = glow;
+    assert.equal(parseBaseline(JSON.stringify(baseline)).config.fireflyGlow, glow);
+  }
+  for (const glow of [undefined, null, "false", 0, 1]) {
+    baseline.config.fireflyGlow = glow;
     assert.throws(() => parseBaseline(JSON.stringify(baseline)));
   }
 });

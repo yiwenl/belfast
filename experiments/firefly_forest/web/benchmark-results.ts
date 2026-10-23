@@ -2,10 +2,10 @@ import { validLightSettings, type LightSettings } from "./light-controls";
 import { validColorSettings, type ColorSettings } from "./color-controls";
 import { validFogSettings, type FogSettings } from "./fog-controls";
 
-export const BENCHMARK_VERSION = 16;
+export const BENCHMARK_VERSION = 20;
 export const WARMUP_FRAMES = 120;
 export const FIXED_DT = 1 / 60;
-export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v16";
+export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v20";
 
 export interface BenchmarkConfig {
   seed: number;
@@ -16,6 +16,8 @@ export interface BenchmarkConfig {
   movement: number;
   frequency: number;
   duration: number;
+  flashRecovery: number;
+  fireflyGlow: boolean;
   movementRandomness: number;
   blinkRandomness: number;
   size: number;
@@ -75,6 +77,8 @@ const labels: Record<keyof BenchmarkConfig, string> = {
   movement: "移動速度",
   frequency: "閃爍頻率",
   duration: "閃爍時長",
+  flashRecovery: "閃爍恢復",
+  fireflyGlow: "粒子 Glow",
   movementRandomness: "移動隨機程度",
   blinkRandomness: "閃爍隨機程度",
   size: "螢火蟲大小",
@@ -132,6 +136,9 @@ export function parseBaseline(raw: string): BenchmarkResult {
     !finite(c.duration) ||
     c.duration < 0.1 ||
     c.duration > 2 ||
+    !finite(c.flashRecovery) ||
+    c.flashRecovery < 0.1 ||
+    c.flashRecovery > 5 ||
     !finite(c.movementRandomness) ||
     c.movementRandomness < 0 ||
     c.movementRandomness > 2 ||
@@ -145,6 +152,7 @@ export function parseBaseline(raw: string): BenchmarkResult {
     c.fov < 20 ||
     c.fov > 100 ||
     typeof c.brushStrokes !== "boolean" ||
+    typeof c.fireflyGlow !== "boolean" ||
     !["particles", "trails", "drag"].includes(c.fireflyRenderMode) ||
     !["static", "forest-loop-v1"].includes(c.cameraPath) ||
     c.sortCadence !== "threshold-v1" ||

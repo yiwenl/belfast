@@ -6,6 +6,10 @@ struct Appearance {
 @group(0) @binding(2) var<uniform> look: Appearance;
 override peak_brightness: f32 = 1.8;
 
+fn boosted_flash(intensity: f32, boost: f32) -> f32 {
+    return mix(intensity, 1., boost);
+}
+
 fn firefly_emission(index: u32, intensity: f32) -> vec4<f32> {
     var bits = index * 747796405u + 2891336453u;
     bits = ((bits >> ((bits >> 28u) + 4u)) ^ bits) * 277803737u;

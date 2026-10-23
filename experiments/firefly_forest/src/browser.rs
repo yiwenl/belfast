@@ -364,6 +364,13 @@ impl ExperimentApp {
             .map_err(js_error)
     }
 
+    #[wasm_bindgen(js_name = setFireflyFlashRecovery)]
+    pub fn set_firefly_flash_recovery(&mut self, seconds: f32) -> Result<(), JsValue> {
+        self.scene
+            .set_firefly_flash_recovery(seconds)
+            .map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = setFireflySize)]
     pub fn set_firefly_size(&mut self, scale: f32) -> Result<(), JsValue> {
         self.scene.set_firefly_size(scale).map_err(js_error)
@@ -372,6 +379,11 @@ impl ExperimentApp {
     #[wasm_bindgen(js_name = setFireflyRenderMode)]
     pub fn set_firefly_render_mode(&mut self, mode: &str) -> Result<(), JsValue> {
         self.scene.set_firefly_render_mode(mode).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setFireflyGlow)]
+    pub fn set_firefly_glow(&mut self, enabled: bool) {
+        self.scene.set_firefly_glow(enabled);
     }
 
     #[wasm_bindgen(js_name = loadPly)]

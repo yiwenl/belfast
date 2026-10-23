@@ -164,6 +164,7 @@ pub struct FireflySystem {
     flash_duration: f32,
     randomness: [f32; 2],
     size: f32,
+    glow: bool,
     pending_dt: f32,
     view_culling: bool,
 }
@@ -205,7 +206,7 @@ impl FireflySystem {
             BufferUsage::uniform(),
             "FireflySimulationParams",
         );
-        let camera = Buffer::create(device, 144, BufferUsage::uniform(), "FireflyCamera");
+        let camera = Buffer::create(device, 160, BufferUsage::uniform(), "FireflyCamera");
         let heads = Buffer::create(
             device,
             u64::from(grid.iter().product::<u32>()) * 4,
@@ -399,6 +400,7 @@ impl FireflySystem {
             flash_duration: DEFAULT_FLASH_DURATION_SECONDS,
             randomness: [1., 1.],
             size: 1.,
+            glow: true,
             pending_dt: 0.,
             view_culling: true,
         }
@@ -477,6 +479,10 @@ impl FireflySystem {
         Ok(())
     }
 
+    pub fn set_flash_recovery(&mut self, seconds: f32) -> Result<(), String> {
+        self.display.set_flash_recovery(seconds)
+    }
+
     pub fn set_randomness(&mut self, movement: f32, blinking: f32) -> Result<(), String> {
         if !movement.is_finite() || !blinking.is_finite() {
             return Err("Firefly randomness must be finite".into());
@@ -491,6 +497,10 @@ impl FireflySystem {
         }
         self.size = scale.clamp(0.25, 3.);
         Ok(())
+    }
+
+    pub fn set_glow(&mut self, enabled: bool) {
+        self.glow = enabled;
     }
 
     pub fn update(&mut self, device: &Device, dt: f32, camera: &SortCamera) {
@@ -546,6 +556,12 @@ impl FireflySystem {
             u32::from(device.format().is_srgb()) as f32,
             self.display.particle_opacity(),
             self.display.max_age(),
+        ]);
+        matrices.extend([
+            self.display.flash_boost(),
+            u32::from(self.glow) as f32,
+            0.,
+            0.,
         ]);
         self.camera.write(device, &matrices, 0);
         self.trails.update(device, self.count, camera.viewport);
@@ -659,7 +675,7 @@ impl FireflySystem {
             view,
             self.count,
             self.display.max_age(),
-            self.particles_visible(),
+            self.particles_visible() || self.display.flash_boost() < 1.,
             queries.map(|query_set| wgpu::RenderPassTimestampWrites {
                 query_set,
                 beginning_of_pass_write_index: Some(10),

@@ -32,12 +32,23 @@ Original PNGs and licensing information are in `public/brushes/`.
 
 ## Firefly trails
 
+**螢火蟲 → 粒子 Glow** toggles the particle halo (on by default). Turning it off
+retains the bright core, individual blinking and drag transitions. Trails and
+forest lighting are unchanged; the toggle takes effect without resetting particles.
+
 Under **螢火蟲 → 顯示**, **拖曳軌跡** is the default: idle shows glowing particles;
 pressing the canvas starts a new trail and fades particles out over 0.25 seconds.
 Releasing retracts the tail along the continuously updated curve toward the
-moving particle head and fades particles back over 0.65 seconds. As particles
-return, the whole trail smoothly follows that particle's current flash intensity,
-including later changes during retraction, rather than replaying old tail flashes.
+moving particle head and fades particles back over 0.65 seconds. Dragging also
+smoothly brings every firefly to full brightness over 0.25 seconds. On release,
+that boost fades toward each firefly's current natural flash. **螢火蟲 → 閃爍恢復**
+sets this recovery time from 0.1–5 seconds (0.65 seconds by default); larger values
+keep the field illuminated longer. Trail retraction and movement slowdown remain
+0.65 seconds. Changing recovery mid-release continues from the current brightness
+over the newly selected duration; regrabbing also preserves brightness.
+The underlying cycles keep running; dragging never restarts or synchronizes them.
+Particles and the whole corresponding trail share this effective brightness,
+rather than replaying old tail flashes.
 Motion uses
 the same smooth transition: it accelerates from the configured speed to 1×
 while held, then returns to the configured speed on release. The slider value
@@ -56,14 +67,15 @@ Startup, increased particle counts and benchmark resets still initialize every
 history slot at the current positions.
 
 Trails use unlit colors from the existing firefly palette, with ordinary alpha
-blending during transitions and full opacity when held: no halo or additive glow.
-Manual trail mode stays solid; drag transitions blend toward the live flash
-envelope using the history sample's previously unused fourth component, without
-adding GPU storage. **大小** controls their thickness. Forest
+blending and no halo or additive glow.
+Manual trail mode stays solid; drag mode combines the live flash envelope
+with the shared brightness boost using the history sample's fourth component.
+A separate camera uniform value keeps brightness recovery independent of geometry
+and motion without adding history storage. **大小** controls their thickness. Forest
 depth still occludes them, and a separate cleared depth buffer handles trail
-overlap without changing the cached forest. During fades, a depth prepass makes
-the nearest surface blend once, independent of particle order; fully opaque
-trails retain the single draw pass. Trail length depends on movement
+overlap without changing the cached forest. During transitions, a depth prepass
+makes the nearest surface blend once, independent of particle order. Fully held
+and manual solid trails retain the single draw pass. Trail length depends on movement
 speed and FPS; there is no extrapolation or time stretching.
 History reserves 409.6 MB for the 100,000-particle capacity, split into four
 64-frame buffers of 102.4 MB to stay within default WebGPU binding limits.
@@ -131,7 +143,7 @@ The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** co
 
 Changes update two small uniform buffers immediately, with no shader rebuild,
 particle reset or forest-cache rebuild. Color pickers use display RGB hex colors.
-Benchmark v16 records all color, local-light and fog settings (including noise frequency), firefly randomness, sprite size, particle/trail/drag display and brush-rendering mode (2× size / 50% count), and locks these controls during a run. The version change separates flash-following trail transitions from previous measurements. In drag mode the scripted moving path holds the effect active at 1× after acceleration, while a static run shows particles at the configured speed; completion or cancellation releases it. The Benchmark panel is collapsed by default.
+Benchmark v20 records all color, local-light and fog settings (including noise frequency), firefly randomness, sprite size, flash recovery time, particle glow, particle/trail/drag display and brush-rendering mode (2× size / 50% count), and locks these controls during a run. Different recovery times or particle glow settings are incompatible baselines. In drag mode the scripted moving path holds the effect active at 1× after acceleration, while a static run shows particles at the configured speed; completion or cancellation releases it. The Benchmark panel is collapsed by default.
 
 ## Animated volumetric fog
 
@@ -238,7 +250,7 @@ frame index, so slower rendering does not change the route. The camera starts
 at world origin (separate from the interactive starting position); FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
 interactive view. Path version, sorting cadence, color, local-light and fog settings are part of
-baseline compatibility; v16 baselines are stored separately from earlier v1–v15 results.
+baseline compatibility; v20 baselines are stored separately from earlier v1–v19 results.
 Moving measurements use the same sort thresholds as interactive viewing;
 only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search

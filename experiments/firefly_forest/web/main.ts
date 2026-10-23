@@ -67,10 +67,12 @@ function reportError(error: unknown) {
 
 function bindSceneControls(target: ExperimentApp) {
   const renderMode = document.querySelector<HTMLSelectElement>("#firefly-render-mode")!;
+  const glow = document.querySelector<HTMLInputElement>("#firefly-glow")!;
   const count = document.querySelector<HTMLInputElement>("#particle-count")!;
   const movement = document.querySelector<HTMLInputElement>("#movement-speed")!;
   const blinking = document.querySelector<HTMLInputElement>("#blink-frequency")!;
   const duration = document.querySelector<HTMLInputElement>("#flash-duration")!;
+  const recovery = document.querySelector<HTMLInputElement>("#flash-recovery")!;
   const movementRandomness = document.querySelector<HTMLInputElement>("#movement-randomness")!;
   const blinkRandomness = document.querySelector<HTMLInputElement>("#blink-randomness")!;
   const size = document.querySelector<HTMLInputElement>("#firefly-size")!;
@@ -80,6 +82,7 @@ function bindSceneControls(target: ExperimentApp) {
   const movementValue = document.querySelector<HTMLOutputElement>("#movement-speed-value")!;
   const blinkingValue = document.querySelector<HTMLOutputElement>("#blink-frequency-value")!;
   const durationValue = document.querySelector<HTMLOutputElement>("#flash-duration-value")!;
+  const recoveryValue = document.querySelector<HTMLOutputElement>("#flash-recovery-value")!;
   const movementRandomnessValue = document.querySelector<HTMLOutputElement>(
     "#movement-randomness-value",
   )!;
@@ -92,11 +95,13 @@ function bindSceneControls(target: ExperimentApp) {
       const activeCount = target.setFireflyCount(count.valueAsNumber);
       target.setFireflyRates(movement.valueAsNumber, blinking.valueAsNumber);
       target.setFireflyFlashDuration(duration.valueAsNumber);
+      target.setFireflyFlashRecovery(recovery.valueAsNumber);
       target.setFireflyRandomness(movementRandomness.valueAsNumber, blinkRandomness.valueAsNumber);
       target.setFireflySize(size.valueAsNumber);
       const cameraFov = target.setCameraFov(fov.valueAsNumber);
       target.setBrushEnabled(brush.checked);
       target.setFireflyRenderMode(renderMode.value);
+      target.setFireflyGlow(glow.checked);
       count.value = String(activeCount);
       countValue.value = `${activeCount.toLocaleString("en-US")} 隻`;
       const display =
@@ -104,11 +109,12 @@ function bindSceneControls(target: ExperimentApp) {
           ? "drag to grow trails"
           : renderMode.value === "trails"
             ? "256-frame trails"
-            : "flocking & synchronized glow";
+            : "flocking & synchronized flashes";
       fireflyInfo.textContent = `${activeCount.toLocaleString("en-US")} fireflies · ${display}`;
       movementValue.value = `${movement.valueAsNumber.toFixed(2)}×`;
       blinkingValue.value = `${blinking.valueAsNumber.toFixed(2)}×`;
       durationValue.value = `${duration.valueAsNumber.toFixed(2)} 秒`;
+      recoveryValue.value = `${recovery.valueAsNumber.toFixed(2)} 秒`;
       movementRandomnessValue.value = `${movementRandomness.valueAsNumber.toFixed(2)}×`;
       blinkRandomnessValue.value = `${blinkRandomness.valueAsNumber.toFixed(2)}×`;
       sizeValue.value = `${size.valueAsNumber.toFixed(2)}×`;
@@ -120,10 +126,12 @@ function bindSceneControls(target: ExperimentApp) {
   };
   const inputs = [
     renderMode,
+    glow,
     count,
     movement,
     blinking,
     duration,
+    recovery,
     movementRandomness,
     blinkRandomness,
     size,

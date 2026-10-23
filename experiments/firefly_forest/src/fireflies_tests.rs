@@ -466,7 +466,7 @@ fn gpu_trail_history_wraps_and_resets_without_stale_positions() {
 
 #[test]
 #[ignore = "requires a GPU"]
-fn gpu_trails_are_solid_without_flashes_and_respect_forest_depth() {
+fn gpu_trails_use_live_flashes_in_drag_mode_and_respect_depth() {
     let device = device();
     let mut camera = camera();
     camera.projection = Mat4::perspective_rh(0.4, 1., 0.02, 100.);
@@ -587,6 +587,9 @@ fn gpu_trails_are_solid_without_flashes_and_respect_forest_depth() {
         "old trail depth must not persist across frames"
     );
 
+    let mut live = step(&device, &mut system, 0.)[0];
+    live.flash = [5., 0.5, 20., 0.];
+    system.states[system.current].write(&device, &[live], 0);
     system.set_render_mode(RenderMode::Drag);
     assert!(
         render(&mut system, 1.).chunks_exact(4).all(|p| p[0] == 0),
@@ -599,6 +602,28 @@ fn gpu_trails_are_solid_without_flashes_and_respect_forest_depth() {
     let grown = render(&mut system, 1.);
     let red_sum = |pixels: &[u8]| pixels.chunks_exact(4).map(|p| u32::from(p[0])).sum::<u32>();
     assert!(red_sum(&grown) > 0, "drag grows a new trail");
+    let flash_brightness = |system: &mut FireflySystem, intensity: f32| {
+        let mut live = step(&device, system, 0.)[0];
+        live.flash[1] = intensity;
+        system.states[system.current].write(&device, &[live], 0);
+        render(system, 1.)
+            .chunks_exact(4)
+            .map(|p| p[0])
+            .max()
+            .unwrap()
+    };
+    let held_dark = flash_brightness(&mut system, 0.);
+    let held_half = flash_brightness(&mut system, 0.5);
+    let held_bright = flash_brightness(&mut system, 1.);
+    assert!(held_bright > 0);
+    assert_eq!(
+        held_dark, held_bright,
+        "drag lights even particles between flashes"
+    );
+    assert_eq!(
+        held_half, held_bright,
+        "all held trails reach full brightness"
+    );
     let head = step(&device, &mut system, 0.00625)[0].position_phase[0];
     system.set_dragging(false);
     for _ in 0..53 {
@@ -612,25 +637,15 @@ fn gpu_trails_are_solid_without_flashes_and_respect_forest_depth() {
             .any(|p| p[0] > 0 && p[0] < 255 && p[2] > 0),
         "trail fades over the forest color without additive glow"
     );
-    let mut live = step(&device, &mut system, 0.)[0];
-    let mut flash_brightness = |intensity: f32| {
-        live.flash[1] = intensity;
-        system.states[system.current].write(&device, &[live], 0);
-        render(&mut system, 1.)
-            .chunks_exact(4)
-            .map(|p| p[0])
-            .max()
-            .unwrap()
-    };
-    let dark = flash_brightness(0.);
-    let half = flash_brightness(0.5);
-    let bright = flash_brightness(1.);
+    let dark = flash_brightness(&mut system, 0.);
+    let half = flash_brightness(&mut system, 0.5);
+    let bright = flash_brightness(&mut system, 1.);
     assert!(
         dark < half && half < bright,
         "retracting trail follows the live flash"
     );
     assert_eq!(
-        flash_brightness(0.),
+        flash_brightness(&mut system, 0.),
         dark,
         "flash decay must not retain old brightness"
     );
@@ -647,30 +662,51 @@ fn gpu_trails_are_solid_without_flashes_and_respect_forest_depth() {
         "particle keeps moving during retraction"
     );
 
-    system.count = 2;
-    let mut overlap = |particles: [Particle; 2]| {
+    p.flash = [5., 0.5, 20., 0.];
+    far.flash = p.flash;
+    let mut overlap = |particles: &[Particle], retract: bool, regrab: bool| {
+        system.count = particles.len() as u32;
         for state in &system.states {
-            state.write(&device, &particles, 0);
+            state.write(&device, particles, 0);
         }
         system.trails.reset();
         system.display.reset();
+        system
+            .set_flash_recovery(if regrab { 0.1 } else { 0.65 })
+            .unwrap();
         system.set_dragging(true);
         for _ in 0..120 {
             step(&device, &mut system, 0.0125);
         }
-        system.set_dragging(false);
-        for _ in 0..26 {
-            step(&device, &mut system, 0.0125);
+        if retract {
+            system.set_dragging(false);
+            for _ in 0..26 {
+                step(&device, &mut system, 0.0125);
+            }
+        }
+        if regrab {
+            system.set_dragging(false);
+            for _ in 0..4 {
+                step(&device, &mut system, 0.0125);
+            }
+            system.set_dragging(true);
+            for _ in 0..2 {
+                step(&device, &mut system, 0.0125);
+            }
+            assert!(!system.particles_visible());
+            assert!(system.display.flash_boost() < 1.);
         }
         render(&mut system, 1.)
     };
-    let near_first = overlap([p, far]);
-    let far_first = overlap([far, p]);
-    assert!(red_sum(&near_first) > 0);
-    assert!(
-        near_first == far_first,
-        "solid-trail fade must not depend on overlap draw order"
-    );
+    for (retract, regrab) in [(false, false), (true, false), (false, true)] {
+        let near_first = overlap(&[p, far], retract, regrab);
+        let far_first = overlap(&[far, p], retract, regrab);
+        assert!(red_sum(&near_first) > 0);
+        assert!(
+            near_first == far_first,
+            "flashing trails must not depend on overlap draw order"
+        );
+    }
 }
 
 fn device() -> Device {
@@ -918,13 +954,21 @@ fn gpu_glow_pulses_and_forest_depth_occludes_only_distant_fireflies() {
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
-    let render = |brightness: f32, z: f32, occluded: bool, drag_seconds: f32| {
+    let render_after_release = |brightness: f32,
+                                z: f32,
+                                occluded: bool,
+                                drag_seconds: f32,
+                                recovery: f32,
+                                release_seconds: f32,
+                                glow: bool| {
         let p = Particle {
             position_phase: [0., 0., z, 0.],
             velocity_frequency: [0., 0., 0., 0.22],
             flash: [0.05, brightness, DEFAULT_FLASH_DURATION_SECONDS, 0.],
         };
         let mut system = FireflySystem::with_particles(&device, &[p], Settings::default());
+        system.set_glow(glow);
+        system.set_flash_recovery(recovery).unwrap();
         system.set_render_mode(RenderMode::Drag);
         system.set_dragging(true);
         system.update(&device, 0., &camera);
@@ -933,6 +977,15 @@ fn gpu_glow_pulses_and_forest_depth_occludes_only_distant_fireflies() {
             let dt = remaining.min(0.1);
             system.update(&device, dt, &camera);
             remaining -= dt;
+        }
+        if release_seconds > 0. {
+            system.set_dragging(false);
+            let mut remaining = release_seconds;
+            while remaining > 0. {
+                let dt = remaining.min(0.1);
+                system.update(&device, dt, &camera);
+                remaining -= dt;
+            }
         }
         let mut encoder = device.gpu().create_command_encoder(&Default::default());
         {
@@ -1008,9 +1061,35 @@ fn gpu_glow_pulses_and_forest_depth_occludes_only_distant_fireflies() {
             .map(|p| u32::from(p[0]) + u32::from(p[1]) + u32::from(p[2]))
             .sum::<u32>()
     };
+    let render = |brightness, z, occluded, drag_seconds| {
+        render_after_release(brightness, z, occluded, drag_seconds, 0.65, 0., true)
+    };
+    assert_eq!(
+        render_after_release(0., -3., false, 0.25, 0.65, 1., true),
+        0
+    );
+    assert!(
+        render_after_release(0., -3., false, 0.25, 2., 1., true) > 0,
+        "long recovery keeps particle brightness after trails have fully retracted"
+    );
+    assert_eq!(render_after_release(0., -3., false, 0.25, 2., 2.1, true), 0);
     let bright = render(1., -3., false, 0.);
+    // Resolve the narrow core above a pixel in this 64px target.
+    let near_bright = render(1., -1., false, 0.);
+    let core_only = render_after_release(1., -1., false, 0., 0.65, 0., false);
+    assert!(
+        core_only > 0 && core_only < near_bright,
+        "disabling glow removes the halo while retaining a visible core: {core_only} / {near_bright}"
+    );
+    assert_eq!(render_after_release(0., -3., false, 0., 0.65, 0., false), 0);
+    assert_eq!(render_after_release(1., -3., true, 0., 0.65, 0., false), 0);
     let dark = render(0., -3., false, 0.);
     let fading = render(1., -3., false, 0.125);
+    let waking = render(0., -3., false, 0.125);
+    assert!(
+        waking > 0 && waking < fading,
+        "dark particles gradually light during drag"
+    );
     assert!(
         fading > 0 && fading < bright,
         "particle emission fades during drag"

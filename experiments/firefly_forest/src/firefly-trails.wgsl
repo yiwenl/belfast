@@ -2,6 +2,7 @@ struct Camera {
     view: mat4x4<f32>,
     projection: mat4x4<f32>,
     sprite: vec4<f32>, // Size, sRGB attachment, particle opacity, oldest visible age.
+    effects: vec4<f32>, // Shared brightness boost, particle glow, reserved.
 };
 @group(0) @binding(0) var<storage, read> history: array<vec4<f32>>;
 @group(0) @binding(1) var<uniform> camera: Camera;
@@ -37,6 +38,12 @@ fn visible_position(age: u32, index: u32) -> vec3<f32> {
 }
 
 @vertex fn vs_main(@builtin(vertex_index) vertex: u32, @builtin(instance_index) index: u32) -> Vertex {
+    // Share the particle's live flash and drag boost across the entire trail.
+    let brightness = boosted_flash(history_sample(0u, index).w, camera.effects.x);
+    if brightness <= 0. {
+        // Unlit tubes must not write depth and hide illuminated tubes behind them.
+        return Vertex(vec4(2., 2., 2., 1.), vec4(0.));
+    }
     let age = vertex / 3u;
     let side = vertex % 3u;
     let center = visible_position(age, index);
@@ -58,8 +65,6 @@ fn visible_position(age: u32, index: u32) -> vec3<f32> {
     if camera.sprite.y > 0.5 {
         color = select(color / 12.92, pow((color + 0.055) / 1.055, vec3(2.4)), color > vec3(0.04045));
     }
-    // Crossfade toward the live head's flash as particles return, never an old tail flash.
-    let brightness = mix(1., history_sample(0u, index).w, camera.sprite.z);
     return Vertex(camera.projection * camera.view * vec4(position, 1.), vec4(color, brightness));
 }
 

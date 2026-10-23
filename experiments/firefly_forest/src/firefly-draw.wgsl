@@ -2,6 +2,7 @@ struct Camera {
     view: mat4x4<f32>,
     projection: mat4x4<f32>,
     sprite: vec4<f32>, // Size, sRGB attachment, particle opacity, oldest visible age.
+    effects: vec4<f32>, // Shared brightness boost, particle glow, reserved.
 };
 @group(0) @binding(0) var<storage, read> particles: array<Firefly>;
 @group(0) @binding(1) var<uniform> camera: Camera;
@@ -13,7 +14,8 @@ struct Vertex {
 };
 @vertex fn vs_main(@builtin(vertex_index) vertex: u32, @builtin(instance_index) index: u32) -> Vertex {
     let p = particles[index];
-    if p.flash.y <= 0. || camera.sprite.z <= 0. {
+    let intensity = boosted_flash(p.flash.y, camera.effects.x);
+    if intensity <= 0. || camera.sprite.z <= 0. {
         // All six vertices lie outside the clip volume (z > w), so an unlit
         // billboard produces no fragments or additive blending work.
         return Vertex(vec4(2., 2., 2., 1.), vec2(0.), 0., vec3(0.));
@@ -21,7 +23,7 @@ struct Vertex {
     let corners = array<vec2<f32>, 6>(vec2(-1,-1),vec2(1,-1),vec2(1,1),vec2(-1,-1),vec2(1,1),vec2(-1,1));
     let uv = corners[vertex];
     let variation = fract(f32(index) * 0.61803398875);
-    let emission = firefly_emission(index, p.flash.y);
+    let emission = firefly_emission(index, intensity);
     // Compute supplies a fixed-duration envelope independent of cycle speed.
     let brightness = emission.a * camera.sprite.z;
     let radius = mix(0.045, 0.07, variation) * camera.sprite.x;
@@ -37,7 +39,10 @@ fn shade(in: Vertex) -> vec4<f32> {
     let r2 = dot(in.uv, in.uv);
     if r2 > 1. { discard; }
     let core = exp(-r2 * 100.);
-    let halo = exp(-r2 * 6.) * 0.18 * (1. - smoothstep(0.6, 1., r2));
+    var halo = 0.;
+    if camera.effects.y > 0. {
+        halo = exp(-r2 * 6.) * 0.18 * (1. - smoothstep(0.6, 1., r2));
+    }
     let core_color = mix(in.color, vec3(1., 1., 0.65), 0.28);
     let rgb = (core_color * core + in.color * halo) * in.brightness;
     // Additive emission; the surrounding forest supplies the background color.

@@ -70,6 +70,8 @@ export function createBenchmark(
       movement: number("movement-speed"),
       frequency: number("blink-frequency"),
       duration: number("flash-duration"),
+      flashRecovery: number("flash-recovery"),
+      fireflyGlow: get<HTMLInputElement>("firefly-glow").checked,
       movementRandomness: number("movement-randomness"),
       blinkRandomness: number("blink-randomness"),
       size: number("firefly-size"),

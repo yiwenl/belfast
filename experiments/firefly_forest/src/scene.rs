@@ -196,12 +196,20 @@ impl Scene {
         self.fireflies.set_flash_duration(seconds)
     }
 
+    pub fn set_firefly_flash_recovery(&mut self, seconds: f32) -> Result<(), String> {
+        self.fireflies.set_flash_recovery(seconds)
+    }
+
     pub fn set_firefly_randomness(&mut self, movement: f32, blinking: f32) -> Result<(), String> {
         self.fireflies.set_randomness(movement, blinking)
     }
 
     pub fn set_firefly_size(&mut self, scale: f32) -> Result<(), String> {
         self.fireflies.set_size(scale)
+    }
+
+    pub fn set_firefly_glow(&mut self, enabled: bool) {
+        self.fireflies.set_glow(enabled);
     }
 
     pub fn set_firefly_render_mode(&mut self, mode: &str) -> Result<(), String> {
