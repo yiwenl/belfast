@@ -2,10 +2,10 @@ import { validLightSettings, type LightSettings } from "./light-controls";
 import { validColorSettings, type ColorSettings } from "./color-controls";
 import { validFogSettings, type FogSettings } from "./fog-controls";
 
-export const BENCHMARK_VERSION = 20;
+export const BENCHMARK_VERSION = 21;
 export const WARMUP_FRAMES = 120;
 export const FIXED_DT = 1 / 60;
-export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v20";
+export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v21";
 
 export interface BenchmarkConfig {
   seed: number;

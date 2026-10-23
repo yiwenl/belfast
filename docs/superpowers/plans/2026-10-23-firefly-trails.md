@@ -89,3 +89,9 @@
 - Added **螢火蟲 → 粒子 Glow**, enabled by default. An existing camera uniform component controls only the particle halo; the core, flash cycles, trails and forest lighting keep their behavior. Toggling does not reset particles. Benchmark v20 records and locks the setting and rejects mismatched baselines.
 - The focused GPU test verifies a visible core without a halo, dark phases and forest occlusion; its close-up assertion resolves the narrow core on the 64px test target. It passed along with 19 standard Rust tests, 11 frontend tests, the release build and formatting checks. The existing watcher test timed out once during concurrent compilation and passed on rerun.
 - Browser checked both toggle states and drag/release with glow off; no console warnings/errors. No full performance comparison was run.
+
+## Shared release-duration follow-up
+
+- **閃爍恢復** now controls trail retraction, particle fade-in, brightness recovery and movement slowdown together. Removed the separate brightness timer; all channels continue from their current state when the duration changes or dragging resumes. Reapplying the same value does not restart recovery. Default remains 0.65 seconds, with a 0.1–5 second range.
+- Updated overlap and particle-render GPU expectations for the unified transition, restored the opacity-based depth-prepass condition, and advanced benchmark version/key to v21.
+- New timing assertions failed against the old independent durations, then passed for 0.1, 0.65, 2 and 5 seconds at 30/120 FPS. All 20 standard Rust tests, 18 firefly GPU tests, 2 benchmark compatibility tests, the release build and formatting checks passed. Browser checked the 5-second setting and restored the 0.65-second default; no full performance comparison was run.

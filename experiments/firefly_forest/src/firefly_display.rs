@@ -16,13 +16,11 @@ pub(super) struct Display {
     release_mix: f32,
     release_age: f32,
     release_elapsed: f32,
-    boost_mix: f32,
-    boost_release_rate: f32,
     flash_recovery: f32,
 }
 
 const FADE_OUT: f32 = 0.25;
-const RETRACT: f32 = 0.65;
+const DEFAULT_RECOVERY: f32 = 0.65;
 
 impl Default for Display {
     fn default() -> Self {
@@ -34,9 +32,7 @@ impl Default for Display {
             release_mix: 0.,
             release_age: 0.,
             release_elapsed: 0.,
-            boost_mix: 0.,
-            boost_release_rate: 0.,
-            flash_recovery: RETRACT,
+            flash_recovery: DEFAULT_RECOVERY,
         }
     }
 }
@@ -62,7 +58,6 @@ impl Display {
             self.release_mix = self.mix;
             self.release_age = self.age;
             self.release_elapsed = 0.;
-            self.boost_release_rate = self.boost_mix / self.flash_recovery;
         }
     }
 
@@ -73,9 +68,11 @@ impl Display {
         let seconds = seconds.clamp(0.1, 5.);
         if seconds != self.flash_recovery {
             self.flash_recovery = seconds;
-            // Retarget from the current brightness without relighting or jumping.
+            // Continue the whole transition from its current state without jumping.
             if !self.dragging {
-                self.boost_release_rate = self.boost_mix / seconds;
+                self.release_mix = self.mix;
+                self.release_age = self.age;
+                self.release_elapsed = 0.;
             }
         }
         Ok(())
@@ -90,9 +87,7 @@ impl Display {
         self.age = self.mix * (FRAMES - 1) as f32;
         self.release_mix = 0.;
         self.release_age = 0.;
-        self.release_elapsed = RETRACT;
-        self.boost_mix = self.mix;
-        self.boost_release_rate = 0.;
+        self.release_elapsed = self.flash_recovery;
     }
 
     pub(super) fn update(&mut self, dt: f32) {
@@ -101,13 +96,11 @@ impl Display {
         }
         if self.dragging {
             self.mix = (self.mix + dt / FADE_OUT).min(1.);
-            self.boost_mix = (self.boost_mix + dt / FADE_OUT).min(1.);
             self.age = (self.age + 1.).min((FRAMES - 1) as f32);
         } else {
-            self.release_elapsed = (self.release_elapsed + dt).min(RETRACT);
-            let t = self.release_elapsed / RETRACT;
+            self.release_elapsed = (self.release_elapsed + dt).min(self.flash_recovery);
+            let t = self.release_elapsed / self.flash_recovery;
             self.mix = self.release_mix * (1. - t);
-            self.boost_mix = (self.boost_mix - dt * self.boost_release_rate).max(0.);
             // Keep recording the moving head; trim the tail along that live curve.
             self.age = self.release_age * (1. - smooth(t));
         }
@@ -118,7 +111,7 @@ impl Display {
     }
 
     pub(super) fn flash_boost(&self) -> f32 {
-        smooth(self.boost_mix)
+        smooth(self.mix)
     }
 
     pub(super) fn movement_rate(&self, configured: f32) -> f32 {
@@ -139,31 +132,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn flash_recovery_is_independent_of_trails_motion_and_frame_rate() {
-        let recover = |fps: u32| {
+    fn flash_recovery_coordinates_trails_motion_and_opacity_at_any_frame_rate() {
+        let recover = |fps: u32, duration: f32| {
             let mut display = Display::default();
             display.set_mode(RenderMode::Drag);
-            display.set_flash_recovery(2.).unwrap();
+            display.set_flash_recovery(duration).unwrap();
             display.set_dragging(true);
             for _ in 0..fps {
                 display.update(1. / fps as f32);
             }
+            let age = display.max_age();
             display.set_dragging(false);
             for _ in 0..fps {
-                display.update(1. / fps as f32);
+                display.update(duration / (2 * fps) as f32);
             }
-            assert_eq!(display.max_age(), 0.);
-            assert_eq!(display.particle_opacity(), 1.);
-            assert_eq!(display.movement_rate(0.27), 0.27);
+            assert!((display.max_age() / age - 0.5).abs() < 1e-5);
+            assert!((display.particle_opacity() - 0.5).abs() < 1e-5);
+            assert!((display.movement_rate(0.27) - 0.635).abs() < 1e-5);
             let boost = display.flash_boost();
             assert!((boost - 0.5).abs() < 1e-5);
             for _ in 0..fps + 1 {
-                display.update(1. / fps as f32);
+                display.update(duration / (2 * fps) as f32);
             }
             assert_eq!(display.flash_boost(), 0.);
+            assert_eq!(display.max_age(), 0.);
+            assert_eq!(display.particle_opacity(), 1.);
+            assert_eq!(display.movement_rate(0.27), 0.27);
             boost
         };
-        assert!((recover(30) - recover(120)).abs() < 1e-5);
+        for duration in [0.1, 0.65, 2., 5.] {
+            assert!((recover(30, duration) - recover(120, duration)).abs() < 1e-5);
+        }
     }
 
     #[test]
@@ -175,13 +174,26 @@ mod tests {
         display.set_dragging(false);
         display.update(0.1);
         let boost = display.flash_boost();
+        let age = display.max_age();
+        let opacity = display.particle_opacity();
+        let speed = display.movement_rate(0.27);
         display.set_flash_recovery(3.).unwrap();
+        display.update(0.);
         assert_eq!(display.flash_boost(), boost);
+        assert_eq!(display.max_age(), age);
+        assert_eq!(display.particle_opacity(), opacity);
+        assert_eq!(display.movement_rate(0.27), speed);
         display.update(0.1);
         assert!(display.flash_boost() < boost && display.flash_boost() > 0.);
+        assert!(display.max_age() < age && display.max_age() > 0.);
+        assert!(display.particle_opacity() > opacity && display.particle_opacity() < 1.);
         let boost = display.flash_boost();
+        let age = display.max_age();
+        let opacity = display.particle_opacity();
         display.set_dragging(true);
         assert_eq!(display.flash_boost(), boost);
+        assert_eq!(display.max_age(), age);
+        assert_eq!(display.particle_opacity(), opacity);
         display.update(0.05);
         assert!(display.flash_boost() > boost);
         assert!(display.set_flash_recovery(f32::NAN).is_err());
@@ -190,9 +202,27 @@ mod tests {
         display.set_dragging(false);
         display.update(0.1);
         assert_eq!(display.flash_boost(), 0.);
+        assert_eq!(display.max_age(), 0.);
+        assert_eq!(display.particle_opacity(), 1.);
         display.set_mode(RenderMode::Trails);
         assert_eq!(display.flash_boost(), 1.);
         display.set_mode(RenderMode::Particles);
+        assert_eq!(display.flash_boost(), 0.);
+    }
+
+    #[test]
+    fn reapplying_recovery_does_not_restart_release() {
+        let mut display = Display::default();
+        display.set_mode(RenderMode::Drag);
+        display.set_flash_recovery(2.).unwrap();
+        display.set_dragging(true);
+        display.update(0.25);
+        display.set_dragging(false);
+        display.update(1.);
+        display.set_flash_recovery(2.).unwrap();
+        display.update(1.);
+        assert_eq!(display.max_age(), 0.);
+        assert_eq!(display.particle_opacity(), 1.);
         assert_eq!(display.flash_boost(), 0.);
     }
 

@@ -675,7 +675,7 @@ impl FireflySystem {
             view,
             self.count,
             self.display.max_age(),
-            self.particles_visible() || self.display.flash_boost() < 1.,
+            self.particles_visible(),
             queries.map(|query_set| wgpu::RenderPassTimestampWrites {
                 query_set,
                 beginning_of_pass_write_index: Some(10),

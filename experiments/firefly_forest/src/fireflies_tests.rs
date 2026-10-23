@@ -693,7 +693,7 @@ fn gpu_trails_use_live_flashes_in_drag_mode_and_respect_depth() {
             for _ in 0..2 {
                 step(&device, &mut system, 0.0125);
             }
-            assert!(!system.particles_visible());
+            assert!(system.particles_visible());
             assert!(system.display.flash_boost() < 1.);
         }
         render(&mut system, 1.)
@@ -1070,7 +1070,7 @@ fn gpu_glow_pulses_and_forest_depth_occludes_only_distant_fireflies() {
     );
     assert!(
         render_after_release(0., -3., false, 0.25, 2., 1., true) > 0,
-        "long recovery keeps particle brightness after trails have fully retracted"
+        "long recovery fades particle brightness and opacity together"
     );
     assert_eq!(render_after_release(0., -3., false, 0.25, 2., 2.1, true), 0);
     let bright = render(1., -3., false, 0.);
