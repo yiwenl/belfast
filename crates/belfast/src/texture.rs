@@ -7,6 +7,7 @@ pub struct TextureOptions {
     pub usage: wgpu::TextureUsages,
     pub mag_filter: wgpu::FilterMode,
     pub min_filter: wgpu::FilterMode,
+    pub compare: Option<wgpu::CompareFunction>,
 }
 
 impl Default for TextureOptions {
@@ -17,6 +18,20 @@ impl Default for TextureOptions {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
+            compare: None,
+        }
+    }
+}
+
+impl TextureOptions {
+    pub fn shadow_map(label: impl Into<String>) -> Self {
+        Self {
+            label: label.into(),
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            compare: Some(wgpu::CompareFunction::Less),
         }
     }
 }
@@ -29,6 +44,7 @@ pub struct Texture {
     width: u32,
     height: u32,
     format: wgpu::TextureFormat,
+    label: String,
 }
 
 fn validate_dimensions(width: u32, height: u32, limit: u32) -> BelfastResult<()> {
@@ -79,6 +95,7 @@ impl Texture {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: options.mag_filter,
             min_filter: options.min_filter,
+            compare: options.compare,
             ..Default::default()
         });
 
@@ -90,6 +107,7 @@ impl Texture {
             width,
             height,
             format: options.format,
+            label: options.label,
         })
     }
 
@@ -161,6 +179,28 @@ impl Texture {
 
     pub fn format(&self) -> wgpu::TextureFormat {
         self.format
+    }
+
+    pub fn begin_depth_pass<'a>(
+        &'a self,
+        encoder: &'a mut wgpu::CommandEncoder,
+        load_op: wgpu::LoadOp<f32>,
+    ) -> wgpu::RenderPass<'a> {
+        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some(&format!("{}Pass", self.label)),
+            color_attachments: &[],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: load_op,
+                    store: wgpu::StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        })
     }
 }
 

@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "wood_diameter_scale": 0.5,
+  "unchanged_flower_and_bud_transforms": 1435,
+  "parts": {
+    "Wood_Trunks": {
+      "cross_section_edges_checked": 2350,
+      "median_diameter_ratio": 0.5,
+      "max_vector_error_m": 4.76837158203125e-7
+    },
+    "Wood_Branches": {
+      "cross_section_edges_checked": 13154,
+      "median_diameter_ratio": 0.5,
+      "max_vector_error_m": 4.76837158203125e-7
+    },
+    "Wood_Twigs": {
+      "cross_section_edges_checked": 23960,
+      "median_diameter_ratio": 0.5,
+      "max_vector_error_m": 4.76837158203125e-7
+    }
+  }
+}

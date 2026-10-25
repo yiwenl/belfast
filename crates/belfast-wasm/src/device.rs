@@ -434,7 +434,7 @@ impl WasmDevice {
         else {
             return Ok(());
         };
-        frame.render_draw(draw, JsValue::UNDEFINED, 1)?;
+        frame.render_draw(draw, Vec::new(), 1)?;
         frame.submit()
     }
 

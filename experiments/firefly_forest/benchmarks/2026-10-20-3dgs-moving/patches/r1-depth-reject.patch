@@ -1,0 +1,26 @@
+diff --git a/experiments/firefly_forest/src/splat.rs b/experiments/firefly_forest/src/splat.rs
+index 6df398f..f1676aa 100644
+--- a/experiments/firefly_forest/src/splat.rs
++++ b/experiments/firefly_forest/src/splat.rs
+@@ -197 +197 @@ impl SplatRenderer {
+-                    entry_point: Some("vs_main"),
++                    entry_point: Some("vs_depth"),
+diff --git a/experiments/firefly_forest/src/splat.wgsl b/experiments/firefly_forest/src/splat.wgsl
+index 2bcb3aa..3ccabe3 100644
+--- a/experiments/firefly_forest/src/splat.wgsl
++++ b/experiments/firefly_forest/src/splat.wgsl
+@@ -17 +17 @@ struct Vertex {
+-@vertex fn vs_main(@builtin(vertex_index) vertex: u32, @location(0) index: u32) -> Vertex {
++fn project(vertex: u32, index: u32, depth_only: bool) -> Vertex {
+@@ -27,0 +28,2 @@ struct Vertex {
++    // Packed alpha below 77/255 can never pass the 0.3 occlusion cutoff.
++    if depth_only && (packed.w >> 24u) < 77u { return out; }
+@@ -66,0 +69,8 @@ struct Vertex {
++@vertex fn vs_main(@builtin(vertex_index) vertex: u32, @location(0) index: u32) -> Vertex {
++    return project(vertex, index, false);
++}
++
++@vertex fn vs_depth(@builtin(vertex_index) vertex: u32, @location(0) index: u32) -> Vertex {
++    return project(vertex, index, true);
++}
++

@@ -1,0 +1,18 @@
+
+> @belfast/experiment-firefly-forest@0.1.0 build /Users/yi-wenlin/Development/belfast/experiments/firefly_forest
+> pnpm build:wasm:release && tsc --noEmit && vite build
+
+
+> @belfast/experiment-firefly-forest@0.1.0 build:wasm:release /Users/yi-wenlin/Development/belfast/experiments/firefly_forest
+> wasm-pack build . --target web --out-dir pkg --out-name experiment
+
+[INFO]: 🎯  Checking for the Wasm target...
+[INFO]: 🌀  Compiling to Wasm...
+    Blocking waiting for file lock on artifact directory
+    Finished `release` profile [optimized] target(s) in 1.34s
+[INFO]: ⬇️  Installing wasm-bindgen...
+[WARN  wasm_pack::install] could not download pre-built `wasm-bindgen`: no prebuilt wasm-bindgen binaries are available for this platform: Unrecognized target!. Falling back to `cargo install`.
+Error: invalid type: sequence, expected a string at line 6 column 11
+Caused by: invalid type: sequence, expected a string at line 6 column 11
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.

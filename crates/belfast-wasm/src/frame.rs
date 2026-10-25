@@ -11,10 +11,13 @@ use wasm_bindgen::{convert::TryFromJsValue, prelude::*, JsCast};
 #[cfg(target_arch = "wasm32")]
 use crate::{
     axis_helper::{AxisHelperState, WasmAxisHelper},
+    ball_helper::{BallHelperState, WasmBallHelper},
     bind_group::BindGroupState,
+    camera_helper::{CameraHelperState, WasmCameraHelper},
     compute::{parse_workgroups, ComputeState},
     device::{CanvasTarget, PendingGpuErrors, SurfaceLeaseGuard},
-    draw::{DrawState, ShaderResourceLayout},
+    draw::DrawState,
+    texture::{TextureState, WasmTexture},
     to_js_error, WasmBindGroup, WasmCompute, WasmDraw, WasmRenderTarget,
 };
 
@@ -66,6 +69,7 @@ extern "C" {
 std::thread_local! {
     static RENDER_TARGET_WRAPPERS: js_sys::WeakMap = js_sys::WeakMap::new();
     static BIND_GROUP_WRAPPERS: js_sys::WeakMap = js_sys::WeakMap::new();
+    static SHADOW_TEXTURE_WRAPPERS: js_sys::WeakMap = js_sys::WeakMap::new();
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,28 +82,47 @@ struct DrawKey(u64);
 struct AxisKey(u64);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+struct BallKey(u64);
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 struct ComputeKey(u64);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 struct BindGroupKey(u64);
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+struct CameraKey(u64);
 
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
 enum TargetKey {
     #[default]
     Canvas,
     Offscreen(u64),
+    Shadow(u64),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct DrawValidation {
     key: DrawKey,
     device: DeviceKey,
-    requires_bind_group: bool,
+    bind_group_count: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct CameraValidation {
+    key: CameraKey,
+    device: DeviceKey,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct AxisValidation {
     key: AxisKey,
+    device: DeviceKey,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct BallValidation {
+    key: BallKey,
     device: DeviceKey,
 }
 
@@ -116,7 +139,10 @@ struct BindGroupValidation {
     draw: Option<DrawKey>,
     compute: Option<ComputeKey>,
     axis: Option<AxisKey>,
+    ball: Option<BallKey>,
+    camera: Option<CameraKey>,
     device: DeviceKey,
+    group_index: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -128,26 +154,66 @@ struct RenderTargetValidation {
 fn validate_render_command(
     frame_device: DeviceKey,
     draw: DrawValidation,
-    bind_group: Option<BindGroupValidation>,
+    bind_groups: &[BindGroupValidation],
 ) -> Result<(), String> {
     if draw.device != frame_device {
         return Err("draw was created by a different device".into());
     }
 
-    match (draw.requires_bind_group, bind_group) {
-        (true, None) => Err("draw requires a bind group".into()),
-        (false, Some(_)) => Err("draw does not accept a bind group".into()),
-        (false, None) => Ok(()),
-        (true, Some(bind_group)) => {
-            if bind_group.device != frame_device {
-                return Err("bind group was created by a different device".into());
-            }
-            if bind_group.draw != Some(draw.key) {
-                return Err("bind group was created for a different draw".into());
-            }
-            Ok(())
+    if bind_groups.len() != draw.bind_group_count {
+        return Err(match draw.bind_group_count {
+            0 => "draw does not accept a bind group".into(),
+            1 => "draw requires a bind group".into(),
+            count => format!("draw requires {count} bind groups"),
+        });
+    }
+
+    for bind_group in bind_groups {
+        if bind_group.device != frame_device {
+            return Err("bind group was created by a different device".into());
+        }
+        if bind_group.draw != Some(draw.key) {
+            return Err("bind group was created for a different draw".into());
         }
     }
+
+    if draw.bind_group_count == 2 {
+        let groups: Vec<_> = bind_groups.iter().map(|group| group.group_index).collect();
+        if !(groups.contains(&0) && groups.contains(&1)) {
+            return Err("draw requires bind groups for @group(0) and @group(1)".into());
+        }
+    }
+    if draw.bind_group_count >= 3
+        && !(0..draw.bind_group_count as u32)
+            .all(|index| bind_groups.iter().any(|group| group.group_index == index))
+    {
+        return Err(format!(
+            "draw requires every bind group from @group(0) through @group({})",
+            draw.bind_group_count - 1
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_camera_render_command(
+    frame_device: DeviceKey,
+    camera: CameraValidation,
+    bind_group: Option<BindGroupValidation>,
+) -> Result<(), String> {
+    if camera.device != frame_device {
+        return Err("camera helper was created by a different device".into());
+    }
+    let Some(bind_group) = bind_group else {
+        return Err("camera helper requires a bind group".into());
+    };
+    if bind_group.device != frame_device {
+        return Err("bind group was created by a different device".into());
+    }
+    if bind_group.camera != Some(camera.key) {
+        return Err("bind group was created for a different camera helper".into());
+    }
+    Ok(())
 }
 
 fn validate_axis_render_command(
@@ -167,6 +233,27 @@ fn validate_axis_render_command(
     }
     if bind_group.axis != Some(axis.key) {
         return Err("bind group was created for a different axis helper".into());
+    }
+    Ok(())
+}
+
+fn validate_ball_render_command(
+    frame_device: DeviceKey,
+    ball: BallValidation,
+    bind_group: Option<BindGroupValidation>,
+) -> Result<(), String> {
+    if ball.device != frame_device {
+        return Err("ball helper was created by a different device".into());
+    }
+
+    let Some(bind_group) = bind_group else {
+        return Err("ball helper requires a bind group".into());
+    };
+    if bind_group.device != frame_device {
+        return Err("bind group was created by a different device".into());
+    }
+    if bind_group.ball != Some(ball.key) {
+        return Err("bind group was created for a different ball helper".into());
     }
     Ok(())
 }
@@ -259,12 +346,14 @@ enum PlannedLoadOp {
 enum PlannedDrawable {
     Draw(DrawKey),
     Axis(AxisKey),
+    Ball(BallKey),
+    Camera(CameraKey),
 }
 
 #[derive(Debug, PartialEq)]
 struct PlannedRenderCommand {
     drawable: PlannedDrawable,
-    bind_group: Option<BindGroupKey>,
+    bind_groups: Vec<BindGroupKey>,
     instance_count: u32,
 }
 
@@ -296,7 +385,7 @@ enum RecordedCommand {
     },
     Render {
         drawable: PlannedDrawable,
-        bind_group: Option<BindGroupKey>,
+        bind_groups: Vec<BindGroupKey>,
         instance_count: u32,
     },
     Dispatch {
@@ -328,12 +417,12 @@ impl FramePlan {
     fn render(
         &mut self,
         draw: DrawKey,
-        bind_group: Option<BindGroupKey>,
+        bind_groups: Vec<BindGroupKey>,
         instance_count: u32,
     ) -> Result<(), String> {
         self.commands.push(RecordedCommand::Render {
             drawable: PlannedDrawable::Draw(draw),
-            bind_group,
+            bind_groups,
             instance_count,
         });
         Ok(())
@@ -342,7 +431,25 @@ impl FramePlan {
     fn render_axis(&mut self, axis: AxisKey, bind_group: BindGroupKey) -> Result<(), String> {
         self.commands.push(RecordedCommand::Render {
             drawable: PlannedDrawable::Axis(axis),
-            bind_group: Some(bind_group),
+            bind_groups: vec![bind_group],
+            instance_count: 1,
+        });
+        Ok(())
+    }
+
+    fn render_ball(&mut self, ball: BallKey, bind_group: BindGroupKey) -> Result<(), String> {
+        self.commands.push(RecordedCommand::Render {
+            drawable: PlannedDrawable::Ball(ball),
+            bind_groups: vec![bind_group],
+            instance_count: 1,
+        });
+        Ok(())
+    }
+
+    fn render_camera(&mut self, camera: CameraKey, bind_group: BindGroupKey) -> Result<(), String> {
+        self.commands.push(RecordedCommand::Render {
+            drawable: PlannedDrawable::Camera(camera),
+            bind_groups: vec![bind_group],
             instance_count: 1,
         });
         Ok(())
@@ -393,7 +500,7 @@ impl FramePlan {
                 }
                 RecordedCommand::Render {
                     drawable,
-                    bind_group,
+                    bind_groups,
                     instance_count,
                 } => {
                     let (target, clear_color, depth) = bound_target
@@ -423,7 +530,7 @@ impl FramePlan {
                         .commands
                         .push(PlannedRenderCommand {
                             drawable,
-                            bind_group,
+                            bind_groups,
                             instance_count,
                         });
                 }
@@ -508,21 +615,6 @@ fn parse_pass_options(options: JsValue) -> Result<(wgpu::Color, bool), JsValue> 
 }
 
 #[cfg(target_arch = "wasm32")]
-fn optional_render_target(value: JsValue) -> Result<Option<WasmRenderTarget>, JsValue> {
-    if value.is_null() || value.is_undefined() {
-        return Ok(None);
-    }
-    let handle = borrow_registered_wasm_class(
-        &value,
-        &RENDER_TARGET_WRAPPERS,
-        "target must be a live RenderTarget or null",
-    )?;
-    WasmRenderTarget::try_from_js_value(handle)
-        .map(Some)
-        .map_err(|_| to_js_error("target must be a live RenderTarget or null"))
-}
-
-#[cfg(target_arch = "wasm32")]
 fn optional_bind_group(value: JsValue) -> Result<Option<WasmBindGroup>, JsValue> {
     if value.is_null() || value.is_undefined() {
         return Ok(None);
@@ -600,6 +692,15 @@ pub(crate) fn register_render_target_wrapper(value: &JsValue) -> Result<(), JsVa
 }
 
 #[cfg(target_arch = "wasm32")]
+pub(crate) fn register_shadow_texture_wrapper(value: &JsValue) -> Result<(), JsValue> {
+    register_wasm_class(
+        value,
+        &SHADOW_TEXTURE_WRAPPERS,
+        "failed to register shadow Texture wrapper",
+    )
+}
+
+#[cfg(target_arch = "wasm32")]
 pub(crate) fn register_bind_group_wrapper(value: &JsValue) -> Result<(), JsValue> {
     register_wasm_class(
         value,
@@ -616,39 +717,112 @@ pub(crate) fn clone_live_wasm_class(value: &JsValue, error: &str) -> Result<JsVa
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) enum DrawOrAxisHelper {
+pub(crate) enum Drawable {
     Draw(WasmDraw),
     Axis(WasmAxisHelper),
+    Ball(WasmBallHelper),
+    Camera(WasmCameraHelper),
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) fn parse_draw_or_axis_helper(value: &JsValue) -> Result<DrawOrAxisHelper, JsValue> {
-    const ERROR: &str = "value must be a live Draw or AxisHelper";
+pub(crate) fn parse_drawable(value: &JsValue) -> Result<Drawable, JsValue> {
+    const ERROR: &str = "value must be a live Draw, AxisHelper, BallHelper, or CameraHelper";
     let draw_handle = clone_live_wasm_class(value, ERROR)?;
     if let Ok(draw) = WasmDraw::try_from_js_value(draw_handle) {
-        return Ok(DrawOrAxisHelper::Draw(draw));
+        return Ok(Drawable::Draw(draw));
     }
     let axis_handle = clone_live_wasm_class(value, ERROR)?;
-    WasmAxisHelper::try_from_js_value(axis_handle)
-        .map(DrawOrAxisHelper::Axis)
+    if let Ok(axes) = WasmAxisHelper::try_from_js_value(axis_handle) {
+        return Ok(Drawable::Axis(axes));
+    }
+    let ball_handle = clone_live_wasm_class(value, ERROR)?;
+    if let Ok(ball) = WasmBallHelper::try_from_js_value(ball_handle) {
+        return Ok(Drawable::Ball(ball));
+    }
+    let camera_handle = clone_live_wasm_class(value, ERROR)?;
+    WasmCameraHelper::try_from_js_value(camera_handle)
+        .map(Drawable::Camera)
         .map_err(|_| to_js_error(ERROR))
+}
+
+#[cfg(target_arch = "wasm32")]
+enum ParsedFrameTarget {
+    Canvas,
+    RenderTarget(WasmRenderTarget),
+    ShadowMap(WasmTexture),
+}
+
+#[cfg(target_arch = "wasm32")]
+fn parse_frame_target(value: JsValue) -> Result<ParsedFrameTarget, JsValue> {
+    if value.is_null() || value.is_undefined() {
+        return Ok(ParsedFrameTarget::Canvas);
+    }
+    if let Ok(handle) = borrow_registered_wasm_class(
+        &value,
+        &SHADOW_TEXTURE_WRAPPERS,
+        "target must be a live RenderTarget, Texture, or null",
+    ) {
+        if let Ok(texture) = WasmTexture::try_from_js_value(handle) {
+            return Ok(ParsedFrameTarget::ShadowMap(texture));
+        }
+    }
+    let handle = borrow_registered_wasm_class(
+        &value,
+        &RENDER_TARGET_WRAPPERS,
+        "target must be a live RenderTarget, Texture, or null",
+    )?;
+    WasmRenderTarget::try_from_js_value(handle)
+        .map(ParsedFrameTarget::RenderTarget)
+        .map_err(|_| to_js_error("target must be a live RenderTarget, Texture, or null"))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn parse_bind_groups(value: JsValue) -> Result<Vec<WasmBindGroup>, JsValue> {
+    if value.is_null() || value.is_undefined() {
+        return Ok(Vec::new());
+    }
+    if js_sys::Array::is_array(&value) {
+        let array = js_sys::Array::from(&value);
+        let mut groups = Vec::with_capacity(array.length() as usize);
+        for index in 0..array.length() {
+            let entry = array.get(index);
+            groups.push(required_bind_group(entry)?);
+        }
+        return Ok(groups);
+    }
+    Ok(vec![required_bind_group(value)?])
+}
+
+#[cfg(target_arch = "wasm32")]
+fn required_bind_group(value: JsValue) -> Result<WasmBindGroup, JsValue> {
+    optional_bind_group(value)?
+        .ok_or_else(|| to_js_error("bindGroup must be a live BindGroup or null"))
 }
 
 #[cfg(target_arch = "wasm32")]
 enum FrameTarget {
     Canvas,
     RenderTarget(Rc<RefCell<belfast::RenderTarget>>),
+    ShadowMap(Rc<TextureState>),
 }
 
 #[cfg(target_arch = "wasm32")]
 enum RenderCommand {
     Draw {
         draw: Rc<DrawState>,
-        bind_group: Option<Rc<BindGroupState>>,
+        bind_groups: Vec<Rc<BindGroupState>>,
         instance_count: u32,
     },
     Axis {
         axis: Rc<AxisHelperState>,
+        bind_group: Rc<BindGroupState>,
+    },
+    Ball {
+        ball: Rc<BallHelperState>,
+        bind_group: Rc<BindGroupState>,
+    },
+    Camera {
+        camera: Rc<CameraHelperState>,
         bind_group: Rc<BindGroupState>,
     },
 }
@@ -696,8 +870,11 @@ pub struct WasmFrame {
     reconfigure_after_present: bool,
     plan: FramePlan,
     render_targets: HashMap<TargetKey, Rc<RefCell<belfast::RenderTarget>>>,
+    shadow_maps: HashMap<TargetKey, Rc<TextureState>>,
     draws: HashMap<DrawKey, Rc<DrawState>>,
     axes: HashMap<AxisKey, Rc<AxisHelperState>>,
+    balls: HashMap<BallKey, Rc<BallHelperState>>,
+    cameras: HashMap<CameraKey, Rc<CameraHelperState>>,
     computes: HashMap<ComputeKey, Rc<ComputeState>>,
     bind_groups: HashMap<BindGroupKey, Rc<BindGroupState>>,
 }
@@ -725,8 +902,11 @@ impl WasmFrame {
             reconfigure_after_present,
             plan: FramePlan::new(),
             render_targets: HashMap::new(),
+            shadow_maps: HashMap::new(),
             draws: HashMap::new(),
             axes: HashMap::new(),
+            balls: HashMap::new(),
+            cameras: HashMap::new(),
             computes: HashMap::new(),
             bind_groups: HashMap::new(),
         }
@@ -735,21 +915,20 @@ impl WasmFrame {
     pub(crate) fn render_draw(
         &mut self,
         draw: &WasmDraw,
-        bind_group: JsValue,
+        bind_groups: Vec<WasmBindGroup>,
         instance_count: u32,
     ) -> Result<(), JsValue> {
-        let bind_group_handle = optional_bind_group(bind_group)?;
-        let bind_group = bind_group_handle.as_ref();
         let draw_key = DrawKey(rc_key(&draw.state));
-        let bind_group_validation = bind_group.map(bind_group_validation);
+        let bind_group_validations: Vec<_> =
+            bind_groups.iter().map(bind_group_validation).collect();
         validate_render_command(
             device_key(&self.device),
             DrawValidation {
                 key: draw_key,
                 device: device_key(draw.state.draw().device()),
-                requires_bind_group: !matches!(&draw.state.resources, ShaderResourceLayout::None),
+                bind_group_count: draw.state.resources.bind_group_count(),
             },
-            bind_group_validation,
+            &bind_group_validations,
         )
         .map_err(to_js_error)?;
 
@@ -762,18 +941,14 @@ impl WasmFrame {
         }
 
         self.draws.insert(draw_key, draw.state.clone());
-        if let Some(bind_group) = bind_group {
-            self.bind_groups.insert(
-                BindGroupKey(rc_key(&bind_group.state)),
-                bind_group.state.clone(),
-            );
+        let mut bind_group_keys = Vec::with_capacity(bind_groups.len());
+        for bind_group in bind_groups {
+            let key = BindGroupKey(rc_key(&bind_group.state));
+            self.bind_groups.insert(key, bind_group.state.clone());
+            bind_group_keys.push(key);
         }
         self.plan
-            .render(
-                draw_key,
-                bind_group_validation.map(|binding| binding.key),
-                instance_count,
-            )
+            .render(draw_key, bind_group_keys, instance_count)
             .map_err(to_js_error)
     }
 
@@ -803,6 +978,64 @@ impl WasmFrame {
             .render_axis(axis_key, BindGroupKey(rc_key(&bind_group.state)))
             .map_err(to_js_error)
     }
+
+    fn render_ball(&mut self, ball: &WasmBallHelper, bind_group: JsValue) -> Result<(), JsValue> {
+        let bind_group_handle = optional_bind_group(bind_group)?;
+        let bind_group = bind_group_handle.as_ref();
+        let ball_key = BallKey(rc_key(&ball.state));
+        let bind_group_validation = bind_group.map(bind_group_validation);
+        validate_ball_render_command(
+            device_key(&self.device),
+            BallValidation {
+                key: ball_key,
+                device: device_key(ball.state.helper().device()),
+            },
+            bind_group_validation,
+        )
+        .map_err(to_js_error)?;
+
+        self.balls.insert(ball_key, ball.state.clone());
+        let bind_group =
+            bind_group.ok_or_else(|| to_js_error("ball helper requires a bind group"))?;
+        self.bind_groups.insert(
+            BindGroupKey(rc_key(&bind_group.state)),
+            bind_group.state.clone(),
+        );
+        self.plan
+            .render_ball(ball_key, BindGroupKey(rc_key(&bind_group.state)))
+            .map_err(to_js_error)
+    }
+
+    fn render_camera(
+        &mut self,
+        camera: &WasmCameraHelper,
+        bind_group: JsValue,
+    ) -> Result<(), JsValue> {
+        let bind_group_handle = optional_bind_group(bind_group)?;
+        let bind_group = bind_group_handle.as_ref();
+        let camera_key = CameraKey(rc_key(&camera.state));
+        let bind_group_validation = bind_group.map(bind_group_validation);
+        validate_camera_render_command(
+            device_key(&self.device),
+            CameraValidation {
+                key: camera_key,
+                device: device_key(camera.state.helper().device()),
+            },
+            bind_group_validation,
+        )
+        .map_err(to_js_error)?;
+
+        self.cameras.insert(camera_key, camera.state.clone());
+        let bind_group =
+            bind_group.ok_or_else(|| to_js_error("camera helper requires a bind group"))?;
+        self.bind_groups.insert(
+            BindGroupKey(rc_key(&bind_group.state)),
+            bind_group.state.clone(),
+        );
+        self.plan
+            .render_camera(camera_key, BindGroupKey(rc_key(&bind_group.state)))
+            .map_err(to_js_error)
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -819,48 +1052,65 @@ impl WasmFrame {
     #[wasm_bindgen(js_name = bindTarget)]
     pub fn bind_target(
         &mut self,
-        #[wasm_bindgen(unchecked_optional_param_type = "RenderTarget | null")] target: JsValue,
+        #[wasm_bindgen(unchecked_optional_param_type = "RenderTarget | Texture | null")]
+        target: JsValue,
         #[wasm_bindgen(unchecked_optional_param_type = "FramePassOptions")] options: JsValue,
     ) -> Result<(), JsValue> {
         let (clear_color, mut depth) = parse_pass_options(options)?;
-        let target_handle = optional_render_target(target)?;
-        let target = if let Some(target) = target_handle.as_ref() {
-            let target_key = TargetKey::Offscreen(rc_key(&target.target));
-            let target_format = target.target.borrow().format();
-            validate_render_target(
-                device_key(&self.device),
-                self.device.format(),
-                RenderTargetValidation {
-                    device: device_key(&target.device),
-                    format: target_format,
-                },
-            )
-            .map_err(to_js_error)?;
-            self.render_targets
-                .insert(target_key, target.target.clone());
-            target_key
-        } else {
-            TargetKey::Canvas
+        let target = match parse_frame_target(target)? {
+            ParsedFrameTarget::Canvas => TargetKey::Canvas,
+            ParsedFrameTarget::RenderTarget(target) => {
+                let target_key = TargetKey::Offscreen(rc_key(&target.target));
+                let target_format = target.target.borrow().format();
+                validate_render_target(
+                    device_key(&self.device),
+                    self.device.format(),
+                    RenderTargetValidation {
+                        device: device_key(&target.device),
+                        format: target_format,
+                    },
+                )
+                .map_err(to_js_error)?;
+                self.render_targets
+                    .insert(target_key, target.target.clone());
+                target_key
+            }
+            ParsedFrameTarget::ShadowMap(texture) => {
+                if !texture.state.is_shadow_map() {
+                    return Err(to_js_error("texture must be a depth shadow map"));
+                }
+                if !texture.state.texture().device().is_same(&self.device) {
+                    return Err(to_js_error("shadow map was created by a different device"));
+                }
+                let target_key = TargetKey::Shadow(rc_key(&texture.state));
+                self.shadow_maps.insert(target_key, texture.state.clone());
+                target_key
+            }
         };
-        depth &= matches!(target, TargetKey::Canvas);
+        depth = match target {
+            TargetKey::Canvas => depth,
+            TargetKey::Offscreen(_) => false,
+            TargetKey::Shadow(_) => true,
+        };
         self.plan.bind_target(target, clear_color, depth);
         Ok(())
     }
 
     pub fn render(
         &mut self,
-        #[wasm_bindgen(unchecked_param_type = "Draw | AxisHelper")] drawable: JsValue,
+        #[wasm_bindgen(unchecked_param_type = "Draw | AxisHelper | BallHelper | CameraHelper")]
+        drawable: JsValue,
         #[wasm_bindgen(
             js_name = bindGroup,
-            unchecked_optional_param_type = "BindGroup | null"
+            unchecked_optional_param_type = "BindGroup | BindGroup[] | null"
         )]
         bind_group: JsValue,
         #[wasm_bindgen(js_name = instanceCount, unchecked_optional_param_type = "number")]
         instance_count: JsValue,
     ) -> Result<(), JsValue> {
         let has_instance_count = !instance_count.is_undefined() && !instance_count.is_null();
-        match parse_draw_or_axis_helper(&drawable)? {
-            DrawOrAxisHelper::Draw(draw) => {
+        match parse_drawable(&drawable)? {
+            Drawable::Draw(draw) => {
                 let instance_count = if has_instance_count {
                     Some(instance_count.as_f64().ok_or_else(|| {
                         to_js_error(
@@ -872,15 +1122,32 @@ impl WasmFrame {
                 };
                 let instance_count =
                     crate::bindings::parse_instance_count(instance_count).map_err(to_js_error)?;
-                self.render_draw(&draw, bind_group, instance_count)
+                let bind_groups = parse_bind_groups(bind_group)?;
+                self.render_draw(&draw, bind_groups, instance_count)
             }
-            DrawOrAxisHelper::Axis(axes) => {
+            Drawable::Axis(axes) => {
                 if has_instance_count {
                     return Err(to_js_error(
                         "instanceCount is only supported when rendering a Draw",
                     ));
                 }
                 self.render_axis(&axes, bind_group)
+            }
+            Drawable::Ball(ball) => {
+                if has_instance_count {
+                    return Err(to_js_error(
+                        "instanceCount is only supported when rendering a Draw",
+                    ));
+                }
+                self.render_ball(&ball, bind_group)
+            }
+            Drawable::Camera(camera) => {
+                if has_instance_count {
+                    return Err(to_js_error(
+                        "instanceCount is only supported when rendering a Draw",
+                    ));
+                }
+                self.render_camera(&camera, bind_group)
             }
         }
     }
@@ -945,8 +1212,11 @@ impl WasmFrame {
         let logical_ops = materialize_ops(
             planned_ops,
             &self.render_targets,
+            &self.shadow_maps,
             &self.draws,
             &self.axes,
+            &self.balls,
+            &self.cameras,
             &self.computes,
             &self.bind_groups,
         )
@@ -1009,7 +1279,16 @@ fn bind_group_validation(bind_group: &WasmBindGroup) -> BindGroupValidation {
             .state
             .axis_helper()
             .map(|axis| AxisKey(rc_key(axis))),
+        ball: bind_group
+            .state
+            .ball_helper()
+            .map(|ball| BallKey(rc_key(ball))),
+        camera: bind_group
+            .state
+            .camera_helper()
+            .map(|camera| CameraKey(rc_key(camera))),
         device: device_key(bind_group.state.bind_group().device()),
+        group_index: bind_group.state.group_index(),
     }
 }
 
@@ -1033,8 +1312,11 @@ fn color_load_op(load_op: PlannedLoadOp, clear_color: wgpu::Color) -> wgpu::Load
 fn materialize_ops(
     planned_ops: Vec<PlannedOp>,
     render_targets: &HashMap<TargetKey, Rc<RefCell<belfast::RenderTarget>>>,
+    shadow_maps: &HashMap<TargetKey, Rc<TextureState>>,
     draws: &HashMap<DrawKey, Rc<DrawState>>,
     axes: &HashMap<AxisKey, Rc<AxisHelperState>>,
+    balls: &HashMap<BallKey, Rc<BallHelperState>>,
+    cameras: &HashMap<CameraKey, Rc<CameraHelperState>>,
     computes: &HashMap<ComputeKey, Rc<ComputeState>>,
     bind_groups: &HashMap<BindGroupKey, Rc<BindGroupState>>,
 ) -> Result<Vec<LogicalOp>, String> {
@@ -1069,27 +1351,34 @@ fn materialize_ops(
                             .cloned()
                             .ok_or_else(|| "frame render target is unavailable".to_owned())?,
                     ),
+                    key @ TargetKey::Shadow(_) => FrameTarget::ShadowMap(
+                        shadow_maps
+                            .get(&key)
+                            .cloned()
+                            .ok_or_else(|| "frame shadow map is unavailable".to_owned())?,
+                    ),
                 };
                 let commands = planned_pass
                     .commands
                     .into_iter()
                     .map(|command| {
-                        let bind_group = command
-                            .bind_group
+                        let resolved_bind_groups = command
+                            .bind_groups
+                            .into_iter()
                             .map(|key| {
                                 bind_groups
                                     .get(&key)
                                     .cloned()
                                     .ok_or_else(|| "frame bind group is unavailable".to_owned())
                             })
-                            .transpose()?;
+                            .collect::<Result<Vec<_>, String>>()?;
                         match command.drawable {
                             PlannedDrawable::Draw(draw) => Ok(RenderCommand::Draw {
                                 draw: draws
                                     .get(&draw)
                                     .cloned()
                                     .ok_or_else(|| "frame draw is unavailable".to_owned())?,
-                                bind_group,
+                                bind_groups: resolved_bind_groups,
                                 instance_count: command.instance_count,
                             }),
                             PlannedDrawable::Axis(axis) => Ok(RenderCommand::Axis {
@@ -1097,9 +1386,26 @@ fn materialize_ops(
                                     .get(&axis)
                                     .cloned()
                                     .ok_or_else(|| "frame axis helper is unavailable".to_owned())?,
-                                bind_group: bind_group.ok_or_else(|| {
-                                    "axis helper requires a bind group".to_owned()
+                                bind_group: resolved_bind_groups.into_iter().next().ok_or_else(
+                                    || "axis helper requires a bind group".to_owned(),
+                                )?,
+                            }),
+                            PlannedDrawable::Ball(ball) => Ok(RenderCommand::Ball {
+                                ball: balls
+                                    .get(&ball)
+                                    .cloned()
+                                    .ok_or_else(|| "frame ball helper is unavailable".to_owned())?,
+                                bind_group: resolved_bind_groups.into_iter().next().ok_or_else(
+                                    || "ball helper requires a bind group".to_owned(),
+                                )?,
+                            }),
+                            PlannedDrawable::Camera(camera) => Ok(RenderCommand::Camera {
+                                camera: cameras.get(&camera).cloned().ok_or_else(|| {
+                                    "frame camera helper is unavailable".to_owned()
                                 })?,
+                                bind_group: resolved_bind_groups.into_iter().next().ok_or_else(
+                                    || "camera helper requires a bind group".to_owned(),
+                                )?,
                             }),
                         }
                     })
@@ -1168,7 +1474,9 @@ fn encode_logical_pass(
         .iter()
         .map(|command| match command {
             RenderCommand::Draw { draw, .. } => Some(draw.mesh()),
-            RenderCommand::Axis { .. } => None,
+            RenderCommand::Axis { .. }
+            | RenderCommand::Ball { .. }
+            | RenderCommand::Camera { .. } => None,
         })
         .collect();
 
@@ -1220,6 +1528,10 @@ fn encode_logical_pass(
             );
             encode_render_commands(&mut pass, &commands, &draw_meshes);
         }
+        FrameTarget::ShadowMap(shadow_map) => {
+            let mut pass = shadow_map.texture().begin_depth_pass(encoder, depth_load);
+            encode_render_commands(&mut pass, &commands, &draw_meshes);
+        }
     }
 }
 
@@ -1233,10 +1545,10 @@ fn encode_render_commands<'pass>(
         match command {
             RenderCommand::Draw {
                 draw,
-                bind_group,
+                bind_groups,
                 instance_count,
             } => {
-                if let Some(bind_group) = bind_group.as_ref() {
+                for bind_group in bind_groups {
                     bind_group.bind_group().bind(pass, bind_group.group_index());
                 }
                 draw.draw().draw(
@@ -1247,6 +1559,12 @@ fn encode_render_commands<'pass>(
             }
             RenderCommand::Axis { axis, bind_group } => {
                 axis.helper().draw(pass, bind_group.bind_group());
+            }
+            RenderCommand::Ball { ball, bind_group } => {
+                ball.helper().draw(pass, bind_group.bind_group());
+            }
+            RenderCommand::Camera { camera, bind_group } => {
+                camera.helper().draw(pass, bind_group.bind_group());
             }
         }
     }
@@ -1275,11 +1593,11 @@ mod tests {
         }
     }
 
-    fn draw(key: u64, device: u64, requires_bind_group: bool) -> DrawValidation {
+    fn draw(key: u64, device: u64, bind_group_count: usize) -> DrawValidation {
         DrawValidation {
             key: DrawKey(key),
             device: DeviceKey(device),
-            requires_bind_group,
+            bind_group_count,
         }
     }
 
@@ -1289,7 +1607,23 @@ mod tests {
             draw: Some(DrawKey(draw)),
             compute: None,
             axis: None,
+            camera: None,
+            ball: None,
             device: DeviceKey(device),
+            group_index: 0,
+        }
+    }
+
+    fn shadow_bind_group(key: u64, draw: u64, device: u64) -> BindGroupValidation {
+        BindGroupValidation {
+            key: BindGroupKey(key),
+            draw: Some(DrawKey(draw)),
+            compute: None,
+            axis: None,
+            camera: None,
+            ball: None,
+            device: DeviceKey(device),
+            group_index: 1,
         }
     }
 
@@ -1299,7 +1633,10 @@ mod tests {
             draw: None,
             compute: Some(ComputeKey(compute)),
             axis: None,
+            camera: None,
+            ball: None,
             device: DeviceKey(device),
+            group_index: 0,
         }
     }
 
@@ -1309,7 +1646,10 @@ mod tests {
             draw: None,
             compute: None,
             axis: Some(AxisKey(axis)),
+            camera: None,
+            ball: None,
             device: DeviceKey(device),
+            group_index: 0,
         }
     }
 
@@ -1339,9 +1679,9 @@ mod tests {
     fn binding_a_new_target_closes_the_previous_logical_pass() {
         let mut plan = FramePlan::new();
         plan.bind_target(TargetKey::Offscreen(7), clear(0.1), false);
-        plan.render(DrawKey(1), None, 1).unwrap();
+        plan.render(DrawKey(1), vec![], 1).unwrap();
         plan.bind_target(TargetKey::Canvas, clear(0.0), false);
-        plan.render(DrawKey(2), Some(BindGroupKey(3)), 1).unwrap();
+        plan.render(DrawKey(2), vec![BindGroupKey(3)], 1).unwrap();
 
         let ops = plan.finish().unwrap();
         assert_eq!(ops.len(), 2);
@@ -1354,7 +1694,7 @@ mod tests {
     #[test]
     fn render_without_bind_defaults_to_canvas() {
         let mut plan = FramePlan::new();
-        plan.render(DrawKey(1), None, 1).unwrap();
+        plan.render(DrawKey(1), vec![], 1).unwrap();
         assert_eq!(
             render_pass(&plan.finish().unwrap()[0]).target,
             TargetKey::Canvas
@@ -1386,11 +1726,11 @@ mod tests {
     #[test]
     fn compute_splits_render_pass_and_reopens_with_load() {
         let mut plan = FramePlan::new();
-        plan.bind_target(TargetKey::Canvas, clear(0.2), false);
-        plan.render(DrawKey(1), None, 1).unwrap();
+        plan.bind_target(TargetKey::Shadow(9), clear(0.2), true);
+        plan.render(DrawKey(1), vec![], 1).unwrap();
         plan.dispatch(ComputeKey(7), Some(BindGroupKey(8)), [4, 1, 1])
             .unwrap();
-        plan.render(DrawKey(2), None, 1).unwrap();
+        plan.render(DrawKey(2), vec![], 1).unwrap();
 
         let ops = plan.finish().unwrap();
         assert_eq!(ops.len(), 3);
@@ -1403,18 +1743,24 @@ mod tests {
                 workgroups: [4, 1, 1],
             }
         );
-        assert_eq!(render_pass(&ops[2]).load_op, PlannedLoadOp::Load);
-        assert_eq!(render_pass(&ops[2]).target, TargetKey::Canvas);
+        assert!(matches!(
+            &ops[2],
+            PlannedOp::RenderPass(PlannedRenderPass {
+                target: TargetKey::Shadow(_),
+                load_op: PlannedLoadOp::Load,
+                ..
+            })
+        ));
     }
 
     #[test]
     fn bind_target_after_compute_clears_again() {
         let mut plan = FramePlan::new();
         plan.bind_target(TargetKey::Canvas, clear(0.2), false);
-        plan.render(DrawKey(1), None, 1).unwrap();
+        plan.render(DrawKey(1), vec![], 1).unwrap();
         plan.dispatch(ComputeKey(7), None, [1, 1, 1]).unwrap();
         plan.bind_target(TargetKey::Canvas, clear(0.9), false);
-        plan.render(DrawKey(2), None, 1).unwrap();
+        plan.render(DrawKey(2), vec![], 1).unwrap();
 
         let ops = plan.finish().unwrap();
         assert_eq!(render_pass(&ops[2]).load_op, PlannedLoadOp::Clear);
@@ -1424,7 +1770,7 @@ mod tests {
     #[test]
     fn missing_required_bind_group_is_rejected() {
         assert_eq!(
-            validate_render_command(DeviceKey(1), draw(2, 1, true), None),
+            validate_render_command(DeviceKey(1), draw(2, 1, 1), &[]),
             Err("draw requires a bind group".into())
         );
         assert_eq!(
@@ -1434,9 +1780,74 @@ mod tests {
     }
 
     #[test]
+    fn resource_free_draw_accepts_zero_bind_groups() {
+        assert!(validate_render_command(DeviceKey(1), draw(7, 1, 0), &[]).is_ok());
+    }
+
+    #[test]
+    fn particle_image_draw_requires_each_of_three_groups() {
+        let camera = bind_group(10, 7, 1);
+        let shadow = shadow_bind_group(11, 7, 1);
+        let image = BindGroupValidation {
+            group_index: 2,
+            ..bind_group(12, 7, 1)
+        };
+        assert!(
+            validate_render_command(DeviceKey(1), draw(7, 1, 3), &[image, camera, shadow]).is_ok()
+        );
+        for groups in [
+            vec![camera, shadow],
+            vec![camera, shadow, shadow],
+            vec![image, image, image],
+        ] {
+            assert!(validate_render_command(DeviceKey(1), draw(7, 1, 3), &groups).is_err());
+        }
+        let wrong_draw = BindGroupValidation {
+            draw: Some(DrawKey(99)),
+            ..image
+        };
+        let wrong_device = BindGroupValidation {
+            device: DeviceKey(99),
+            ..image
+        };
+        for invalid in [wrong_draw, wrong_device] {
+            assert!(validate_render_command(
+                DeviceKey(1),
+                draw(7, 1, 3),
+                &[camera, shadow, invalid]
+            )
+            .is_err());
+        }
+    }
+
+    #[test]
+    fn particle_transition_requires_four_distinct_groups() {
+        let camera = bind_group(10, 7, 1);
+        let shadow = shadow_bind_group(11, 7, 1);
+        let a = BindGroupValidation {
+            group_index: 2,
+            ..bind_group(12, 7, 1)
+        };
+        let b = BindGroupValidation {
+            group_index: 3,
+            ..bind_group(13, 7, 1)
+        };
+        assert!(
+            validate_render_command(DeviceKey(1), draw(7, 1, 4), &[b, a, camera, shadow]).is_ok()
+        );
+        for groups in [
+            vec![camera, shadow, a],
+            vec![camera, shadow, a, a],
+            vec![b, b, b, b],
+        ] {
+            assert!(validate_render_command(DeviceKey(1), draw(7, 1, 4), &groups).is_err());
+        }
+    }
+
+    #[test]
     fn unexpected_bind_group_is_rejected() {
         assert_eq!(
-            validate_render_command(DeviceKey(1), draw(2, 1, false), Some(bind_group(3, 2, 1)),),
+            validate_render_command(DeviceKey(1), draw(2, 1, 0), &[bind_group(3, 2, 1)]),
             Err("draw does not accept a bind group".into())
         );
         assert_eq!(
@@ -1452,7 +1863,7 @@ mod tests {
     #[test]
     fn bind_group_for_a_different_draw_is_rejected() {
         assert_eq!(
-            validate_render_command(DeviceKey(1), draw(2, 1, true), Some(bind_group(3, 4, 1)),),
+            validate_render_command(DeviceKey(1), draw(2, 1, 1), &[bind_group(3, 4, 1)]),
             Err("bind group was created for a different draw".into())
         );
         assert_eq!(
@@ -1469,9 +1880,9 @@ mod tests {
     fn instance_counts_survive_pass_splits_and_depth_is_preserved() {
         let mut plan = FramePlan::new();
         plan.bind_target(TargetKey::Canvas, clear(0.2), true);
-        plan.render(DrawKey(1), None, 64).unwrap();
+        plan.render(DrawKey(1), vec![], 64).unwrap();
         plan.dispatch(ComputeKey(7), None, [1, 1, 1]).unwrap();
-        plan.render(DrawKey(2), None, 128).unwrap();
+        plan.render(DrawKey(2), vec![], 128).unwrap();
 
         let ops = plan.finish().unwrap();
         assert_eq!(ops.len(), 3);
@@ -1489,7 +1900,7 @@ mod tests {
     fn bind_target_depth_is_used_on_the_next_pass() {
         let mut plan = FramePlan::new();
         plan.bind_target(TargetKey::Canvas, clear(0.1), true);
-        plan.render(DrawKey(1), None, 1).unwrap();
+        plan.render(DrawKey(1), vec![], 1).unwrap();
 
         let ops = plan.finish().unwrap();
         let pass = render_pass(&ops[0]);
@@ -1501,7 +1912,7 @@ mod tests {
     fn axis_helper_joins_the_current_render_pass() {
         let mut plan = FramePlan::new();
         plan.bind_target(TargetKey::Canvas, clear(0.2), false);
-        plan.render(DrawKey(1), None, 1).unwrap();
+        plan.render(DrawKey(1), vec![], 1).unwrap();
         plan.render_axis(AxisKey(2), BindGroupKey(3)).unwrap();
 
         let ops = plan.finish().unwrap();
@@ -1511,9 +1922,85 @@ mod tests {
             commands[1],
             PlannedRenderCommand {
                 drawable: PlannedDrawable::Axis(AxisKey(2)),
-                bind_group: Some(BindGroupKey(3)),
+                bind_groups: vec![BindGroupKey(3)],
                 instance_count: 1,
             }
+        );
+    }
+
+    #[test]
+    fn ball_helper_joins_the_current_render_pass() {
+        let mut plan = FramePlan::new();
+        plan.bind_target(TargetKey::Canvas, clear(0.2), false);
+        plan.render(DrawKey(1), vec![], 1).unwrap();
+        plan.render_ball(BallKey(2), BindGroupKey(3)).unwrap();
+
+        let ops = plan.finish().unwrap();
+        let commands = &render_pass(&ops[0]).commands;
+        assert_eq!(commands.len(), 2);
+        assert_eq!(
+            commands[1],
+            PlannedRenderCommand {
+                drawable: PlannedDrawable::Ball(BallKey(2)),
+                bind_groups: vec![BindGroupKey(3)],
+                instance_count: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn camera_helper_joins_the_current_render_pass() {
+        let mut plan = FramePlan::new();
+        plan.bind_target(TargetKey::Canvas, clear(0.2), false);
+        plan.render(DrawKey(1), vec![], 1).unwrap();
+        plan.render_camera(CameraKey(2), BindGroupKey(3)).unwrap();
+
+        let ops = plan.finish().unwrap();
+        let commands = &render_pass(&ops[0]).commands;
+        assert_eq!(commands.len(), 2);
+        assert_eq!(
+            commands[1],
+            PlannedRenderCommand {
+                drawable: PlannedDrawable::Camera(CameraKey(2)),
+                bind_groups: vec![BindGroupKey(3)],
+                instance_count: 1,
+            }
+        );
+    }
+
+    fn camera_bind_group(key: u64, camera: u64, device: u64) -> BindGroupValidation {
+        BindGroupValidation {
+            key: BindGroupKey(key),
+            draw: None,
+            compute: None,
+            axis: None,
+            ball: None,
+            camera: Some(CameraKey(camera)),
+            device: DeviceKey(device),
+            group_index: 0,
+        }
+    }
+
+    fn camera(key: u64, device: u64) -> CameraValidation {
+        CameraValidation {
+            key: CameraKey(key),
+            device: DeviceKey(device),
+        }
+    }
+
+    #[test]
+    fn camera_helper_requires_a_matching_bind_group() {
+        assert_eq!(
+            validate_camera_render_command(DeviceKey(1), camera(2, 1), None),
+            Err("camera helper requires a bind group".into())
+        );
+        assert_eq!(
+            validate_camera_render_command(
+                DeviceKey(1),
+                camera(2, 1),
+                Some(camera_bind_group(3, 4, 1)),
+            ),
+            Err("bind group was created for a different camera helper".into())
         );
     }
 
@@ -1533,14 +2020,93 @@ mod tests {
         );
     }
 
+    fn ball_bind_group(key: u64, ball: u64, device: u64) -> BindGroupValidation {
+        BindGroupValidation {
+            key: BindGroupKey(key),
+            draw: None,
+            compute: None,
+            axis: None,
+            ball: Some(BallKey(ball)),
+            camera: None,
+            device: DeviceKey(device),
+            group_index: 0,
+        }
+    }
+
+    fn ball(key: u64, device: u64) -> BallValidation {
+        BallValidation {
+            key: BallKey(key),
+            device: DeviceKey(device),
+        }
+    }
+
+    #[test]
+    fn ball_helper_requires_its_own_bind_group() {
+        assert_eq!(
+            validate_ball_render_command(DeviceKey(1), ball(2, 1), None),
+            Err("ball helper requires a bind group".into())
+        );
+        assert_eq!(
+            validate_ball_render_command(DeviceKey(1), ball(2, 1), Some(ball_bind_group(3, 4, 1))),
+            Err("bind group was created for a different ball helper".into())
+        );
+        assert_eq!(
+            validate_ball_render_command(DeviceKey(1), ball(2, 9), Some(ball_bind_group(3, 2, 1))),
+            Err("ball helper was created by a different device".into())
+        );
+    }
+
+    #[test]
+    fn two_bind_groups_must_cover_group0_and_group1() {
+        assert!(validate_render_command(
+            DeviceKey(1),
+            draw(2, 1, 2),
+            &[bind_group(3, 2, 1), shadow_bind_group(4, 2, 1)],
+        )
+        .is_ok());
+        assert_eq!(
+            validate_render_command(DeviceKey(1), draw(2, 1, 2), &[bind_group(3, 2, 1)]),
+            Err("draw requires 2 bind groups".into())
+        );
+        assert_eq!(
+            validate_render_command(
+                DeviceKey(1),
+                draw(2, 1, 2),
+                &[bind_group(3, 2, 1), bind_group(4, 2, 1)],
+            ),
+            Err("draw requires bind groups for @group(0) and @group(1)".into())
+        );
+    }
+
+    #[test]
+    fn shadow_target_splits_from_the_canvas_pass() {
+        let mut plan = FramePlan::new();
+        plan.bind_target(TargetKey::Shadow(9), clear(0.0), true);
+        plan.render(DrawKey(1), vec![BindGroupKey(2)], 64).unwrap();
+        plan.bind_target(TargetKey::Canvas, clear(0.08), true);
+        plan.render(DrawKey(3), vec![BindGroupKey(4), BindGroupKey(5)], 64)
+            .unwrap();
+
+        let ops = plan.finish().unwrap();
+        assert_eq!(ops.len(), 2);
+        assert_eq!(render_pass(&ops[0]).target, TargetKey::Shadow(9));
+        assert!(render_pass(&ops[0]).depth);
+        assert_eq!(render_pass(&ops[0]).commands[0].instance_count, 64);
+        assert_eq!(render_pass(&ops[1]).target, TargetKey::Canvas);
+        assert_eq!(
+            render_pass(&ops[1]).commands[0].bind_groups,
+            vec![BindGroupKey(4), BindGroupKey(5)]
+        );
+    }
+
     #[test]
     fn resource_from_a_different_device_is_rejected() {
         assert_eq!(
-            validate_render_command(DeviceKey(1), draw(2, 9, false), None),
+            validate_render_command(DeviceKey(1), draw(2, 9, 0), &[]),
             Err("draw was created by a different device".into())
         );
         assert_eq!(
-            validate_render_command(DeviceKey(1), draw(2, 1, true), Some(bind_group(3, 2, 9)),),
+            validate_render_command(DeviceKey(1), draw(2, 1, 1), &[bind_group(3, 2, 9)]),
             Err("bind group was created by a different device".into())
         );
         assert_eq!(

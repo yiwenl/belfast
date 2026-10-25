@@ -14,6 +14,11 @@ export interface GeometryData {
 export interface CubeOptions {
   size?: number;
 }
+
+export interface PlaneOptions {
+  width?: number;
+  height?: number;
+}
 "#;
 
 #[derive(Default, serde::Deserialize)]
@@ -21,6 +26,15 @@ export interface CubeOptions {
 struct CubeOptionsInput {
     #[serde(default)]
     size: Option<f32>,
+}
+
+#[derive(Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PlaneOptionsInput {
+    #[serde(default)]
+    width: Option<f32>,
+    #[serde(default)]
+    height: Option<f32>,
 }
 
 #[wasm_bindgen(js_name = Geom)]
@@ -38,6 +52,21 @@ impl WasmGeom {
             .map_err(to_js_error)?
             .unwrap_or_default();
         geometry_to_js(belfast::Geom::cube(options.size.unwrap_or(1.0)))
+    }
+
+    #[wasm_bindgen(unchecked_return_type = "GeometryData")]
+    pub fn plane(
+        #[wasm_bindgen(unchecked_optional_param_type = "PlaneOptions")] options: Option<JsValue>,
+    ) -> Result<JsValue, JsValue> {
+        let options: PlaneOptionsInput = options
+            .map(serde_wasm_bindgen::from_value)
+            .transpose()
+            .map_err(to_js_error)?
+            .unwrap_or_default();
+        geometry_to_js(belfast::Geom::plane(
+            options.width.unwrap_or(1.0),
+            options.height.unwrap_or(1.0),
+        ))
     }
 }
 
@@ -81,4 +110,26 @@ fn indices_to_js(indices: &[u32], vertex_count: usize) -> JsValue {
 fn set_property(object: &js_sys::Object, name: &str, value: &JsValue) -> Result<(), JsValue> {
     js_sys::Reflect::set(object, &JsValue::from_str(name), value)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PlaneOptionsInput;
+
+    #[test]
+    fn plane_defaults_to_unit_xy_geometry() {
+        let options = PlaneOptionsInput::default();
+        let plane =
+            belfast::Geom::plane(options.width.unwrap_or(1.0), options.height.unwrap_or(1.0));
+        assert_eq!(
+            plane.positions,
+            vec![-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.5, 0.5, 0.0, -0.5, 0.5, 0.0]
+        );
+        assert_eq!(plane.uvs, vec![0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]);
+        assert_eq!(
+            plane.normals,
+            vec![0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0]
+        );
+        assert_eq!(plane.indices, vec![0, 1, 2, 0, 2, 3]);
+    }
 }

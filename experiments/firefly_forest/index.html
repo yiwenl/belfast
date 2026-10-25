@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast — Firefly Forest</title>
+  </head>
+  <body>
+    <canvas aria-label="Interactive forest Gaussian splatting scene"></canvas>
+    <aside>
+      <strong>Firefly forest</strong>
+      <span>Drag to orbit · Shift + drag to pan · Scroll to zoom</span>
+      <span id="firefly-info">20,000 fireflies · flocking &amp; synchronized flashes</span>
+      <span id="display-info" lang="zh-Hant"></span>
+      <span id="scene-info"></span>
+    </aside>
+    <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
+    <section id="firefly-controls" lang="zh-Hant" aria-label="場景控制">
+      <details class="control-group">
+        <summary>場景</summary>
+        <div class="control-body">
+          <label class="benchmark-toggle">
+            <input id="brush-enabled" type="checkbox" checked disabled />
+            森林筆觸
+          </label>
+
+          <div class="control">
+            <label for="camera-fov">視角 FOV</label>
+            <output id="camera-fov-value" for="camera-fov">50°</output>
+            <input id="camera-fov" type="range" min="20" max="100" step="1" value="50" disabled />
+          </div>
+        </div>
+      </details>
+      <details class="control-group">
+        <summary>螢火蟲</summary>
+        <div class="control-body">
+          <div class="control">
+            <label for="firefly-render-mode">顯示</label>
+            <select id="firefly-render-mode" disabled>
+              <option value="drag" selected>拖曳軌跡</option>
+              <option value="particles">粒子</option>
+              <option value="trails">軌跡 · 256 幀</option>
+            </select>
+          </div>
+          <label class="benchmark-toggle">
+            <input id="firefly-glow" type="checkbox" checked disabled />
+            粒子 Glow
+          </label>
+          <details class="firefly-height">
+            <summary>高度</summary>
+            <div class="appearance-body">
+              <div class="control">
+                <label for="height-base">基準高度</label>
+                <output id="height-base-value" for="height-base">1.25</output>
+                <input
+                  id="height-base"
+                  type="range"
+                  min="0.25"
+                  max="3"
+                  step="0.05"
+                  value="1.25"
+                  disabled
+                />
+              </div>
+              <div class="control">
+                <label for="height-spread">隨機幅度</label>
+                <output id="height-spread-value" for="height-spread">0.50</output>
+                <input
+                  id="height-spread"
+                  type="range"
+                  min="0"
+                  max="1.5"
+                  step="0.05"
+                  value="0.5"
+                  disabled
+                />
+              </div>
+              <div class="control">
+                <label for="height-outlier">高飛加成</label>
+                <output id="height-outlier-value" for="height-outlier">1.25</output>
+                <input
+                  id="height-outlier"
+                  type="range"
+                  min="0"
+                  max="3"
+                  step="0.05"
+                  value="1.25"
+                  disabled
+                />
+              </div>
+              <div class="control">
+                <label for="height-exponent">分布次方</label>
+                <output id="height-exponent-value" for="height-exponent">8</output>
+                <input
+                  id="height-exponent"
+                  type="range"
+                  min="1"
+                  max="16"
+                  step="1"
+                  value="8"
+                  disabled
+                />
+              </div>
+              <div class="control">
+                <label for="height-limit">高度上限</label>
+                <output id="height-limit-value" for="height-limit">3.00</output>
+                <input
+                  id="height-limit"
+                  type="range"
+                  min="0.25"
+                  max="3"
+                  step="0.05"
+                  value="3"
+                  disabled
+                />
+              </div>
+              <div class="control">
+                <label for="height-noise-scale">Noise 尺度</label>
+                <output id="height-noise-scale-value" for="height-noise-scale">4.00</output>
+                <input
+                  id="height-noise-scale"
+                  type="range"
+                  min="0.5"
+                  max="20"
+                  step="0.5"
+                  value="4"
+                  disabled
+                />
+              </div>
+              <div class="control">
+                <label for="height-noise-amplitude">Noise 幅度</label>
+                <output id="height-noise-amplitude-value" for="height-noise-amplitude">0.50</output>
+                <input
+                  id="height-noise-amplitude"
+                  type="range"
+                  min="0"
+                  max="1.5"
+                  step="0.05"
+                  value="0.5"
+                  disabled
+                />
+              </div>
+            </div>
+          </details>
+          <div class="control">
+            <label for="flash-recovery">閃爍恢復</label>
+            <output id="flash-recovery-value" for="flash-recovery">0.65 秒</output>
+            <input
+              id="flash-recovery"
+              type="range"
+              min="0.1"
+              max="5"
+              step="0.05"
+              value="0.65"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="particle-count">數量</label>
+            <output id="particle-count-value" for="particle-count">20,000 隻</output>
+            <input
+              id="particle-count"
+              type="range"
+              min="10000"
+              max="100000"
+              step="1000"
+              value="20000"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="movement-speed">移動速度</label>
+            <output id="movement-speed-value" for="movement-speed">0.27×</output>
+            <input
+              id="movement-speed"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.27"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="blink-frequency">閃爍頻率</label>
+            <output id="blink-frequency-value" for="blink-frequency">0.28×</output>
+            <input
+              id="blink-frequency"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.28"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="flash-duration">閃爍時長</label>
+            <output id="flash-duration-value" for="flash-duration">1.50 秒</output>
+            <input
+              id="flash-duration"
+              type="range"
+              min="0.1"
+              max="2"
+              step="0.05"
+              value="1.5"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="movement-randomness">移動隨機性</label>
+            <output id="movement-randomness-value" for="movement-randomness">0.60×</output>
+            <input
+              id="movement-randomness"
+              type="range"
+              min="0"
+              max="2"
+              step="0.05"
+              value="0.6"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="blink-randomness">閃爍隨機性</label>
+            <output id="blink-randomness-value" for="blink-randomness">0.60×</output>
+            <input
+              id="blink-randomness"
+              type="range"
+              min="0"
+              max="2"
+              step="0.05"
+              value="0.6"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="firefly-size">大小</label>
+            <output id="firefly-size-value" for="firefly-size">0.75×</output>
+            <input
+              id="firefly-size"
+              type="range"
+              min="0.25"
+              max="3"
+              step="0.05"
+              value="0.75"
+              disabled
+            />
+          </div>
+        </div>
+      </details>
+      <details class="control-group">
+        <summary>色彩</summary>
+        <div class="control-body">
+          <details class="appearance">
+            <summary>森林</summary>
+            <div class="appearance-body">
+              <div class="control">
+                <label for="grade-strength">調色強度</label
+                ><output id="grade-strength-value" for="grade-strength">100%</output>
+                <input
+                  id="grade-strength"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="1"
+                  data-unit="percent"
+                  disabled
+                />
+              </div>
+              <div class="control">
+                <label for="forest-brightness">亮度</label
+                ><output id="forest-brightness-value" for="forest-brightness">1.00×</output>
+                <input
+                  id="forest-brightness"
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.05"
+                  value="1"
+                  disabled
+                />
+              </div>
+              <div class="color-control">
+                <label for="forest-foliage">植被</label
+                ><input id="forest-foliage" type="color" value="#065c69" disabled />
+              </div>
+              <div class="color-control">
+                <label for="forest-shadow">陰影</label
+                ><input id="forest-shadow" type="color" value="#0e1a42" disabled />
+              </div>
+              <div class="color-control">
+                <label for="forest-highlight">亮部</label
+                ><input id="forest-highlight" type="color" value="#2e4d80" disabled />
+              </div>
+            </div>
+          </details>
+          <details class="appearance">
+            <summary>螢火蟲</summary>
+            <div class="appearance-body">
+              <div class="color-control">
+                <label for="firefly-lime">主色</label
+                ><input id="firefly-lime" type="color" value="#99ff14" disabled />
+              </div>
+              <div class="color-control">
+                <label for="firefly-yellow">過渡色</label
+                ><input id="firefly-yellow" type="color" value="#ffe824" disabled />
+              </div>
+              <div class="color-control">
+                <label for="firefly-amber">暖色</label
+                ><input id="firefly-amber" type="color" value="#ff9c14" disabled />
+              </div>
+              <div class="control">
+                <label for="firefly-warm-share">暖色比例</label
+                ><output id="firefly-warm-share-value" for="firefly-warm-share">18%</output>
+                <input
+                  id="firefly-warm-share"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value="0.18"
+                  data-unit="percent"
+                  disabled
+                />
+              </div>
+              <div class="control">
+                <label for="firefly-peak-min">亮度下限</label
+                ><output id="firefly-peak-min-value" for="firefly-peak-min">0.45×</output>
+                <input
+                  id="firefly-peak-min"
+                  type="range"
+                  min="0"
+                  max="3"
+                  step="0.05"
+                  value="0.45"
+                  disabled
+                />
+              </div>
+              <div class="control">
+                <label for="firefly-peak-max">亮度上限</label
+                ><output id="firefly-peak-max-value" for="firefly-peak-max">1.40×</output>
+                <input
+                  id="firefly-peak-max"
+                  type="range"
+                  min="0"
+                  max="3"
+                  step="0.05"
+                  value="1.4"
+                  disabled
+                />
+              </div>
+            </div>
+          </details>
+          <button id="color-reset" type="button" disabled>重設色彩</button>
+        </div>
+      </details>
+      <details class="control-group fog">
+        <summary>霧氣</summary>
+        <div class="control-body">
+          <label class="benchmark-toggle">
+            <input id="fog-enabled" type="checkbox" checked disabled />
+            啟用霧氣
+          </label>
+          <div class="control">
+            <label for="fog-density">濃度</label>
+            <output id="fog-density-value" for="fog-density">0.060</output>
+            <input
+              id="fog-density"
+              type="range"
+              min="0"
+              max="0.2"
+              step="0.005"
+              value="0.06"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="fog-speed">流動速度</label>
+            <output id="fog-speed-value" for="fog-speed">1.00×</output>
+            <input id="fog-speed" type="range" min="0" max="2" step="0.05" value="1" disabled />
+          </div>
+          <div class="control">
+            <label for="fog-noise-frequency">雜訊頻率</label>
+            <output id="fog-noise-frequency-value" for="fog-noise-frequency">1.00×</output>
+            <input
+              id="fog-noise-frequency"
+              type="range"
+              min="0.1"
+              max="4"
+              step="0.05"
+              value="1"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="fog-light">光源強度</label>
+            <output id="fog-light-value" for="fog-light">0.70×</output>
+            <input id="fog-light" type="range" min="0" max="4" step="0.05" value="0.7" disabled />
+          </div>
+        </div>
+      </details>
+      <details class="control-group lighting">
+        <summary>光照</summary>
+        <div class="control-body">
+          <label class="benchmark-toggle">
+            <input id="light-enabled" type="checkbox" disabled />
+            螢火蟲照明
+          </label>
+          <div class="control">
+            <label for="light-hz">更新頻率</label>
+            <output id="light-hz-value" for="light-hz">30 次／秒</output>
+            <input
+              id="light-hz"
+              type="range"
+              min="1"
+              max="121"
+              step="1"
+              value="30"
+              aria-valuetext="30 次／秒"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="light-strength">強度</label>
+            <output id="light-strength-value" for="light-strength">0.10×</output>
+            <input
+              id="light-strength"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value="0.1"
+              disabled
+            />
+          </div>
+          <div class="control">
+            <label for="light-radius">半徑</label>
+            <output id="light-radius-value" for="light-radius">0.90</output>
+            <input
+              id="light-radius"
+              type="range"
+              min="0.25"
+              max="2"
+              step="0.05"
+              value="0.9"
+              disabled
+            />
+          </div>
+        </div>
+      </details>
+    </section>
+    <details id="benchmark-panel" lang="zh-Hant">
+      <summary>Benchmark <span>固定步長 · A/B 比較</span></summary>
+      <div class="benchmark-body">
+        <div class="benchmark-fields">
+          <label
+            >Seed
+            <input
+              id="benchmark-seed"
+              type="number"
+              min="1"
+              max="4294967295"
+              step="1"
+              value="1831565813"
+              required
+            />
+          </label>
+          <label
+            >量測幀數
+            <input
+              id="benchmark-frames"
+              type="number"
+              min="1"
+              max="10000"
+              step="1"
+              value="1200"
+              required
+            />
+          </label>
+        </div>
+        <label class="benchmark-toggle">
+          <input id="benchmark-moving" type="checkbox" checked />
+          固定移動路徑（20 秒循環）
+        </label>
+        <label class="benchmark-toggle">
+          <input id="view-culling" type="checkbox" checked />
+          視角外簡化
+        </label>
+        <small
+          >固定 1/60 秒 · 預熱 120 幀後重設 seed<br />量測期間鎖定手動操作、粒子參數與視窗尺寸</small
+        >
+        <small id="benchmark-gpu-support">等待 GPU…</small>
+        <div class="benchmark-buttons">
+          <button id="benchmark-start" disabled>開始量測</button>
+          <button id="benchmark-cancel" disabled>取消</button>
+          <button id="benchmark-save" disabled>儲存為基準</button>
+          <button id="benchmark-clear" disabled>清除基準</button>
+        </div>
+        <p id="benchmark-status" role="status">等待森林載入…</p>
+        <a id="benchmark-download" hidden download>下載本次完整結果 JSON</a>
+        <p id="benchmark-result-summary"></p>
+        <p id="benchmark-baseline-summary"></p>
+        <table aria-label="Benchmark 結果">
+          <thead>
+            <tr>
+              <th scope="col">指標</th>
+              <th scope="col">本次</th>
+              <th scope="col">基準</th>
+              <th scope="col">變化</th>
+            </tr>
+          </thead>
+          <tbody id="benchmark-values"></tbody>
+        </table>
+        <p id="benchmark-comparison"></p>
+        <small
+          >FPS 受螢幕更新率限制；GPU 耗時不含呈現與讀回。<br />移動路徑包含排序與快取重建；路徑由固定幀序號驅動。</small
+        >
+      </div>
+    </details>
+    <p id="status" role="status">Loading forest…</p>
+    <pre id="error" role="alert" hidden></pre>
+    <script type="module" src="./web/main.ts"></script>
+  </body>
+</html>

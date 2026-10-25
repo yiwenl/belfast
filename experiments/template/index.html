@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast — Experiment Template</title>
+  </head>
+  <body>
+    <canvas aria-label="Interactive 3D coordinate axes"></canvas>
+    <aside>
+      <strong>Experiment template</strong>
+      <span>Drag to orbit · Shift + drag to pan · Scroll to zoom</span>
+      <span class="legend"><i class="x">X</i><i class="y">Y</i><i class="z">Z</i></span>
+    </aside>
+    <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
+    <p id="status" role="status">Loading scene…</p>
+    <pre id="error" role="alert" hidden></pre>
+    <script type="module" src="./web/main.ts"></script>
+  </body>
+</html>

@@ -1,9 +1,11 @@
 //! WebAssembly facade for the Rust Belfast runtime.
 
 mod axis_helper;
+mod ball_helper;
 mod bind_group;
 mod bindings;
 mod camera;
+mod camera_helper;
 mod compute;
 mod device;
 mod draw;
@@ -19,9 +21,11 @@ mod texture;
 mod uniform_block;
 
 pub use axis_helper::WasmAxisHelper;
+pub use ball_helper::WasmBallHelper;
 #[cfg(target_arch = "wasm32")]
 pub use bind_group::WasmBindGroup;
 pub use camera::{WasmOrthographicCamera, WasmPerspectiveCamera};
+pub use camera_helper::WasmCameraHelper;
 pub use compute::WasmCompute;
 pub use device::WasmDevice;
 pub use draw::WasmDraw;
@@ -48,4 +52,9 @@ pub(crate) fn slice_to_vec3(name: &str, value: &[f32]) -> Result<[f32; 3], JsVal
 
 pub(crate) fn to_js_error(error: impl std::fmt::Display) -> JsValue {
     js_sys::Error::new(&error.to_string()).into()
+}
+
+#[wasm_bindgen(js_name = wgslShadowPcf3x3)]
+pub fn wgsl_shadow_pcf_3x3() -> String {
+    belfast::WGSL_SHADOW_PCF_3X3.to_owned()
 }

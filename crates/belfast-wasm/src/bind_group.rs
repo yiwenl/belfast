@@ -11,6 +11,8 @@ use crate::draw::ShaderResourceLayout;
 #[cfg(target_arch = "wasm32")]
 use crate::{
     axis_helper::{AxisHelperState, WasmAxisHelper},
+    ball_helper::{BallHelperState, WasmBallHelper},
+    camera_helper::{CameraHelperState, WasmCameraHelper},
     compute::{ComputeState, WasmCompute},
     draw::DrawState,
     texture::TextureState,
@@ -129,7 +131,24 @@ fn validate_texture_bindings(
         } => Err(format!(
             "bind group bindings must match draw shader layout @group({group}) texture @binding({texture_binding}) sampler @binding({sampler_binding})"
         )),
-        ShaderResourceLayout::None | ShaderResourceLayout::Uniform { .. } => {
+        ShaderResourceLayout::UniformShadowAndTextures {
+            image_groups,
+            image_texture_binding,
+            image_sampler_binding,
+            ..
+        } => {
+            if image_groups.contains(&group_index)
+                && *image_texture_binding == texture_binding
+                && *image_sampler_binding == sampler_binding
+            {
+                Ok(())
+            } else {
+                Err(format!("image bind group must use group {image_groups:?} texture @binding({image_texture_binding}) sampler @binding({image_sampler_binding})"))
+            }
+        }
+        ShaderResourceLayout::None
+        | ShaderResourceLayout::Uniform { .. }
+        | ShaderResourceLayout::UniformAndShadow { .. } => {
             Err("draw shader does not declare a sampled texture and sampler".into())
         }
     }
@@ -149,8 +168,73 @@ fn validate_uniform_bindings(
         ShaderResourceLayout::Uniform { group, binding } => Err(format!(
             "bind group bindings must match draw shader layout @group({group}) uniform @binding({binding})"
         )),
+        ShaderResourceLayout::UniformAndShadow {
+            uniform_group,
+            uniform_binding,
+            ..
+        } | ShaderResourceLayout::UniformShadowAndTextures {
+            uniform_group,
+            uniform_binding,
+            ..
+        } if *uniform_group == group_index && *uniform_binding == binding => Ok(()),
+        ShaderResourceLayout::UniformAndShadow {
+            uniform_group,
+            uniform_binding,
+            ..
+        } | ShaderResourceLayout::UniformShadowAndTextures {
+            uniform_group,
+            uniform_binding,
+            ..
+        } => Err(format!(
+            "bind group bindings must match draw shader layout @group({uniform_group}) uniform @binding({uniform_binding})"
+        )),
         ShaderResourceLayout::None | ShaderResourceLayout::TextureSampler { .. } => {
             Err("draw shader does not declare a uniform buffer".into())
+        }
+    }
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+fn validate_shadow_bindings(
+    required: &ShaderResourceLayout,
+    group_index: u32,
+    texture_binding: u32,
+    sampler_binding: u32,
+) -> Result<(), String> {
+    match required {
+        ShaderResourceLayout::UniformAndShadow {
+            shadow_group,
+            texture_binding: required_texture,
+            sampler_binding: required_sampler,
+            ..
+        } | ShaderResourceLayout::UniformShadowAndTextures {
+            shadow_group,
+            shadow_texture_binding: required_texture,
+            shadow_sampler_binding: required_sampler,
+            ..
+        } if *shadow_group == group_index
+            && *required_texture == texture_binding
+            && *required_sampler == sampler_binding =>
+        {
+            Ok(())
+        }
+        ShaderResourceLayout::UniformAndShadow {
+            shadow_group,
+            texture_binding,
+            sampler_binding,
+            ..
+        } | ShaderResourceLayout::UniformShadowAndTextures {
+            shadow_group,
+            shadow_texture_binding: texture_binding,
+            shadow_sampler_binding: sampler_binding,
+            ..
+        } => Err(format!(
+            "bind group bindings must match draw shader layout @group({shadow_group}) depth @binding({texture_binding}) sampler @binding({sampler_binding})"
+        )),
+        ShaderResourceLayout::None
+        | ShaderResourceLayout::Uniform { .. }
+        | ShaderResourceLayout::TextureSampler { .. } => {
+            Err("draw shader does not declare a shadow map".into())
         }
     }
 }
@@ -354,6 +438,8 @@ enum BindGroupOwner {
     Draw(Rc<DrawState>),
     Compute(Rc<ComputeState>),
     AxisHelper(Rc<AxisHelperState>),
+    BallHelper(Rc<BallHelperState>),
+    CameraHelper(Rc<CameraHelperState>),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -374,21 +460,50 @@ impl BindGroupState {
     pub(crate) fn draw(&self) -> Option<&Rc<DrawState>> {
         match &self.owner {
             BindGroupOwner::Draw(draw) => Some(draw),
-            BindGroupOwner::Compute(_) | BindGroupOwner::AxisHelper(_) => None,
+            BindGroupOwner::Compute(_)
+            | BindGroupOwner::AxisHelper(_)
+            | BindGroupOwner::BallHelper(_)
+            | BindGroupOwner::CameraHelper(_) => None,
         }
     }
 
     pub(crate) fn compute(&self) -> Option<&Rc<ComputeState>> {
         match &self.owner {
             BindGroupOwner::Compute(compute) => Some(compute),
-            BindGroupOwner::Draw(_) | BindGroupOwner::AxisHelper(_) => None,
+            BindGroupOwner::Draw(_)
+            | BindGroupOwner::AxisHelper(_)
+            | BindGroupOwner::BallHelper(_)
+            | BindGroupOwner::CameraHelper(_) => None,
         }
     }
 
     pub(crate) fn axis_helper(&self) -> Option<&Rc<AxisHelperState>> {
         match &self.owner {
             BindGroupOwner::AxisHelper(axis) => Some(axis),
-            BindGroupOwner::Draw(_) | BindGroupOwner::Compute(_) => None,
+            BindGroupOwner::Draw(_)
+            | BindGroupOwner::Compute(_)
+            | BindGroupOwner::BallHelper(_)
+            | BindGroupOwner::CameraHelper(_) => None,
+        }
+    }
+
+    pub(crate) fn ball_helper(&self) -> Option<&Rc<BallHelperState>> {
+        match &self.owner {
+            BindGroupOwner::BallHelper(ball) => Some(ball),
+            BindGroupOwner::Draw(_)
+            | BindGroupOwner::Compute(_)
+            | BindGroupOwner::AxisHelper(_)
+            | BindGroupOwner::CameraHelper(_) => None,
+        }
+    }
+
+    pub(crate) fn camera_helper(&self) -> Option<&Rc<CameraHelperState>> {
+        match &self.owner {
+            BindGroupOwner::CameraHelper(camera) => Some(camera),
+            BindGroupOwner::Draw(_)
+            | BindGroupOwner::Compute(_)
+            | BindGroupOwner::AxisHelper(_)
+            | BindGroupOwner::BallHelper(_) => None,
         }
     }
 
@@ -535,19 +650,85 @@ impl WasmBindGroup {
         Ok(wrapper)
     }
 
+    #[wasm_bindgen(js_name = fromShadowMap, unchecked_return_type = "BindGroup")]
+    pub fn from_shadow_map(
+        device: &WasmDevice,
+        draw: &WasmDraw,
+        texture: &WasmTexture,
+        options: Option<JsValue>,
+    ) -> Result<JsValue, JsValue> {
+        let options: BindGroupOptionsInput = options
+            .map(serde_wasm_bindgen::from_value)
+            .transpose()
+            .map_err(to_js_error)?
+            .unwrap_or_default();
+        let options = BindGroupOptions {
+            group_index: options.group_index.unwrap_or(1),
+            texture_binding: options.texture_binding.unwrap_or(0),
+            sampler_binding: options.sampler_binding.unwrap_or(1),
+            label: options.label.unwrap_or_else(|| "ShadowBindGroup".into()),
+        };
+        validate_shadow_bindings(
+            &draw.state.resources,
+            options.group_index,
+            options.texture_binding,
+            options.sampler_binding,
+        )
+        .map_err(to_js_error)?;
+
+        if !draw.state.draw().device().is_same(&device.inner) {
+            return Err(to_js_error("draw was created by a different device"));
+        }
+        if !texture.state.is_shadow_map() {
+            return Err(to_js_error("texture must be a depth shadow map"));
+        }
+        if !texture.state.texture().device().is_same(&device.inner) {
+            return Err(to_js_error("shadow map was created by a different device"));
+        }
+
+        let layout = draw.state.draw().get_bind_group_layout(options.group_index);
+        let bind_group = belfast::BindGroup::create(
+            &device.inner,
+            &layout,
+            &[
+                wgpu::BindGroupEntry {
+                    binding: options.texture_binding,
+                    resource: wgpu::BindingResource::TextureView(texture.state.texture().view()),
+                },
+                wgpu::BindGroupEntry {
+                    binding: options.sampler_binding,
+                    resource: wgpu::BindingResource::Sampler(texture.state.texture().sampler()),
+                },
+            ],
+            &options.label,
+        );
+
+        let wrapper = JsValue::from(Self {
+            state: Rc::new(BindGroupState {
+                bind_group,
+                owner: BindGroupOwner::Draw(draw.state.clone()),
+                group_index: options.group_index,
+                source: BindGroupSource::Texture(texture.state.clone()),
+            }),
+        });
+        crate::frame::register_bind_group_wrapper(&wrapper)?;
+        Ok(wrapper)
+    }
+
     #[wasm_bindgen(js_name = fromBuffer, unchecked_return_type = "BindGroup")]
     pub fn from_buffer(
         device: &WasmDevice,
-        #[wasm_bindgen(unchecked_param_type = "Draw | AxisHelper")] pipeline: JsValue,
+        #[wasm_bindgen(unchecked_param_type = "Draw | AxisHelper | BallHelper | CameraHelper")]
+        pipeline: JsValue,
         buffer: &WasmBuffer,
         options: Option<JsValue>,
     ) -> Result<JsValue, JsValue> {
-        match crate::frame::parse_draw_or_axis_helper(&pipeline)? {
-            crate::frame::DrawOrAxisHelper::Draw(draw) => {
-                from_draw_buffer(device, &draw, buffer, options)
-            }
-            crate::frame::DrawOrAxisHelper::Axis(axes) => {
-                from_axis_buffer(device, &axes, buffer, options)
+        match crate::frame::parse_drawable(&pipeline)? {
+            crate::frame::Drawable::Draw(draw) => from_draw_buffer(device, &draw, buffer, options),
+            crate::frame::Drawable::Axis(axes) => from_axis_buffer(device, &axes, buffer, options),
+            crate::frame::Drawable::Ball(ball) => from_ball_buffer(device, &ball, buffer, options),
+            crate::frame::Drawable::Camera(camera) => {
+                from_camera_buffer(device, &camera, buffer, options)
             }
         }
     }
@@ -732,9 +913,146 @@ fn from_axis_buffer(
     Ok(wrapper)
 }
 
+#[cfg(target_arch = "wasm32")]
+fn from_ball_buffer(
+    device: &WasmDevice,
+    ball: &WasmBallHelper,
+    buffer: &WasmBuffer,
+    options: Option<JsValue>,
+) -> Result<JsValue, JsValue> {
+    let options: UniformBindGroupOptionsInput = options
+        .map(serde_wasm_bindgen::from_value)
+        .transpose()
+        .map_err(to_js_error)?
+        .unwrap_or_default();
+    let options = options.resolve();
+    if options.group_index != 0 || options.binding != 0 {
+        return Err(to_js_error(
+            "bind group bindings must match ball helper layout @group(0) uniform @binding(0)",
+        ));
+    }
+
+    if !ball.state.helper().device().is_same(&device.inner) {
+        return Err(to_js_error("ball helper was created by a different device"));
+    }
+    if !buffer.inner().device().is_same(&device.inner) {
+        return Err(to_js_error("buffer was created by a different device"));
+    }
+
+    let layout = ball
+        .state
+        .helper()
+        .get_bind_group_layout(options.group_index);
+    let bind_group = belfast::BindGroup::create(
+        &device.inner,
+        &layout,
+        &[wgpu::BindGroupEntry {
+            binding: options.binding,
+            resource: buffer.inner().gpu().as_entire_binding(),
+        }],
+        &options.label,
+    );
+
+    let wrapper = JsValue::from(WasmBindGroup {
+        state: Rc::new(BindGroupState {
+            bind_group,
+            owner: BindGroupOwner::BallHelper(ball.state.clone()),
+            group_index: options.group_index,
+            source: BindGroupSource::Buffer(buffer.inner().clone()),
+        }),
+    });
+    crate::frame::register_bind_group_wrapper(&wrapper)?;
+    Ok(wrapper)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn from_camera_buffer(
+    device: &WasmDevice,
+    camera: &WasmCameraHelper,
+    buffer: &WasmBuffer,
+    options: Option<JsValue>,
+) -> Result<JsValue, JsValue> {
+    let options: UniformBindGroupOptionsInput = options
+        .map(serde_wasm_bindgen::from_value)
+        .transpose()
+        .map_err(to_js_error)?
+        .unwrap_or_default();
+    let options = options.resolve();
+    if options.group_index != 0 || options.binding != 0 {
+        return Err(to_js_error(
+            "bind group bindings must match camera helper layout @group(0) uniform @binding(0)",
+        ));
+    }
+
+    if !camera.state.helper().device().is_same(&device.inner) {
+        return Err(to_js_error(
+            "camera helper was created by a different device",
+        ));
+    }
+    if !buffer.inner().device().is_same(&device.inner) {
+        return Err(to_js_error("buffer was created by a different device"));
+    }
+
+    let layout = camera
+        .state
+        .helper()
+        .get_bind_group_layout(options.group_index);
+    let bind_group = belfast::BindGroup::create(
+        &device.inner,
+        &layout,
+        &[wgpu::BindGroupEntry {
+            binding: options.binding,
+            resource: buffer.inner().gpu().as_entire_binding(),
+        }],
+        &options.label,
+    );
+
+    let wrapper = JsValue::from(WasmBindGroup {
+        state: Rc::new(BindGroupState {
+            bind_group,
+            owner: BindGroupOwner::CameraHelper(camera.state.clone()),
+            group_index: options.group_index,
+            source: BindGroupSource::Buffer(buffer.inner().clone()),
+        }),
+    });
+    crate::frame::register_bind_group_wrapper(&wrapper)?;
+    Ok(wrapper)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn particle_image_bindings_keep_camera_shadow_and_image_separate() {
+        let module =
+            naga::front::wgsl::parse_str(include_str!("../tests/fixtures/particle-image.wgsl"))
+                .unwrap();
+        let layout = crate::draw::validate_shader_resource_layout(&module).unwrap();
+        assert!(validate_uniform_bindings(&layout, 0, 0).is_ok());
+        assert!(validate_shadow_bindings(&layout, 1, 0, 1).is_ok());
+        assert!(validate_texture_bindings(&layout, 2, 0, 1).is_ok());
+        assert!(validate_uniform_bindings(&layout, 2, 0).is_err());
+        assert!(validate_shadow_bindings(&layout, 2, 0, 1).is_err());
+        assert!(validate_texture_bindings(&layout, 1, 0, 1).is_err());
+        assert!(validate_texture_bindings(&layout, 2, 1, 0).is_err());
+    }
+
+    #[test]
+    fn particle_transition_bindings_accept_both_image_slots() {
+        let module = naga::front::wgsl::parse_str(include_str!(
+            "../tests/fixtures/particle-image-transition.wgsl"
+        ))
+        .unwrap();
+        let layout = crate::draw::validate_shader_resource_layout(&module).unwrap();
+        assert!(validate_uniform_bindings(&layout, 0, 0).is_ok());
+        assert!(validate_shadow_bindings(&layout, 1, 0, 1).is_ok());
+        for group in [2, 3] {
+            assert!(validate_texture_bindings(&layout, group, 0, 1).is_ok());
+            assert!(validate_texture_bindings(&layout, group, 1, 0).is_err());
+        }
+        assert!(validate_texture_bindings(&layout, 4, 0, 1).is_err());
+    }
 
     #[test]
     fn bind_group_bindings_must_match_draw_shader_layout() {
@@ -773,6 +1091,36 @@ mod tests {
         assert_eq!(
             validate_uniform_bindings(&ShaderResourceLayout::None, 0, 0).unwrap_err(),
             "draw shader does not declare a uniform buffer"
+        );
+    }
+
+    #[test]
+    fn shadow_bind_group_bindings_must_match_draw_shader_layout() {
+        let required = ShaderResourceLayout::UniformAndShadow {
+            uniform_group: 0,
+            uniform_binding: 0,
+            shadow_group: 1,
+            texture_binding: 0,
+            sampler_binding: 1,
+        };
+        assert!(validate_uniform_bindings(&required, 0, 0).is_ok());
+        assert!(validate_shadow_bindings(&required, 1, 0, 1).is_ok());
+        assert_eq!(
+            validate_shadow_bindings(&required, 1, 1, 0).unwrap_err(),
+            "bind group bindings must match draw shader layout @group(1) depth @binding(0) sampler @binding(1)"
+        );
+        assert_eq!(
+            validate_shadow_bindings(
+                &ShaderResourceLayout::Uniform {
+                    group: 0,
+                    binding: 0,
+                },
+                1,
+                0,
+                1
+            )
+            .unwrap_err(),
+            "draw shader does not declare a shadow map"
         );
     }
 

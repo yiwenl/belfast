@@ -1,0 +1,27 @@
+diff --git a/experiments/firefly_forest/src/splat.rs b/experiments/firefly_forest/src/splat.rs
+index f1676aa..94d95e6 100644
+--- a/experiments/firefly_forest/src/splat.rs
++++ b/experiments/firefly_forest/src/splat.rs
+@@ -176 +176 @@ impl SplatRenderer {
+-                    topology: wgpu::PrimitiveTopology::TriangleStrip,
++                    topology: wgpu::PrimitiveTopology::TriangleList,
+@@ -216 +216 @@ impl SplatRenderer {
+-                    topology: wgpu::PrimitiveTopology::TriangleStrip,
++                    topology: wgpu::PrimitiveTopology::TriangleList,
+@@ -267 +267 @@ impl SplatRenderer {
+-        pass.draw(0..4, 0..self.visible);
++        pass.draw(0..3, 0..self.visible);
+@@ -275 +275 @@ impl SplatRenderer {
+-        pass.draw(0..4, 0..self.visible);
++        pass.draw(0..3, 0..self.visible);
+diff --git a/experiments/firefly_forest/src/splat.wgsl b/experiments/firefly_forest/src/splat.wgsl
+index 81b8ec4..14e261d 100644
+--- a/experiments/firefly_forest/src/splat.wgsl
++++ b/experiments/firefly_forest/src/splat.wgsl
+@@ -53 +53,2 @@ fn project(vertex: u32, index: u32, depth_only: bool) -> Vertex {
+-    let corners = array<vec2<f32>, 4>(vec2<f32>(-1,-1),vec2<f32>(1,-1),vec2<f32>(-1,1),vec2<f32>(1,1));
++    // Circumscribed triangle covers the same Gaussian disk with three vertices.
++    let corners = array<vec2<f32>, 3>(vec2<f32>(-1.7320509,-1),vec2<f32>(1.7320509,-1),vec2<f32>(0,2));
+@@ -60 +61 @@ fn project(vertex: u32, index: u32, depth_only: bool) -> Vertex {
+-    let local = corners[vertex] * extent;
++    let local = corners[vertex] * (extent * 1.0001);

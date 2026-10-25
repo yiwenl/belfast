@@ -216,9 +216,9 @@ impl Example for Experiment {
                 &mut encoder,
                 surface_view,
                 wgpu::Color {
-                    r: 0.025,
-                    g: 0.025,
-                    b: 0.045,
+                    r: 0.01,
+                    g: 0.0095,
+                    b: 0.0085,
                     a: 1.0,
                 },
             );

@@ -8,7 +8,7 @@ mod input;
 pub use input::InputEvent;
 pub use web_time::Instant;
 
-use belfast::{pick_surface_color, Device};
+use belfast::{pick_surface_color, Device, SurfaceColorChoice};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -70,6 +70,7 @@ pub fn run_with<E: Example>(title: &'static str, options: ExampleRunOptions) {
     }
 }
 
+#[allow(dead_code)]
 pub fn begin_render_pass<'a>(
     encoder: &'a mut wgpu::CommandEncoder,
     view: &'a wgpu::TextureView,
@@ -93,6 +94,53 @@ pub fn begin_render_pass<'a>(
     })
 }
 
+#[allow(dead_code)]
+pub fn begin_render_pass_with_depth<'a>(
+    encoder: &'a mut wgpu::CommandEncoder,
+    view: &'a wgpu::TextureView,
+    depth_view: &'a wgpu::TextureView,
+    clear_color: wgpu::Color,
+) -> wgpu::RenderPass<'a> {
+    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: Some("ExampleSurfacePass"),
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view,
+            depth_slice: None,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(clear_color),
+                store: wgpu::StoreOp::Store,
+            },
+        })],
+        depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+            view: depth_view,
+            depth_ops: Some(wgpu::Operations {
+                load: wgpu::LoadOp::Clear(1.0),
+                store: wgpu::StoreOp::Store,
+            }),
+            stencil_ops: None,
+        }),
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    })
+}
+
+fn pick_unorm_sdr(formats: &[wgpu::TextureFormat]) -> wgpu::TextureFormat {
+    formats
+        .iter()
+        .copied()
+        .find(|format| {
+            matches!(
+                format,
+                wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Rgba8Unorm
+            )
+        })
+        .or_else(|| formats.iter().copied().find(|format| !format.is_srgb()))
+        .or_else(|| formats.first().copied())
+        .unwrap_or(wgpu::TextureFormat::Bgra8Unorm)
+}
+
 fn log_error(message: &str) {
     #[cfg(target_arch = "wasm32")]
     web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(message));
@@ -110,26 +158,11 @@ fn log_info(message: &str) {
 fn create_window(event_loop: &ActiveEventLoop, title: &'static str) -> Arc<Window> {
     #[cfg(target_arch = "wasm32")]
     let attributes = {
-        use winit::dpi::LogicalSize;
         use winit::platform::web::WindowAttributesExtWebSys;
-        let mut attributes = Window::default_attributes()
+        Window::default_attributes()
             .with_title(title)
             .with_append(true)
-            .with_prevent_default(false);
-        if let Some(web_window) = web_sys::window() {
-            let width = web_window
-                .inner_width()
-                .ok()
-                .and_then(|value| value.as_f64())
-                .unwrap_or(1.0);
-            let height = web_window
-                .inner_height()
-                .ok()
-                .and_then(|value| value.as_f64())
-                .unwrap_or(1.0);
-            attributes = attributes.with_inner_size(LogicalSize::new(width, height));
-        }
-        attributes
+            .with_prevent_default(false)
     };
     #[cfg(not(target_arch = "wasm32"))]
     let attributes = Window::default_attributes().with_title(title);
@@ -338,7 +371,17 @@ impl<E: Example> ExampleState<E> {
         });
 
         let capabilities = surface.get_capabilities(&adapter);
-        let choice = pick_surface_color(&capabilities, options.hdr);
+        // WebGPU canvas is `bgra8unorm`/`rgba8unorm`. Native otherwise prefers `*srgb`,
+        // which encodes linear shader output and washes out clear color + shadows.
+        let choice = if options.hdr {
+            pick_surface_color(&capabilities, true)
+        } else {
+            SurfaceColorChoice {
+                format: pick_unorm_sdr(&capabilities.formats),
+                color_space: wgpu::SurfaceColorSpace::Auto,
+                hdr: false,
+            }
+        };
         let format = choice.format;
         let hdr_info = surface.display_hdr_info(&adapter);
         log_info(&format!(
@@ -405,12 +448,32 @@ impl<E: Example> ExampleState<E> {
         self.example.resize(&self.context);
     }
 
+    #[cfg(target_arch = "wasm32")]
+    fn sync_canvas_size(&mut self) {
+        use winit::platform::web::WindowExtWebSys;
+        let Some(canvas) = self.window.canvas() else {
+            return;
+        };
+        let dpr = web_sys::window()
+            .map(|window| window.device_pixel_ratio())
+            .filter(|dpr| dpr.is_finite() && *dpr > 0.0)
+            .unwrap_or(1.0);
+        let width = (f64::from(canvas.client_width().max(0)) * dpr).round() as u32;
+        let height = (f64::from(canvas.client_height().max(0)) * dpr).round() as u32;
+        if width != self.config.width || height != self.config.height {
+            self.resize(PhysicalSize::new(width, height));
+        }
+    }
+
     fn render(&mut self, event_loop: &ActiveEventLoop) {
         if let Some(error) = self.pending_gpu_errors.take() {
             log_error(&error);
             event_loop.exit();
             return;
         }
+
+        #[cfg(target_arch = "wasm32")]
+        self.sync_canvas_size();
 
         let now = Instant::now();
         let delta_seconds = (now - self.last_frame_at).as_secs_f32().min(0.1);

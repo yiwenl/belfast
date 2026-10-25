@@ -5,6 +5,7 @@ pnpm-lock.yaml
 package-lock.json
 archive
 .superpowers
+experiments/*/pkg
 
 # Shaders
 *.wgsl

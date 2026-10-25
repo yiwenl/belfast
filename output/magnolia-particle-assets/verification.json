@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "woodTriangles": 57852,
+  "petalTriangles": 64,
+  "petalDoubleSided": true,
+  "petalPivot": "surface-area centroid",
+  "petalLengthAxis": "+Y (glTF)",
+  "petalNormalAxis": "+Z (glTF)",
+  "petalWidthAxis": "+X (glTF)",
+  "petalBoundsMeters": {
+    "min": [-0.05715344846248627, -0.09545636922121048, -0.007449192460626364],
+    "max": [0.057154010981321335, 0.09540990740060806, 0.021032679826021194]
+  },
+  "emitters": {
+    "flowers": 1094,
+    "buds": 341,
+    "total": 1435
+  },
+  "emitterTransformsCheckedAgainstGltfExporter": 1435
+}

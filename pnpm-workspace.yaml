@@ -1,5 +1,9 @@
 packages:
   - "packages/belfast-wasm"
   - "web"
+  - "experiments/template"
+  - "experiments/particles"
+  - "experiments/firefly_forest"
+  - "experiments/image_volume"
 allowBuilds:
   esbuild: true

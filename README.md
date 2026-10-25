@@ -40,6 +40,11 @@ const device = await Device.create(canvas);
 
 ## Repo layout
 
+Rust-owned experiment starter (Vite/TypeScript host, axes, mouse orbit, reserved Kinetic input):
+[`experiments/template`](experiments/template/README.md). Run `pnpm --dir experiments/template dev` and open <http://localhost:5174>.
+
+The independent particle experiment starts in [`experiments/particles`](experiments/particles/README.md): `pnpm --dir experiments/particles dev`, <http://localhost:5176>.
+
 ```
 crates/belfast          Native wgpu engine
 crates/belfast-wasm     wasm-bindgen facade
@@ -65,7 +70,7 @@ pnpm format:check
 
 Rust examples: [`crates/belfast/examples/README.md`](crates/belfast/examples/README.md).
 
-The TypeScript gallery (`pnpm dev`) is at `/`. Basic examples use `/basic/?example=colored-triangle`; standalone pages live at `/template/` and `/instancing/`.
+The TypeScript gallery (`pnpm dev`) is at `/`. Basic examples use `/basic/?example=colored-triangle`; standalone pages live at `/template/`, `/instancing/`, and `/particles/`.
 
 ## WebGPU browser support
 

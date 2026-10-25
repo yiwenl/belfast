@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast Image Particles</title>
+  </head>
+  <body>
+    <canvas aria-label="圖片配色粒子動畫"></canvas>
+    <section class="prompt-panel" aria-labelledby="panel-title">
+      <figure class="image-preview" hidden>
+        <img alt="目前粒子配色使用的生成圖片" width="512" height="512" />
+        <figcaption>
+          <span>目前配色圖片</span>
+          <span class="palette-label">擷取色票</span>
+          <ul class="palette-swatches" aria-label="粒子使用的代表色"></ul>
+        </figcaption>
+      </figure>
+      <div class="panel-heading">
+        <span class="panel-eyebrow">IMAGE PARTICLES</span>
+        <span class="panel-dot" aria-hidden="true"></span>
+      </div>
+      <h1 id="panel-title">以文字，為粒子上色</h1>
+      <p class="panel-hint" id="prompt-hint">用英文描述場景、色彩與光線。</p>
+      <form aria-busy="true">
+        <label for="image-prompt">畫面描述</label>
+        <textarea
+          id="image-prompt"
+          aria-describedby="prompt-hint"
+          rows="3"
+          placeholder="A misty forest, golden sunlight, deep green leaves"
+          disabled
+        ></textarea>
+        <div class="panel-actions">
+          <span class="panel-shortcut">⌘ / Ctrl + Enter</span>
+          <button type="submit" disabled>生成配色</button>
+        </div>
+        <p class="panel-status" role="status" aria-live="polite">正在準備粒子…</p>
+      </form>
+    </section>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

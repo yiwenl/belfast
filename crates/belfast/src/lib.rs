@@ -25,7 +25,9 @@ pub use device::{Device, DeviceOptions};
 pub use draw::{Draw, DrawOptions};
 pub use error::{BelfastError, BelfastResult};
 pub use geom::{Geom, GeometryData};
-pub use helpers::{AxisHelper, AxisHelperOptions};
+pub use helpers::{
+    AxisHelper, AxisHelperOptions, BallHelper, BallHelperOptions, CameraHelper, CameraHelperOptions,
+};
 pub use mesh::{
     Mesh, MeshIndexFormat, MeshLayoutSignature, VertexAttributeDescriptor, VertexBufferBinding,
     VertexBufferLayoutDescriptor,
@@ -34,3 +36,5 @@ pub use render_target::{RenderPassOptions, RenderPassTarget, RenderTarget, Rende
 pub use surface::{pick_surface_color, SurfaceColorChoice};
 pub use texture::{Texture, TextureOptions};
 pub use uniform_block::{UniformBlock, UniformFieldType};
+
+pub const WGSL_SHADOW_PCF_3X3: &str = include_str!("shaders/shadow_pcf_3x3.wgsl");

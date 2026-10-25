@@ -111,6 +111,19 @@ fn uploads_rgba_texture_and_exposes_metadata() {
     assert_eq!(texture.format(), wgpu::TextureFormat::Rgba8UnormSrgb);
 }
 
+#[test]
+fn depth_pass_accepts_an_explicit_load_operation() {
+    let Some(device) = create_optional_device() else {
+        return;
+    };
+    let texture =
+        Texture::create_2d(&device, 16, 16, TextureOptions::shadow_map("DepthLoadTest")).unwrap();
+    let mut encoder = device
+        .gpu()
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+    drop(texture.begin_depth_pass(&mut encoder, wgpu::LoadOp::Load));
+}
+
 fn create_optional_device() -> Option<Device> {
     match pollster::block_on(Device::create_headless()) {
         Ok(device) => Some(device),

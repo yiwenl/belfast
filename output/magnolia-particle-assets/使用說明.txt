@@ -1,0 +1,38 @@
+白花樹粒子素材
+
+來源：white-magnolia-thin50（枝幹直徑為初版的 50%）。
+
+1. magnolia-branches.glb
+只有樹幹、枝條、細枝與根部；沒有花朵、花苞、地面、相機或燈光。
+保留原始位置與尺寸。57,852 個三角面，1 個網格，1 個材質。
+樹皮顏色與法線貼圖已嵌入，不需外部圖片或 Draco 解碼器。
+
+2. magnolia-petal.glb
+從現有花朵抽出的單片立體花瓣，64 個三角面，1 個網格，1 個材質。
+象牙白與淡粉色基部貼圖已嵌入，材質為雙面可見，適合 instancing。
+原點位於花瓣的表面重心；長度沿 +Y，寬度沿 X，正面朝 +Z。
+自然尺寸約長 19.1 公分、寬 11.4 公分，可由粒子的 scale 調整。
+花瓣是彎曲薄片，沒有額外厚度、骨架或動畫。
+
+3. magnolia-emitter-positions.json
+共 1,435 個發射點：1,094 朵花、341 個花苞。
+emitters 是所有發射點的陣列；type 為 flower 或 bud，可自行篩選。
+position：花瓣群或花苞本體的視覺中心，可直接當粒子起始位置。
+attachmentPosition：原花朵／花苞在枝條上的接合點。
+direction：花朵／花苞朝向的單位向量。
+rotation：四元數 [x, y, z, w]，將本地 +Y 轉到 direction。
+scale：原花朵／花苞的縮放 [x, y, z]。
+id：原 Blender 物件名稱，方便對照。
+
+座標約定
+全部使用 GLB / glTF 的右手座標，Y 軸向上、正面 +Z，單位為公尺。
+JSON 的 position 與 attachmentPosition 已完成座標轉換，不要再次交換 Y/Z。
+座標屬於原樹模型的本地空間，與 magnolia-branches.glb 原始變換精確對齊。
+移動、旋轉或縮放整棵樹時，對發射點套用相同的世界矩陣。
+direction 使用旋轉變換後再正規化；不要加上位移。
+只要從花朵發射，可篩選 type == "flower"；花苞資料仍完整保留。
+
+驗證
+已用 GLB 匯出器核對所有 1,435 個原始接合位置、旋轉與縮放。
+已核對 direction 與 rotation 一致，並檢查三份檔案的格式、數量與貼圖封裝。
+單片花瓣已重新匯入並渲染，preview-petal.png 為實際 GLB 預覽。

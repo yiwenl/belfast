@@ -1,6 +1,29 @@
 use belfast::{BelfastError, Device};
 
 #[test]
+fn particle_update_shaders_square_noise_without_pow() {
+    for (label, source) in [
+        (
+            "native",
+            include_str!("../examples/shaders/particles_update.wgsl"),
+        ),
+        (
+            "web",
+            include_str!("../../../web/particles/src/shaders/particles_update.wgsl"),
+        ),
+    ] {
+        assert!(
+            source.contains("posOffset = posOffset * posOffset;"),
+            "{label} particle update shader must square signed noise with multiplication"
+        );
+        assert!(
+            !source.contains("pow(posOffset, 2.0)"),
+            "{label} particle update shader must not use pow on signed noise"
+        );
+    }
+}
+
+#[test]
 fn native_example_shaders_pass_wgpu_validation() {
     let Some(device) = create_optional_device() else {
         return;
@@ -35,6 +58,10 @@ fn native_example_shaders_pass_wgpu_validation() {
             "axis_helper",
             include_str!("../src/helpers/axis_helper.wgsl"),
         ),
+        (
+            "ball_helper",
+            include_str!("../src/helpers/ball_helper.wgsl"),
+        ),
         ("compute", include_str!("../examples/shaders/compute.wgsl")),
         (
             "compute_triangle",
@@ -60,6 +87,43 @@ fn native_example_shaders_pass_wgpu_validation() {
             .expect("poll device");
         let error = pollster::block_on(error_scope.pop());
 
+        assert!(error.is_none(), "{label}: {}", error.unwrap());
+    }
+}
+
+#[test]
+fn particle_image_shaders_pass_wgpu_validation() {
+    let Some(device) = create_optional_device() else {
+        return;
+    };
+    let draw = format!(
+        "{}\n{}",
+        belfast::WGSL_SHADOW_PCF_3X3,
+        include_str!("../../../web/particles-image/src/shaders/particles.wgsl")
+    );
+    for (label, source) in [
+        ("particle_image_draw", draw.as_str()),
+        (
+            "particle_image_update",
+            include_str!("../../../web/particles-image/src/shaders/particles_update.wgsl"),
+        ),
+        (
+            "particle_image_shadow",
+            include_str!("../../../web/particles-image/src/shaders/particles_shadow_depth.wgsl"),
+        ),
+    ] {
+        let scope = device.gpu().push_error_scope(wgpu::ErrorFilter::Validation);
+        let _module = device
+            .gpu()
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(label),
+                source: wgpu::ShaderSource::Wgsl(source.into()),
+            });
+        device
+            .gpu()
+            .poll(wgpu::PollType::wait_indefinitely())
+            .expect("poll device");
+        let error = pollster::block_on(scope.pop());
         assert!(error.is_none(), "{label}: {}", error.unwrap());
     }
 }

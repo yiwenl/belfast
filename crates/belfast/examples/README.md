@@ -10,16 +10,17 @@ Run all commands from the repo root.
 cargo run -p belfast --example triangle
 ```
 
-| Example             | What it shows                                      |
-| ------------------- | -------------------------------------------------- |
-| `triangle`          | One mesh, one draw                                 |
-| `colored_triangle`  | Per-vertex colors                                  |
-| `camera_uniform`    | Perspective camera + uniform bind group            |
-| `texture`           | Sampled RGBA8 plane                                |
-| `render_to_texture` | Offscreen pass, then present                       |
-| `template`          | Orbit camera, axis helper — copy this to start new |
-| `compute`           | Compute writes triangle vertices, then Draw        |
-| `hdr_display`       | Linear luminance ramp on an HDR swapchain          |
+| Example             | What it shows                                                    |
+| ------------------- | ---------------------------------------------------------------- |
+| `triangle`          | One mesh, one draw                                               |
+| `colored_triangle`  | Per-vertex colors                                                |
+| `camera_uniform`    | Perspective camera + uniform bind group                          |
+| `texture`           | Sampled RGBA8 plane                                              |
+| `render_to_texture` | Offscreen pass, then present                                     |
+| `template`          | Orbit camera, axis helper — copy this to start new               |
+| `compute`           | Compute writes triangle vertices, then Draw                      |
+| `hdr_display`       | Linear luminance ramp on an HDR swapchain                        |
+| `particles`         | 1M instanced billboard discs with compute simulation and shadows |
 
 `hdr_display` asks for `rgba16float` plus an extended color space (`ExtendedSrgbLinear` on native, `ExtendedSrgb` on the web). It needs an HDR display (macOS: System Settings → Displays → High Dynamic Range). A red tick marks SDR white (`1.0`); the right side of the ramp is brighter-than-white when HDR presentation is active. On an SDR display the right side clips — that is the fallback.
 
