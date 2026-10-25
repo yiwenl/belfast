@@ -16,24 +16,7 @@ body {
 }
 body {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-}
-.title {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  padding: 18px 24px;
-  border-bottom: 1px solid #bacfa026;
-}
-.title strong {
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-.title span {
-  font-size: 12px;
-  color: #a6b29d;
+  grid-template-rows: minmax(0, 1fr);
 }
 #comparison {
   min-height: 0;
@@ -48,22 +31,6 @@ body {
   display: flex;
   flex-direction: column;
   background: #030403;
-}
-.pane-heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 38px;
-  padding: 10px 16px;
-  font-size: 12px;
-}
-.detail {
-  font-size: 11px;
-  color: #a6b29d;
-  font-variant-numeric: tabular-nums;
-}
-.pane-heading .detail:first-of-type {
-  margin-left: auto;
 }
 .viewport {
   position: relative;
@@ -92,49 +59,14 @@ video {
 canvas {
   touch-action: none;
   cursor: grab;
-  outline-offset: -3px;
+  outline: none;
 }
 canvas:active {
   cursor: grabbing;
 }
-canvas:focus:not(:focus-visible) {
+canvas:focus,
+canvas:focus-visible {
   outline: none;
-}
-.controls {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  padding: 14px 24px;
-  border-top: 1px solid #bacfa026;
-  background: #10170e;
-}
-.readout {
-  display: grid;
-  gap: 5px;
-  font-size: 11px;
-  color: #a6b29d;
-}
-.controls output {
-  color: #e3e8de;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.point-control {
-  width: 210px;
-  margin-left: auto;
-}
-.point-control label {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12px;
-}
-#point-size {
-  width: 100%;
-  margin: 8px 0 0;
-  accent-color: #b2c99d;
-  cursor: pointer;
 }
 #status,
 #error,
@@ -152,30 +84,4 @@ canvas:focus:not(:focus-visible) {
   background: #341c1c;
   color: #ffd8d8;
   white-space: pre-wrap;
-}
-@media (max-width: 700px) {
-  .title {
-    padding: 14px 16px;
-    gap: 6px;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .title span {
-    font-size: 11px;
-  }
-  .pane-heading {
-    padding: 9px 10px;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-  #point-count {
-    display: none;
-  }
-  .controls {
-    padding: 12px 16px;
-    gap: 18px;
-  }
-  .point-control {
-    width: min(170px, 42%);
-  }
 }

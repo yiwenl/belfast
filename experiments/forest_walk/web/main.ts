@@ -1,5 +1,4 @@
 import init, { ExperimentApp } from "../pkg/experiment";
-import { createFpsMeter } from "./fps";
 import { bindWalkInput } from "./input";
 import { loadPlyBytes } from "./load-ply";
 import { VideoScrubber } from "./video-sync";
@@ -10,22 +9,14 @@ const comparison = document.querySelector<HTMLElement>("#comparison")!;
 const video = document.querySelector<HTMLVideoElement>("#walk-video")!;
 const videoStatus = document.querySelector<HTMLElement>("#video-status")!;
 const videoSync = new VideoScrubber(video);
-const walkTime = document.querySelector<HTMLOutputElement>("#walk-time")!;
 const status = document.querySelector<HTMLElement>("#status")!;
 const errorOutput = document.querySelector<HTMLElement>("#error")!;
-const pointCount = document.querySelector<HTMLElement>("#point-count")!;
-const cameraIndex = document.querySelector<HTMLElement>("#camera-index")!;
-const size = document.querySelector<HTMLInputElement>("#point-size")!;
-const sizeValue = document.querySelector<HTMLOutputElement>("#point-size-value")!;
-const fps = createFpsMeter(document.querySelector<HTMLElement>("#fps")!);
 const loading = new AbortController();
 const events = new AbortController();
 let app: ExperimentApp | undefined;
 let detachInput: (() => void) | undefined;
 let animationFrame = 0;
 let disposed = false;
-let lastIndex = -1;
-let lastTime = "";
 
 function dispose() {
   if (disposed) return;
@@ -33,7 +24,6 @@ function dispose() {
   loading.abort();
   events.abort();
   cancelAnimationFrame(animationFrame);
-  fps.dispose();
   detachInput?.();
   videoSync.dispose();
   app?.free();
@@ -81,49 +71,15 @@ async function start() {
     ]);
     if (disposed) return;
     status.textContent = "Building the point cloud…";
-    const camerasCount = created.loadCameras(cameras);
-    const count = created.loadPointCloud(bytes);
-    pointCount.textContent = count.toLocaleString() + " points";
-    created.setPointSize(Number(size.value));
-    size.disabled = false;
-    size.addEventListener(
-      "input",
-      () => {
-        if (disposed) return;
-        try {
-          created.setPointSize(Number(size.value));
-          sizeValue.value = Number(size.value).toFixed(1) + " px";
-        } catch (error) {
-          reportError(error);
-        }
-      },
-      { signal: events.signal },
-    );
+    created.loadCameras(cameras);
+    created.loadPointCloud(bytes);
     detachInput = bindWalkInput(canvas, created, comparison);
     function frame(timestampMs: number) {
       if (disposed) return;
       try {
         created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
         created.frame(timestampMs);
-        fps.tick(timestampMs);
-        const time = created.cameraTime();
-        videoSync.setTime(time);
-        const millis = Math.round(time * 1000);
-        const formatted = `${Math.floor(millis / 60000)
-          .toString()
-          .padStart(
-            2,
-            "0",
-          )}:${(Math.floor(millis / 1000) % 60).toString().padStart(2, "0")}.${(millis % 1000).toString().padStart(3, "0")}`;
-        if (formatted !== lastTime) {
-          walkTime.value = formatted;
-          lastTime = formatted;
-        }
-        const index = created.cameraIndex();
-        if (index !== lastIndex) {
-          cameraIndex.textContent = `${index + 1} / ${camerasCount}`;
-          lastIndex = index;
-        }
+        videoSync.setTime(created.cameraTime());
         status.hidden = true;
         animationFrame = requestAnimationFrame(frame);
       } catch (error) {

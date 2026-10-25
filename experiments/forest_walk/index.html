@@ -6,13 +6,8 @@
     <title>Belfast — Forest Walk</title>
   </head>
   <body>
-    <header class="title">
-      <strong>Forest Walk</strong>
-      <span>Scroll either side to walk · Drag the point cloud to look around</span>
-    </header>
     <main id="comparison" aria-label="Synchronized video and point cloud comparison">
       <section class="pane" aria-label="Original video">
-        <div class="pane-heading"><span>Original video</span><span class="detail">720p</span></div>
         <div class="viewport">
           <div class="media-frame">
             <video
@@ -29,10 +24,6 @@
         </div>
       </section>
       <section class="pane" aria-label="3D point cloud">
-        <div class="pane-heading">
-          <span>3D point cloud</span><span class="detail" id="point-count">Loading points…</span
-          ><span class="detail" id="fps" aria-label="Frames per second">— FPS</span>
-        </div>
         <div class="viewport">
           <div class="media-frame">
             <canvas
@@ -45,14 +36,6 @@
         </div>
       </section>
     </main>
-    <footer class="controls" aria-label="Walk controls">
-      <div class="readout"><span>Camera</span><output id="camera-index">— / —</output></div>
-      <div class="readout"><span>Time</span><output id="walk-time">00:00.000</output></div>
-      <div class="point-control">
-        <label for="point-size">Point size <output id="point-size-value">2.0 px</output></label>
-        <input id="point-size" type="range" min="0.5" max="12" step="0.1" value="2" disabled />
-      </div>
-    </footer>
     <script type="module" src="./web/main.ts"></script>
   </body>
 </html>

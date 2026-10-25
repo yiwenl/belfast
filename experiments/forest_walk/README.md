@@ -21,8 +21,8 @@ Open http://localhost:5182. The 720p video is on the left and the point cloud is
 - Arrow keys also step through cameras. Scrolling and keys clamp at both ends.
 - Drag with the left mouse button (or one finger) to look around in place. Vertical rotation stops before the poles to prevent flipping.
 - Scrolling smoothly follows the recorded positions while keeping your chosen viewing direction and field of view. The initial view uses camera 1, including its recorded roll.
-- Point size controls the circular billboard diameter in CSS pixels (0.5–12 px). Default: 2 px.
-- Camera displays the selected destination frame. The walk ends at camera 151 (inclusive); tracking from camera 152 onward is unreliable.
+- The comparison fills the viewport without visible headings, readouts or controls. Circular billboard diameter stays at the default 2 CSS pixels.
+- The walk ends at camera 151 (inclusive); tracking from camera 152 onward is unreliable.
 
 The preparation command copies the PLY to public/forest.ply and writes public/cameras.json with the first 151 poses in timestamp order and the intrinsics required by the viewer. These local assets are ignored by Git. Repeat this step on another checkout or before building for deployment.
 
