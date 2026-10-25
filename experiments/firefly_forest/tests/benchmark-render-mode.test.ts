@@ -8,6 +8,27 @@ import {
   type BenchmarkConfig,
 } from "../web/benchmark-results";
 
+test("height changes invalidate benchmark comparisons", () => {
+  const heights = {
+    base: 1.25,
+    spread: 0.5,
+    outlier: 1.25,
+    exponent: 8,
+    limit: 3,
+    noiseScale: 4,
+    noiseAmplitude: 0.5,
+  };
+  const baseline = { heights } as BenchmarkConfig;
+  for (const key of Object.keys(heights) as (keyof typeof heights)[]) {
+    assert.deepEqual(
+      differences(baseline, {
+        heights: { ...heights, [key]: heights[key] + 0.1 },
+      } as BenchmarkConfig),
+      ["高度設定"],
+    );
+  }
+});
+
 test("particle and trail measurements cannot share a comparable baseline", () => {
   const particles = { fireflyRenderMode: "particles" } as BenchmarkConfig;
   const trails = { ...particles, fireflyRenderMode: "trails" } as BenchmarkConfig;
@@ -33,6 +54,15 @@ test("baseline loading validates the firefly render mode", () => {
     brushStrokes: true,
     flashRecovery: 0.65,
     fireflyGlow: true,
+    heights: {
+      base: 1.25,
+      spread: 0.5,
+      outlier: 1.25,
+      exponent: 8,
+      limit: 3,
+      noiseScale: 4,
+      noiseAmplitude: 0.5,
+    },
   });
   baseline.config.fog.noiseFrequency = 1;
   for (const mode of ["particles", "trails", "drag"]) {
@@ -55,6 +85,19 @@ test("baseline loading validates the firefly render mode", () => {
     assert.throws(() => parseBaseline(JSON.stringify(baseline)));
   }
   baseline.config.flashRecovery = 0.65;
+  const heights = baseline.config.heights;
+  for (const value of [
+    undefined,
+    null,
+    {},
+    { ...heights, noiseScale: 0 },
+    { ...heights, limit: 4 },
+    { ...heights, exponent: "8" },
+  ]) {
+    baseline.config.heights = value;
+    assert.throws(() => parseBaseline(JSON.stringify(baseline)));
+  }
+  baseline.config.heights = heights;
   assert.deepEqual(differences(baseline.config, { ...baseline.config, fireflyGlow: false }), [
     "粒子 Glow",
   ]);

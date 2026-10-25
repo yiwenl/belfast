@@ -6,9 +6,12 @@ use crate::sorting::SortCamera;
 
 #[path = "firefly_display.rs"]
 mod display;
+#[path = "firefly_height.rs"]
+mod height;
 #[path = "firefly_trails.rs"]
 mod trails;
 pub use display::RenderMode;
+pub use height::HeightSettings;
 
 pub const PARTICLE_COUNT: u32 = 20_000;
 const MIN_PARTICLE_COUNT: u32 = 10_000;
@@ -42,6 +45,7 @@ struct Particle {
 /// Tuning lives here, in the forest's existing Y-up scene coordinates.
 #[derive(Clone, Copy)]
 struct Settings {
+    height: HeightSettings,
     min: [f32; 3],
     max: [f32; 3],
     neighbor_radius: f32,
@@ -60,6 +64,7 @@ struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            height: HeightSettings::default(),
             min: [-10., -0.45, -24.],
             max: [10., 3., 6.],
             neighbor_radius: 0.9,
@@ -88,6 +93,8 @@ struct SimParams {
     clock: [f32; 4],
     controls: [f32; 4],
     randomness: [f32; 4],
+    height: [f32; 4],
+    height_noise: [f32; 4],
     grid_count: [u32; 4],
     neighbor_view: [[f32; 4]; 6],
     benchmark: [u32; 4],
@@ -108,11 +115,21 @@ fn seeded_particles(settings: &Settings, count: u32, seed: u32) -> Vec<Particle>
     };
     (0..count)
         .map(|_| {
-            let position: [f32; 3] = std::array::from_fn(|i| {
+            let r = random();
+            let fraction = [random(), random(), random()];
+            let mut position: [f32; 3] = std::array::from_fn(|i| {
                 let low = settings.min[i] + BODY_RADIUS + 0.1;
                 let high = settings.max[i] - BODY_RADIUS - 0.1;
-                low + random() * (high - low)
+                low + fraction[i] * (high - low)
             });
+            let low = settings.min[1] + BODY_RADIUS + 0.1;
+            let high = settings
+                .height
+                .ceiling([position[0], position[2]], r)
+                .min(settings.max[1])
+                - BODY_RADIUS
+                - 0.1;
+            position[1] = low + fraction[1] * (high - low);
             Particle {
                 position_phase: [position[0], position[1], position[2], random()],
                 velocity_frequency: [
@@ -125,7 +142,7 @@ fn seeded_particles(settings: &Settings, count: u32, seed: u32) -> Vec<Particle>
                     DEFAULT_FLASH_DURATION_SECONDS,
                     0.,
                     DEFAULT_FLASH_DURATION_SECONDS,
-                    0.,
+                    r,
                 ],
             }
         })
@@ -503,6 +520,11 @@ impl FireflySystem {
         self.glow = enabled;
     }
 
+    pub fn set_height(&mut self, height: HeightSettings) -> Result<(), String> {
+        self.settings.height = height.validate()?;
+        Ok(())
+    }
+
     pub fn update(&mut self, device: &Device, dt: f32, camera: &SortCamera) {
         self.pending_dt = if dt.is_finite() {
             dt.clamp(0., 0.1)
@@ -543,6 +565,18 @@ impl FireflySystem {
                     self.flash_duration,
                 ],
                 randomness: [self.randomness[0], self.randomness[1], 0., 0.],
+                height: [
+                    s.height.base,
+                    s.height.spread,
+                    s.height.outlier,
+                    s.height.exponent,
+                ],
+                height_noise: [
+                    s.height.limit,
+                    s.height.noise_scale,
+                    s.height.noise_amplitude,
+                    0.,
+                ],
                 grid_count: [self.grid[0], self.grid[1], self.grid[2], self.count],
                 neighbor_view,
                 benchmark: [u32::from(self.view_culling), 0, 0, 0],

@@ -212,6 +212,13 @@ impl Scene {
         self.fireflies.set_glow(enabled);
     }
 
+    pub fn set_firefly_height(
+        &mut self,
+        height: crate::fireflies::HeightSettings,
+    ) -> Result<(), String> {
+        self.fireflies.set_height(height)
+    }
+
     pub fn set_firefly_render_mode(&mut self, mode: &str) -> Result<(), String> {
         use crate::fireflies::RenderMode;
         let mode = match mode {

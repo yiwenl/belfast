@@ -11,6 +11,19 @@ fn petal_noise_hash(cell: vec3<i32>) -> vec3<f32> {
     return vec3<f32>(h >> vec3(8u)) * (2. / 16777216.) - 1.;
 }
 
+// Static XZ surface; scale is the width of one noise cell.
+fn ceiling_noise(xz: vec2<f32>, scale: f32) -> f32 {
+    let p = xz / scale;
+    let cell = vec2<i32>(floor(p));
+    let f = fract(p);
+    let u = f * f * f * (f * (f * 6. - 15.) + 10.);
+    let a = petal_noise_hash(vec3(cell.x, 0, cell.y)).x;
+    let b = petal_noise_hash(vec3(cell.x + 1, 0, cell.y)).x;
+    let c = petal_noise_hash(vec3(cell.x, 0, cell.y + 1)).x;
+    let d = petal_noise_hash(vec3(cell.x + 1, 0, cell.y + 1)).x;
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
 fn curl_noise(p: vec3<f32>) -> vec3<f32> {
     let cell = vec3<i32>(floor(p));
     let f = fract(p);

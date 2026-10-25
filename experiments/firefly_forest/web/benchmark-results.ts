@@ -1,11 +1,12 @@
 import { validLightSettings, type LightSettings } from "./light-controls";
 import { validColorSettings, type ColorSettings } from "./color-controls";
 import { validFogSettings, type FogSettings } from "./fog-controls";
+import { validHeightSettings, type HeightSettings } from "./height-controls";
 
-export const BENCHMARK_VERSION = 21;
+export const BENCHMARK_VERSION = 25;
 export const WARMUP_FRAMES = 120;
 export const FIXED_DT = 1 / 60;
-export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v21";
+export const BASELINE_KEY = "firefly-forest.benchmark.baseline.v25";
 
 export interface BenchmarkConfig {
   seed: number;
@@ -30,6 +31,7 @@ export interface BenchmarkConfig {
   colors: ColorSettings;
   lighting: LightSettings;
   fog: FogSettings;
+  heights: HeightSettings;
   cssSize: number[];
   dpr: number;
   environment: string;
@@ -91,6 +93,7 @@ const labels: Record<keyof BenchmarkConfig, string> = {
   colors: "調色設定",
   lighting: "局部光照設定",
   fog: "體積霧設定",
+  heights: "高度設定",
   cssSize: "視窗尺寸",
   dpr: "像素比例",
   environment: "GPU／輸出模式",
@@ -159,6 +162,7 @@ export function parseBaseline(raw: string): BenchmarkResult {
     !validColorSettings(c.colors) ||
     !validLightSettings(c.lighting) ||
     !validFogSettings(c.fog) ||
+    !validHeightSettings(c.heights) ||
     !Array.isArray(c.camera) ||
     c.camera.length !== 34 ||
     !c.camera.every(finite) ||

@@ -144,7 +144,7 @@ The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** co
 
 Changes update two small uniform buffers immediately, with no shader rebuild,
 particle reset or forest-cache rebuild. Color pickers use display RGB hex colors.
-Benchmark v21 records all color, local-light and fog settings (including noise frequency), firefly randomness, sprite size, shared flash/trail recovery time, particle glow, particle/trail/drag display and brush-rendering mode (2× size / 50% count), and locks these controls during a run. Different recovery times or particle glow settings are incompatible baselines. In drag mode the scripted moving path holds the effect active at 1× after acceleration, while a static run shows particles at the configured speed; completion or cancellation releases it. The Benchmark panel is collapsed by default.
+Benchmark v25 records all color, local-light and fog settings (including noise frequency), firefly randomness and height settings, sprite size, shared flash/trail recovery time, particle glow, particle/trail/drag display and brush-rendering mode (2× size / 50% count), and locks these controls during a run. Different recovery times or particle glow settings are incompatible baselines. In drag mode the scripted moving path holds the effect active at 1× after acceleration, while a static run shows particles at the configured speed; completion or cancellation releases it. The Benchmark panel is collapsed by default.
 
 ## Animated volumetric fog
 
@@ -251,7 +251,7 @@ frame index, so slower rendering does not change the route. The camera starts
 at world origin (separate from the interactive starting position); FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
 interactive view. Path version, sorting cadence, color, local-light and fog settings are part of
-baseline compatibility; v21 baselines are stored separately from earlier v1–v20 results.
+baseline compatibility; v25 baselines record all height controls and are stored separately from earlier v1–v24 results.
 Moving measurements use the same sort thresholds as interactive viewing;
 only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search
@@ -330,20 +330,26 @@ Each cycle wrap triggers a separate flash, with a smooth rise and fall and no gl
 
 The on-screen **移動速度** (movement speed) and **閃爍頻率** (blink frequency) sliders independently scale motion and oscillation from `0` to `1`, defaulting to **0.27×** and **0.28×**, respectively. `1` preserves the original speed; `0` pauses motion or prevents new flashes without resetting the cycle. An active flash finishes normally even at frequency `0`. Noise animation clocks use the square root of their respective slider rates, so wandering and frequency drift keep evolving at low settings without speeding up motion or cycle integration. Zero still freezes the corresponding noise clock. Changes take effect immediately without reloading the forest.
 
-Tune `Settings::default()` in `src/fireflies.rs`:
+Tune height in **螢火蟲 → 高度**. The seven live controls are **基準高度**, **隨機幅度**, **高飛加成**, **分布次方**, **高度上限**, **Noise 尺度**, and **Noise 幅度**. Larger noise scale makes broader regions; larger exponent makes high outliers rarer. Changes preserve existing particles, their individual random seeds, flash cycles and trail history. The upper-limit slider supports `0.25–3.0`; the full grid/light bounds remain at `3.0`. Benchmark runs lock and record these controls.
 
-| Parameter                    | Default                                               |
-| ---------------------------- | ----------------------------------------------------- |
-| Population                   | `20,000` default, `10,000` minimum, `100,000` maximum |
-| X / Z bounds                 | `[-10, 10]` / `[-24, 6]`                              |
-| Ground / ceiling Y           | `-0.45` / `3.0`                                       |
-| Neighbor / separation radius | `0.9` / `0.22`                                        |
-| Maximum speed / acceleration | `0.32` / `0.65` scene units per second / second²      |
-| Phase coupling               | `0.35`                                                |
-| Random frequency drift       | `±0.065` cycles per second                            |
-| Curl strength                | `0.12`                                                |
+Defaults live in `src/firefly_height.rs` and `Settings::default()` in `src/fireflies.rs`:
 
-The ground is a configurable horizontal simulation plane in the scan's coordinates, not collision against a reconstructed terrain mesh. Soft forces turn particles before the bounds, with a final clamp keeping their bodies above the ground and below the ceiling.
+| Parameter                    | Default                                                 |
+| ---------------------------- | ------------------------------------------------------- |
+| Population                   | `20,000` default, `10,000` minimum, `100,000` maximum   |
+| X / Z bounds                 | `[-10, 10]` / `[-24, 6]`                                |
+| Ground / outer ceiling Y     | `-0.45` / `3.0`                                         |
+| Individual base ceiling Y    | `1.25–3.0`, median approximately `1.5`                  |
+| Ceiling noise                | XZ cell size `4.0`, amplitude `±0.5`, outer limit `3.0` |
+| Neighbor / separation radius | `0.9` / `0.22`                                          |
+| Maximum speed / acceleration | `0.32` / `0.65` scene units per second / second²        |
+| Phase coupling               | `0.35`                                                  |
+| Random frequency drift       | `±0.065` cycles per second                              |
+| Curl strength                | `0.12`                                                  |
+
+Each particle keeps a fixed random value `r`; its base ceiling is `base + spread × r + outlier × r^exponent`, capped by the height limit. Defaults give `1.25 + 0.5r + 1.25r⁸`. Most base ceilings lie between `1.25` and `1.75`, with a sparse tail approaching `3.0`. Static 2D value noise sampled at the particle's current XZ adds up to `±0.5` height variation, with four-unit cells and smooth quintic interpolation. The final ceiling is clamped between `0.25` and the selected height limit to stay safely above the ground. CPU spawning, benchmark reset and GPU simulation use the current controls and the same surface; the fixed random value stays in the existing particle state, and the neighbor grid and light volume retain the full outer bounds.
+
+The ground is a configurable horizontal simulation plane in the scan's coordinates, not collision against a reconstructed terrain mesh. Soft forces turn particles before the bounds, with a final clamp keeping their bodies above the ground and below their individual ceilings.
 
 On adapters supporting `float32-blendable`, the Gaussian color pass also writes
 an `R32Float` occlusion attachment using minimum blending. Fragments with alpha

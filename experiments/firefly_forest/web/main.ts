@@ -4,6 +4,7 @@ import { loadBrushMasks } from "./brush-textures";
 import { bindColorControls } from "./color-controls";
 import { bindLightControls } from "./light-controls";
 import { bindFogControls } from "./fog-controls";
+import { bindHeightControls } from "./height-controls";
 import { createFpsMeter } from "./fps";
 import { bindOrbitInput } from "./input";
 import { createSkeletonAdapter } from "./kinetic";
@@ -25,6 +26,7 @@ let detachControls: (() => void) | undefined;
 let detachColors: (() => void) | undefined;
 let detachLights: (() => void) | undefined;
 let detachFog: (() => void) | undefined;
+let detachHeight: (() => void) | undefined;
 let benchmark: ReturnType<typeof createBenchmark> | undefined;
 let animationFrame = 0;
 let disposed = false;
@@ -47,6 +49,7 @@ function dispose() {
   detachColors?.();
   detachLights?.();
   detachFog?.();
+  detachHeight?.();
   app?.free();
   app = undefined;
   window.removeEventListener("pagehide", onPageHide);
@@ -174,6 +177,7 @@ async function start() {
     detachColors = bindColorControls(created, reportError);
     detachLights = bindLightControls(created, reportError);
     detachFog = bindFogControls(created, reportError);
+    detachHeight = bindHeightControls(created, reportError);
     benchmark = createBenchmark(created, canvas, (locked) => {
       for (const input of document.querySelectorAll<
         HTMLInputElement | HTMLSelectElement | HTMLButtonElement

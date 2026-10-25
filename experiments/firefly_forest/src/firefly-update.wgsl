@@ -7,6 +7,8 @@ struct SimParams {
     clock: vec4<f32>, // dt, movement noise time, body radius, phase noise time
     controls: vec4<f32>, // movement rate, blinking rate, phase jitter, flash duration
     randomness: vec4<f32>, // movement / blinking randomness multipliers, reserved
+    height: vec4<f32>, // base, random spread, outlier boost, exponent
+    height_noise: vec4<f32>, // upper limit, XZ cell size, amplitude, reserved
     grid_count: vec4<u32>, // grid dimensions, particle count
     neighbor_view: array<vec4<f32>, 6>, // inward world planes, expanded by neighbor + sprite radius
     benchmark: vec4<u32>, // x: offscreen simplification enabled
@@ -136,7 +138,11 @@ fn update_particles(@builtin(global_invocation_id) id: vec3<u32>) {
         + vec3(0.73, 0.41, -0.57) * params.clock.y * params.noise_phase.z * (0.7 + 0.3 * individual.x);
     force += curl_noise(position * params.noise_phase.x + offset) * params.noise_phase.y * params.randomness.x;
     let low = params.min_cell.xyz + vec3(params.clock.z);
-    let high = params.max_neighbor.xyz - vec3(params.clock.z);
+    var high = params.max_neighbor.xyz - vec3(params.clock.z);
+    let base_ceiling = min(params.height_noise.x, params.height.x + params.height.y * current.flash.w
+        + params.height.z * pow(current.flash.w, params.height.w));
+    high.y = min(high.y, clamp(base_ceiling + ceiling_noise(position.xz, params.height_noise.y)
+        * params.height_noise.z, 0.25, params.height_noise.x) - params.clock.z);
     // Smoothly turn inward before reaching a wall; clamp is only a safety net.
     let lower_pressure = clamp((low + vec3(params.motion.w) - position) / params.motion.w, vec3(0.), vec3(1.));
     let upper_pressure = clamp((position - high + vec3(params.motion.w)) / params.motion.w, vec3(0.), vec3(1.));
@@ -159,6 +165,16 @@ fn update_particles(@builtin(global_invocation_id) id: vec3<u32>) {
                 position[axis] = high[axis];
                 velocity[axis] = -abs(velocity[axis]) * 0.3;
             }
+        }
+    }
+    // Horizontal movement may enter a lower part of the ceiling during this step.
+    if movement_dt > 0. {
+        let ceiling = min(params.max_neighbor.y, clamp(base_ceiling
+            + ceiling_noise(position.xz, params.height_noise.y) * params.height_noise.z,
+            0.25, params.height_noise.x)) - params.clock.z;
+        if position.y > ceiling {
+            position.y = ceiling;
+            velocity.y = -abs(velocity.y) * 0.3;
         }
     }
     // The oscillator controls when a flash starts, never how long it stays lit.
@@ -184,6 +200,6 @@ fn update_particles(@builtin(global_invocation_id) id: vec3<u32>) {
     particles_out[id.x] = Firefly(
         vec4(position, phase),
         vec4(velocity, current.velocity_frequency.w),
-        vec4(flash_age, intensity, duration, 0.)
+        vec4(flash_age, intensity, duration, current.flash.w)
     );
 }

@@ -386,6 +386,30 @@ impl ExperimentApp {
         self.scene.set_firefly_glow(enabled);
     }
 
+    #[wasm_bindgen(js_name = setFireflyHeight)]
+    pub fn set_firefly_height(
+        &mut self,
+        base: f32,
+        spread: f32,
+        outlier: f32,
+        exponent: f32,
+        limit: f32,
+        noise_scale: f32,
+        noise_amplitude: f32,
+    ) -> Result<(), JsValue> {
+        self.scene
+            .set_firefly_height(crate::fireflies::HeightSettings {
+                base,
+                spread,
+                outlier,
+                exponent,
+                limit,
+                noise_scale,
+                noise_amplitude,
+            })
+            .map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = loadPly)]
     pub fn load_ply(&mut self, bytes: &[u8]) -> Result<u32, JsValue> {
         self.scene.load_ply(&self.device, bytes).map_err(js_error)

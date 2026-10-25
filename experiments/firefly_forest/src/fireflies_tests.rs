@@ -28,6 +28,232 @@ fn initial_population_is_finite_bounded_and_has_varied_cycles() {
 }
 
 #[test]
+fn seeded_ceilings_cluster_near_low_canopy_with_rare_high_outliers() {
+    let settings = Settings::default();
+    let particles = initial_particles(&settings, PARTICLE_COUNT);
+    assert_eq!(particles, initial_particles(&settings, PARTICLE_COUNT));
+    let mut ceilings: Vec<_> = particles
+        .iter()
+        .map(|p| settings.height.base_ceiling(p.flash[3]))
+        .collect();
+    ceilings.sort_by(f32::total_cmp);
+    assert!(ceilings[0] >= 1.25 && *ceilings.last().unwrap() <= 3.);
+    assert!((1.45..1.55).contains(&ceilings[ceilings.len() / 2]));
+    let common = ceilings.iter().filter(|&&y| y <= 1.75).count() as f32 / ceilings.len() as f32;
+    let high = ceilings.iter().filter(|&&y| y > 2.5).count() as f32 / ceilings.len() as f32;
+    assert!(common > 0.7, "most ceilings stay near 1.5: {common}");
+    assert!(
+        (0.02..0.08).contains(&high),
+        "high outliers remain rare: {high}"
+    );
+    assert!(particles.iter().any(|p| p.position_phase[1] > 2.));
+    for p in &particles {
+        let ceiling = settings
+            .height
+            .ceiling([p.position_phase[0], p.position_phase[2]], p.flash[3]);
+        assert!(p.position_phase[1] <= ceiling - BODY_RADIUS);
+    }
+    assert_ne!(particles, seeded_particles(&settings, PARTICLE_COUNT, 123));
+}
+
+#[test]
+#[ignore = "requires a GPU"]
+fn gpu_height_controls_apply_without_reseeding_and_reset_uses_current_settings() {
+    let device = device();
+    let settings = Settings {
+        noise_strength: 0.,
+        separation: 0.,
+        cohesion: 0.,
+        alignment: 0.,
+        ..Default::default()
+    };
+    let input: Vec<_> = [0., 0.25, 0.5, 1.]
+        .into_iter()
+        .map(|seed| {
+            let mut p = particle(-2.5 + seed * 4., 0.2);
+            p.position_phase[1] = 2.99;
+            p.flash[3] = seed;
+            p
+        })
+        .collect();
+    let mut system = FireflySystem::with_particles(&device, &input, settings);
+    let default = HeightSettings::default();
+    for height in [
+        default,
+        HeightSettings {
+            base: 0.75,
+            ..default
+        },
+        HeightSettings {
+            spread: 1.,
+            ..default
+        },
+        HeightSettings {
+            outlier: 0.25,
+            ..default
+        },
+        HeightSettings {
+            exponent: 2.,
+            ..default
+        },
+        HeightSettings {
+            limit: 1.,
+            ..default
+        },
+        HeightSettings {
+            noise_scale: 8.,
+            ..default
+        },
+        HeightSettings {
+            noise_amplitude: 1.5,
+            ..default
+        },
+    ] {
+        system.states[system.current].write(&device, &input, 0);
+        system.set_height(height).unwrap();
+        assert_eq!(
+            step(&device, &mut system, 0.),
+            input,
+            "changing height preserves particle state"
+        );
+        let output = step(&device, &mut system, 1. / 240.);
+        for (p, original) in output.iter().zip(&input) {
+            assert_eq!(p.flash[3], original.flash[3]);
+            let ceiling = height.ceiling([p.position_phase[0], p.position_phase[2]], p.flash[3]);
+            assert!(
+                (p.position_phase[1] - (ceiling - BODY_RADIUS)).abs() < 1e-5,
+                "height control mismatch: {height:?}"
+            );
+        }
+    }
+    let before = system.settings.height;
+    for invalid in [
+        HeightSettings {
+            base: f32::NAN,
+            ..before
+        },
+        HeightSettings {
+            limit: 4.,
+            ..before
+        },
+        HeightSettings {
+            noise_scale: 0.,
+            ..before
+        },
+    ] {
+        assert!(system.set_height(invalid).is_err());
+        assert_eq!(system.settings.height, before);
+    }
+    let low = HeightSettings {
+        limit: 0.25,
+        noise_amplitude: 1.5,
+        ..default
+    };
+    system.set_height(low).unwrap();
+    system.reset(&device, 123);
+    for p in step(&device, &mut system, 0.) {
+        assert!(p.position_phase[1] <= 0.25 - BODY_RADIUS);
+        assert!(p.position_phase[1] >= settings.min[1] + BODY_RADIUS);
+        assert!((0.0..1.0).contains(&p.flash[3]));
+    }
+}
+
+#[test]
+#[ignore = "requires a GPU"]
+fn gpu_ceiling_varies_smoothly_with_current_xz() {
+    let device = device();
+    let settings = Settings {
+        separation: 0.,
+        cohesion: 0.,
+        alignment: 0.,
+        noise_strength: 0.,
+        ..Default::default()
+    };
+    let input: Vec<_> = [[0., 0.], [4., 0.], [0., 4.], [-3.25, -1.75], [0.001, 0.001]]
+        .into_iter()
+        .map(|[x, z]| {
+            let mut p = particle(x, 0.2);
+            p.position_phase[1] = 2.5;
+            p.position_phase[2] = z;
+            p.velocity_frequency[..3].fill(0.);
+            p.flash[3] = 0.5;
+            p
+        })
+        .collect();
+    let mut system = FireflySystem::with_particles(&device, &input, settings);
+    // One substep observes the clamp before subsequent inward motion.
+    let output = step(&device, &mut system, 1. / 240.);
+    let heights: Vec<_> = output.iter().map(|p| p.position_phase[1]).collect();
+    let low = heights.iter().copied().fold(f32::INFINITY, f32::min);
+    let high = heights.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    assert!(
+        high - low > 0.15,
+        "different XZ regions need different ceilings"
+    );
+    assert!(
+        (heights[0] - heights[4]).abs() < 0.01,
+        "nearby ceilings stay smooth"
+    );
+    for p in &output {
+        assert!((0.75 - BODY_RADIUS..=2.25 - BODY_RADIUS).contains(&p.position_phase[1]));
+        assert_eq!(p.flash[3], 0.5, "the individual seed stays fixed");
+        let ceiling = settings
+            .height
+            .ceiling([p.position_phase[0], p.position_phase[2]], p.flash[3]);
+        assert!(
+            (p.position_phase[1] - (ceiling - BODY_RADIUS)).abs() < 1e-5,
+            "CPU spawn surface {ceiling} matches GPU bounds at {:?}",
+            p.position_phase
+        );
+    }
+    // Move the same particle to a different region; its ceiling follows XZ, not ID.
+    let mut moved = input.clone();
+    moved[0].position_phase[0] = 4.;
+    system.states[system.current].write(&device, &moved, 0);
+    let moved = step(&device, &mut system, 1. / 240.);
+    assert!((moved[0].position_phase[1] - heights[1]).abs() < 1e-5);
+    assert!((moved[0].position_phase[1] - heights[0]).abs() > 0.05);
+}
+
+#[test]
+#[ignore = "requires a GPU"]
+fn gpu_particles_keep_individual_ceilings_across_updates_and_reset() {
+    let device = device();
+    let settings = Settings::default();
+    let mut input = [particle(-2., 0.2), particle(2., 0.2)];
+    for (p, seed) in input.iter_mut().zip([0.2, 0.99]) {
+        p.flash[3] = seed;
+        p.position_phase[1] = settings
+            .height
+            .ceiling([p.position_phase[0], p.position_phase[2]], seed)
+            - BODY_RADIUS;
+        p.velocity_frequency[1] = 4.;
+    }
+    let mut system = FireflySystem::with_particles(&device, &input, settings);
+    assert!(system.light_bounds().1[1] >= 2.9);
+    for _ in 0..5 {
+        let output = step(&device, &mut system, 0.1);
+        for (p, initial) in output.iter().zip(input) {
+            assert_eq!(p.flash[3], initial.flash[3]);
+            let ceiling = settings
+                .height
+                .ceiling([p.position_phase[0], p.position_phase[2]], p.flash[3]);
+            assert!(p.position_phase[1] <= ceiling - BODY_RADIUS + 1e-5);
+        }
+        assert!(output[1].position_phase[1] > 2.5);
+    }
+    system.reset(&device, 123);
+    let reset = step(&device, &mut system, 0.);
+    for p in reset {
+        assert!((0.0..1.0).contains(&p.flash[3]));
+        let ceiling = settings
+            .height
+            .ceiling([p.position_phase[0], p.position_phase[2]], p.flash[3]);
+        assert!(p.position_phase[1] <= ceiling - BODY_RADIUS);
+    }
+}
+
+#[test]
 #[ignore = "requires a GPU"]
 fn gpu_close_particles_have_independent_wandering_at_low_speed() {
     let device = device();
@@ -588,7 +814,7 @@ fn gpu_trails_use_live_flashes_in_drag_mode_and_respect_depth() {
     );
 
     let mut live = step(&device, &mut system, 0.)[0];
-    live.flash = [5., 0.5, 20., 0.];
+    live.flash = [5., 0.5, 20., live.flash[3]];
     system.states[system.current].write(&device, &[live], 0);
     system.set_render_mode(RenderMode::Drag);
     assert!(
@@ -662,7 +888,7 @@ fn gpu_trails_use_live_flashes_in_drag_mode_and_respect_depth() {
         "particle keeps moving during retraction"
     );
 
-    p.flash = [5., 0.5, 20., 0.];
+    p.flash = [5., 0.5, 20., p.flash[3]];
     far.flash = p.flash;
     let mut overlap = |particles: &[Particle], retract: bool, regrab: bool| {
         system.count = particles.len() as u32;
@@ -727,7 +953,7 @@ fn particle(x: f32, phase: f32) -> Particle {
             DEFAULT_FLASH_DURATION_SECONDS,
             0.,
             DEFAULT_FLASH_DURATION_SECONDS,
-            0.,
+            1.,
         ],
     }
 }
@@ -884,7 +1110,10 @@ fn gpu_full_population_remains_bounded_and_moves() {
     let mut input = initial_particles(&settings, PARTICLE_COUNT);
     input[0].position_phase[1] = settings.min[1] + BODY_RADIUS;
     input[0].velocity_frequency[1] = -4.;
-    input[1].position_phase[1] = settings.max[1] - BODY_RADIUS;
+    input[1].position_phase[1] = settings.height.ceiling(
+        [input[1].position_phase[0], input[1].position_phase[2]],
+        input[1].flash[3],
+    ) - BODY_RADIUS;
     input[1].velocity_frequency[1] = 4.;
     let mut system = FireflySystem::with_particles(&device, &input, settings);
     let mut output = Vec::new();
@@ -892,7 +1121,12 @@ fn gpu_full_population_remains_bounded_and_moves() {
         output = step(&device, &mut system, 0.1);
     }
     assert_eq!(output.len(), PARTICLE_COUNT as usize);
-    for p in &output {
+    for (p, initial) in output.iter().zip(&input) {
+        assert_eq!(p.flash[3], initial.flash[3]);
+        let ceiling = settings
+            .height
+            .ceiling([p.position_phase[0], p.position_phase[2]], p.flash[3]);
+        assert!(p.position_phase[1] <= ceiling - BODY_RADIUS + 1e-5);
         assert!(bytemuck::cast_slice::<_, f32>(std::slice::from_ref(p))
             .iter()
             .all(|v| v.is_finite()));
@@ -964,7 +1198,7 @@ fn gpu_glow_pulses_and_forest_depth_occludes_only_distant_fireflies() {
         let p = Particle {
             position_phase: [0., 0., z, 0.],
             velocity_frequency: [0., 0., 0., 0.22],
-            flash: [0.05, brightness, DEFAULT_FLASH_DURATION_SECONDS, 0.],
+            flash: [0.05, brightness, DEFAULT_FLASH_DURATION_SECONDS, 1.],
         };
         let mut system = FireflySystem::with_particles(&device, &[p], Settings::default());
         system.set_glow(glow);

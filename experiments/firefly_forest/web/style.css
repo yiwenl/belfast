@@ -136,7 +136,8 @@ aside span {
   outline-offset: 5px;
 }
 
-.appearance summary {
+.appearance summary,
+.firefly-height summary {
   color: #edf4c7;
   font-size: 13px;
   cursor: pointer;

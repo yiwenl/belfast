@@ -2,6 +2,7 @@ import type { ExperimentApp } from "../pkg/experiment";
 import { colorSettings } from "./color-controls";
 import { lightSettings } from "./light-controls";
 import { fogSettings } from "./fog-controls";
+import { heightSettings } from "./height-controls";
 import {
   BASELINE_KEY,
   BENCHMARK_VERSION,
@@ -85,6 +86,7 @@ export function createBenchmark(
       colors: colorSettings(),
       lighting: lightSettings(),
       fog: fogSettings(),
+      heights: heightSettings(),
       cssSize: [canvas.clientWidth, canvas.clientHeight],
       dpr: window.devicePixelRatio,
       environment: app.benchmarkEnvironment(),
