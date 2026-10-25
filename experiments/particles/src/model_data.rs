@@ -145,7 +145,7 @@ impl ModelData {
                 }
                 // A reflected node reverses winding, even after baking its normal matrix.
                 if transform.determinant() < 0. {
-                    for triangle in indices.chunks_exact_mut(3) {
+                    for triangle in indices.as_chunks_mut::<3>().0 {
                         triangle.swap(1, 2);
                     }
                 }
