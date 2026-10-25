@@ -29,21 +29,29 @@ fn overview_does_not_change_the_walk_render() {
     let walk = render_pixels(&device, &scene, false);
     let right = |pixels: &[u8]| -> Vec<u8> {
         pixels
-            .chunks_exact(512)
+            .as_chunks::<512>()
+            .0
+            .iter()
             .flat_map(|row| row[256..].iter().copied())
             .collect()
     };
-    assert!(walk.chunks_exact(4).any(|p| p[0] == 255));
+    assert!(walk.as_chunks::<4>().0.iter().any(|p| p[0] == 255));
     for _ in 0..3 {
         scene.update(&device, 0., true);
         let overview = render_pixels(&device, &scene, true);
         assert!(
-            overview.chunks_exact(4).any(|p| p[1] > 180 && p[0] < 100),
+            overview
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .any(|p| p[1] > 180 && p[0] < 100),
             "cyan recorded frustum"
         );
         assert!(
             overview
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .any(|p| p[0] > 240 && p[1] > 100 && p[1] < 180),
             "orange current frustum"
         );
