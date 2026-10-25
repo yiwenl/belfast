@@ -528,14 +528,16 @@ impl GaussianSorter {
         if positions.is_empty()
             || !positions.len().is_multiple_of(4)
             || !positions.iter().all(|n| n.is_finite())
-            || positions.chunks_exact(4).any(|p| p[3] < 0.)
+            || positions.as_chunks::<4>().0.iter().any(|p| p[3] < 0.)
         {
             return Err(js_error("Expected finite Gaussian XYZ/radius records"));
         }
         Ok(Self {
             inner: SplatSorter::new(
                 positions
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .map(|p| [p[0], p[1], p[2], p[3]])
                     .collect(),
             ),

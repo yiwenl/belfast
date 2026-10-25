@@ -24,7 +24,9 @@ impl SkeletonInput {
         }
         if !points.iter().all(|value| value.is_finite())
             || points
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .any(|point| !(0.0..=1.0).contains(&point[3]))
         {
             return Err("Skeleton coordinates must be finite and confidence must be in [0, 1]");

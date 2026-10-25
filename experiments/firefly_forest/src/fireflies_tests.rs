@@ -795,7 +795,12 @@ fn gpu_trails_use_live_flashes_in_drag_mode_and_respect_depth() {
         read_buffer(&device, &staging, 64 * 256)
     };
     let visible = render(&mut system, 1.);
-    let red: Vec<_> = visible.chunks_exact(4).filter(|p| p[0] > 0).collect();
+    let red: Vec<_> = visible
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|p| p[0] > 0)
+        .collect();
     assert!(red.len() > 5, "unlit fireflies still have visible trails");
     assert!(
         red.iter().all(|p| p[..] == [255, 0, 0, 255]),
@@ -804,12 +809,18 @@ fn gpu_trails_use_live_flashes_in_drag_mode_and_respect_depth() {
     let clip = camera.projection * glam::Vec4::new(0., 0., -2., 1.);
     assert!(
         render(&mut system, clip.z / clip.w)
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .all(|p| p[0] == 0),
         "forest in front hides the entire trail"
     );
     assert!(
-        render(&mut system, 1.).chunks_exact(4).any(|p| p[0] > 0),
+        render(&mut system, 1.)
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .any(|p| p[0] > 0),
         "old trail depth must not persist across frames"
     );
 
@@ -818,7 +829,11 @@ fn gpu_trails_use_live_flashes_in_drag_mode_and_respect_depth() {
     system.states[system.current].write(&device, &[live], 0);
     system.set_render_mode(RenderMode::Drag);
     assert!(
-        render(&mut system, 1.).chunks_exact(4).all(|p| p[0] == 0),
+        render(&mut system, 1.)
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .all(|p| p[0] == 0),
         "idle must hide pre-drag history"
     );
     system.set_dragging(true);
@@ -826,14 +841,23 @@ fn gpu_trails_use_live_flashes_in_drag_mode_and_respect_depth() {
         step(&device, &mut system, 0.00625);
     }
     let grown = render(&mut system, 1.);
-    let red_sum = |pixels: &[u8]| pixels.chunks_exact(4).map(|p| u32::from(p[0])).sum::<u32>();
+    let red_sum = |pixels: &[u8]| {
+        pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|p| u32::from(p[0]))
+            .sum::<u32>()
+    };
     assert!(red_sum(&grown) > 0, "drag grows a new trail");
     let flash_brightness = |system: &mut FireflySystem, intensity: f32| {
         let mut live = step(&device, system, 0.)[0];
         live.flash[1] = intensity;
         system.states[system.current].write(&device, &[live], 0);
         render(system, 1.)
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|p| p[0])
             .max()
             .unwrap()
@@ -859,7 +883,9 @@ fn gpu_trails_use_live_flashes_in_drag_mode_and_respect_depth() {
     assert!(red_sum(&shrinking) > 0 && red_sum(&shrinking) < red_sum(&grown));
     assert!(
         shrinking
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .any(|p| p[0] > 0 && p[0] < 255 && p[2] > 0),
         "trail fades over the forest color without additive glow"
     );
@@ -1291,7 +1317,9 @@ fn gpu_glow_pulses_and_forest_depth_occludes_only_distant_fireflies() {
         );
         device.queue().submit([encoder.finish()]);
         read_buffer(&device, &staging, 64 * 256)
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|p| u32::from(p[0]) + u32::from(p[1]) + u32::from(p[2]))
             .sum::<u32>()
     };

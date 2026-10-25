@@ -135,7 +135,7 @@ fn gpu_background_presets_panorama_and_color_space() {
         };
         let day = render(&sky, Mat4::IDENTITY);
         assert!(center(&day)[0] > 200);
-        assert!(day.chunks_exact(4).all(|rgba| rgba[3] == 255));
+        assert!(day.as_chunks::<4>().0.iter().all(|rgba| rgba[3] == 255));
         sky.set_preset("night").unwrap();
         assert!(center(&render(&sky, Mat4::IDENTITY))[0] < 30);
         assert!(sky.set_preset("image").is_err());

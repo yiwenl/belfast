@@ -123,8 +123,7 @@ impl Scene {
             }],
             "ExperimentCameraBindGroup",
         );
-        let RADIANS = std::f32::consts::PI / 180.0;
-        let mut camera = PerspectiveCamera::new(40.0 * RADIANS, 1.0, 0.02, 200.0);
+        let mut camera = PerspectiveCamera::new(40.0_f32.to_radians(), 1.0, 0.02, 200.0);
         let mut control = OrbitalControl::new(OrbitalControlOptions {
             center: [0.0, 0.0, -1.0],
             radius: 1.0,

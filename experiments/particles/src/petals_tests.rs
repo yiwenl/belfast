@@ -198,8 +198,10 @@ fn gpu_petals_cast_and_receive_pcf_shadows() {
             map_buffer(&device, &readback)
         };
     let darkened = |lit: &[u8], shaded: &[u8]| {
-        lit.chunks_exact(4)
-            .zip(shaded.chunks_exact(4))
+        lit.as_chunks::<4>()
+            .0
+            .iter()
+            .zip(shaded.as_chunks::<4>().0.iter())
             .filter(|(a, b)| u16::from(a[0]) > u16::from(b[0]) + 12)
             .count()
     };
@@ -263,8 +265,10 @@ fn dispatch_and_read(device: &Device, system: &mut PetalSystem) -> Vec<Particle>
     device.queue().submit([encoder.finish()]);
     let bytes = map_buffer(device, &readback);
     bytes
-        .chunks_exact(80)
-        .map(bytemuck::pod_read_unaligned)
+        .as_chunks::<80>()
+        .0
+        .iter()
+        .map(|particle| bytemuck::pod_read_unaligned(particle))
         .collect()
 }
 
@@ -538,8 +542,10 @@ fn gpu_curl_field_is_spatially_varying_and_divergence_free() {
     device.queue().submit([encoder.finish()]);
     let bytes = map_buffer(&device, readback.gpu());
     let samples: Vec<[f32; 4]> = bytes
-        .chunks_exact(16)
-        .map(bytemuck::pod_read_unaligned)
+        .as_chunks::<16>()
+        .0
+        .iter()
+        .map(|sample| bytemuck::pod_read_unaligned(sample))
         .collect();
     assert!(samples.iter().flatten().all(|v| v.is_finite()));
     let v = |i: usize| Vec3::from_slice(&samples[i]);
@@ -793,7 +799,12 @@ fn gpu_draws_two_petals_at_distinct_positions_and_rotations() {
     let full_pixels = bounds[0][4] + bounds[1][4];
     petals.set_scale(&device, 0.5).unwrap();
     let scaled = render(&petals);
-    let scaled_pixels = scaled.chunks_exact(4).filter(|p| p[0] > 25).count();
+    let scaled_pixels = scaled
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|p| p[0] > 25)
+        .count();
     assert!(scaled_pixels > full_pixels / 6 && scaled_pixels < full_pixels / 3);
     // Replacing particle buffers must preserve the global scale uniform.
     petals.reset_particles(&device, &particles).unwrap();
@@ -804,7 +815,9 @@ fn gpu_draws_two_petals_at_distinct_positions_and_rotations() {
     assert_eq!(render(&petals), scaled);
     petals.set_scale(&device, 0.2).unwrap();
     let smallest_pixels = render(&petals)
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .filter(|p| p[0] > 25)
         .count();
     assert!(smallest_pixels > 0 && smallest_pixels < scaled_pixels / 3);
@@ -815,7 +828,9 @@ fn gpu_draws_two_petals_at_distinct_positions_and_rotations() {
     }
     petals.buffers.states[petals.current].write(&device, &particles, 0);
     let half_pixels = render(&petals)
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .filter(|pixel| pixel[0] > 25)
         .count();
     assert!(half_pixels > full_pixels / 6 && half_pixels < full_pixels / 3,
@@ -826,7 +841,9 @@ fn gpu_draws_two_petals_at_distinct_positions_and_rotations() {
     petals.buffers.states[petals.current].write(&device, &particles, 0);
     assert!(
         render(&petals)
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .all(|pixel| pixel[..3] == [0, 0, 0]),
         "At birth/death zero-scale petals must draw no fragments"
     );

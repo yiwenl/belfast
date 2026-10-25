@@ -227,6 +227,8 @@ impl ForestColor {
         }
     }
 
+    // Keep the shader's independent resources explicit when rebuilding the bind group.
+    #[allow(clippy::too_many_arguments)]
     fn target(
         device: &Device,
         layout: &wgpu::BindGroupLayout,
