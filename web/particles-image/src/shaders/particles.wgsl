@@ -60,5 +60,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         camera.shadow_params.z,
     );
     let shade = mix(1.0 - camera.shadow_params.x, 1.0, visibility);
-    return vec4<f32>(input.color * shade, 1.0);
+
+    var color = input.color;
+    color = pow(color, vec3(1.5));
+    return vec4<f32>(color * shade, 1.0);
 }

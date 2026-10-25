@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "file": "magnolia-flowers-and-buds.glb",
+  "parts": [
+    {
+      "name": "Flowers",
+      "triangles": 188168,
+      "coordinatesPreserved": true,
+      "transformPreserved": true
+    },
+    {
+      "name": "Buds",
+      "triangles": 20869,
+      "coordinatesPreserved": true,
+      "transformPreserved": true
+    }
+  ],
+  "texturesEmbedded": true,
+  "sameOriginAs": "magnolia-branches.glb",
+  "sizeBytes": 9839572
+}

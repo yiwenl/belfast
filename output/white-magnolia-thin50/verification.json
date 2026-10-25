@@ -1,0 +1,22 @@
+{
+  "blend": {
+    "passed": true,
+    "individual_flowers": 1094,
+    "individual_buds": 341,
+    "textures_packed": true
+  },
+  "glb": [
+    {
+      "file": "white-magnolia.glb",
+      "reimport": "passed",
+      "separate_parts": ["Tree_Wood", "Flowers", "Buds"],
+      "triangles": 266889
+    },
+    {
+      "file": "white-magnolia-draco.glb",
+      "reimport": "passed",
+      "separate_parts": ["Tree_Wood", "Flowers", "Buds"],
+      "triangles": 266889
+    }
+  ]
+}

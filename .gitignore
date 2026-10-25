@@ -4,6 +4,8 @@
 _notes
 node_modules
 .pnpm-store/
+/AGENTS.md
+/.agents/
 dist
 lib
 target

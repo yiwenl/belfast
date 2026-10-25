@@ -1,0 +1,38 @@
+{
+  "flowers": 1094,
+  "buds": 341,
+  "runtime_nodes": ["Tree_Wood", "Flowers", "Buds"],
+  "front": "GLB +Z",
+  "units": "meters",
+  "glb_bytes": 12257844,
+  "detail_triangles": 1076222,
+  "runtime_triangles": 266889,
+  "draco_glb_bytes": 3060192,
+  "dimensions_m": {
+    "width": 7.181638240814209,
+    "depth": 3.4529517889022827,
+    "height": 6.582347437739372
+  },
+  "mesh_details": [
+    {
+      "name": "Tree_Wood",
+      "triangles_before": 89006,
+      "triangles_after": 57852,
+      "materials": 1
+    },
+    {
+      "name": "Flowers",
+      "triangles_before": 940840,
+      "triangles_after": 188168,
+      "materials": 3
+    },
+    {
+      "name": "Buds",
+      "triangles_before": 46376,
+      "triangles_after": 20869,
+      "materials": 2
+    }
+  ],
+  "revision": "Wood diameters reduced to 50%; flower and bud positions unchanged.",
+  "wood_diameter_scale": 0.5
+}

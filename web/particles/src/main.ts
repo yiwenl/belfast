@@ -1,5 +1,6 @@
 import init, {
   AxisHelper,
+  BallHelper,
   BindGroup,
   Buffer,
   BufferUsage,
@@ -121,9 +122,10 @@ async function start() {
       })
       .setIndexBuffer(indexBuffer, geom.indices.length, indexFormat);
 
+    const lightPosition = new Float32Array([0, 8, 0.5]);
     const lightR = 6.5;
     const lightCamera = new OrthographicCamera(-lightR, lightR, -lightR, lightR, 1, 16);
-    lightCamera.lookAt(new Float32Array([0, 8, 0.5]), new Float32Array([0, 0, 0]));
+    lightCamera.lookAt(lightPosition, new Float32Array([0, 0, 0]));
     const lightViewProj = lightCamera.getViewProjectionMatrix();
     const [lightRight, lightUp] = viewRightUp(lightCamera.getViewMatrix());
 
@@ -179,6 +181,12 @@ async function start() {
       color: [1, 0.85, 0.2],
       depth: true,
     });
+    const lightBall = new BallHelper(device, {
+      position: [0, 8, 0.5],
+      radius: 0.4,
+      color: [1, 0.85, 0.2, 1],
+      depth: true,
+    });
     const shadowMap = Texture.createShadowMap(device, {
       size: SHADOW_MAP_SIZE,
       label: "ParticleShadowMap",
@@ -198,6 +206,9 @@ async function start() {
     });
     const frustumBindGroup = BindGroup.fromBuffer(device, lightFrustum, uniformBuffer, {
       label: "ParticleFrustumBindGroup",
+    });
+    const lightBallBindGroup = BindGroup.fromBuffer(device, lightBall, uniformBuffer, {
+      label: "ParticleLightBallBindGroup",
     });
 
     let time = Math.random() * 1000;
@@ -309,6 +320,7 @@ async function start() {
               frame.render(draw, [drawBindGroup, shadowBindGroup], PARTICLE_COUNT);
               frame.render(axes, axisBindGroup);
               frame.render(lightFrustum, frustumBindGroup);
+              frame.render(lightBall, lightBallBindGroup);
               frameConsumed = true;
               frame.submit();
             } finally {
@@ -335,6 +347,7 @@ async function start() {
       control.destroy();
       control.free();
       frustumBindGroup.free();
+      lightBallBindGroup.free();
       axisBindGroup.free();
       lightBindGroup.free();
       shadowBindGroup.free();
@@ -342,6 +355,7 @@ async function start() {
       simBindGroup.free();
       compute.free();
       lightFrustum.free();
+      lightBall.free();
       axes.free();
       shadowDraw.free();
       draw.free();
