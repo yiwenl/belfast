@@ -7,7 +7,7 @@ export interface WalkTarget {
 
 /** Browser input only; camera positions, orientations and transitions stay in Rust. */
 export function bindWalkInput(
-  canvas: HTMLCanvasElement,
+  canvas: HTMLElement,
   app: WalkTarget,
   wheelTarget: HTMLElement = canvas,
 ): () => void {
@@ -63,6 +63,7 @@ export function bindWalkInput(
   wheelTarget.addEventListener(
     "wheel",
     (event) => {
+      if ((event.target as HTMLElement | null)?.closest("select, input, button")) return;
       if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
       event.preventDefault();
       const direction = wheel.push(event.deltaY, event.deltaMode, canvas.clientHeight);

@@ -6,10 +6,11 @@
     <title>Belfast — Forest Walk</title>
   </head>
   <body>
+    <canvas id="renderer" aria-hidden="true"></canvas>
     <main id="comparison" aria-label="Synchronized video and point cloud comparison">
-      <section class="pane" aria-label="Original video">
+      <section class="pane" aria-label="Reference view">
         <div class="viewport">
-          <div class="media-frame">
+          <div class="media-frame" id="video-frame">
             <video
               id="walk-video"
               src="./forest-walk-720p.mp4"
@@ -20,16 +21,31 @@
               aria-label="Forest walk video, synchronized with the selected camera"
             ></video>
           </div>
+          <div
+            id="overview"
+            role="img"
+            aria-label="Fixed 45 degree overview of the point cloud and recorded cameras"
+            hidden
+          ></div>
+          <label class="view-control"
+            >View
+            <select id="view-mode" aria-label="Reference view mode">
+              <option value="video">Video</option>
+              <option value="overview">Overview</option>
+            </select>
+          </label>
           <p id="video-status" role="status">Loading video…</p>
         </div>
       </section>
       <section class="pane" aria-label="3D point cloud">
         <div class="viewport">
           <div class="media-frame">
-            <canvas
+            <div
+              role="img"
+              id="walk-canvas"
               aria-label="Forest point cloud. Drag to look around. Scroll or use arrow keys to walk along the recorded camera path."
               tabindex="0"
-            ></canvas>
+            ></div>
           </div>
           <p id="status" role="status">Loading scene…</p>
           <pre id="error" role="alert" hidden></pre>

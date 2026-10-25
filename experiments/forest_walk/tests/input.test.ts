@@ -6,7 +6,13 @@ test("wheel changes one selected camera; pinch, horizontal scroll and teardown d
   const prior = globalThis.window;
   const windowEvents = new EventTarget();
   Object.defineProperty(globalThis, "window", { configurable: true, value: windowEvents });
-  const canvas = Object.assign(new EventTarget(), { clientHeight: 800 });
+  let overControl = false;
+  const canvas = Object.assign(new EventTarget(), {
+    clientHeight: 800,
+    closest() {
+      return overControl ? {} : null;
+    },
+  });
   let selected = 0;
   const dispose = bindWalkInput(canvas as unknown as HTMLCanvasElement, {
     stepCamera(direction) {
@@ -34,6 +40,10 @@ test("wheel changes one selected camera; pinch, horizontal scroll and teardown d
     send(120, { ctrlKey: true });
     send(20, { deltaX: 80 });
     assert.equal(selected, 0);
+    overControl = true;
+    send(120);
+    assert.equal(selected, 0, "scrolling a mode selector must not move the camera");
+    overControl = false;
     dispose();
     send(120);
     assert.equal(selected, 0);

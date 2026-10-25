@@ -19,6 +19,8 @@ pub struct ExperimentApp {
     canvas: web_sys::HtmlCanvasElement,
     config: wgpu::SurfaceConfiguration,
     drawable: bool,
+    pixel_scale: f32,
+    overview_visible: bool,
     last_frame_ms: Option<f64>,
     gpu_error: Arc<Mutex<Option<String>>>,
 }
@@ -86,6 +88,8 @@ impl ExperimentApp {
             canvas,
             config,
             drawable: false,
+            pixel_scale: 1.,
+            overview_visible: false,
             last_frame_ms: None,
             gpu_error,
         })
@@ -111,9 +115,47 @@ impl ExperimentApp {
             self.canvas.set_height(height);
             self.surface.configure(self.device.gpu(), &self.config);
         }
-        self.scene.resize(&self.device, width, height, scale as f32);
+        self.scene.resize_surface(&self.device, width, height);
+        self.pixel_scale = scale as f32;
         self.drawable = true;
         Ok(())
+    }
+
+    /// CSS pane rectangles within the shared canvas. Each keeps its own projection.
+    #[wasm_bindgen(js_name = setViewports)]
+    pub fn set_viewports(
+        &mut self,
+        walk_x: f32,
+        walk_y: f32,
+        walk_width: f32,
+        walk_height: f32,
+        overview_x: f32,
+        overview_y: f32,
+        overview_width: f32,
+        overview_height: f32,
+        overview_visible: bool,
+    ) {
+        let scale = self.pixel_scale;
+        let rect = |x: f32, y: f32, width: f32, height: f32| {
+            let x0 = ((x * scale).round().max(0.) as u32).min(self.config.width.saturating_sub(1));
+            let y0 = ((y * scale).round().max(0.) as u32).min(self.config.height.saturating_sub(1));
+            let x1 = ((x + width) * scale).round().max(1.) as u32;
+            let y1 = ((y + height) * scale).round().max(1.) as u32;
+            [
+                x0,
+                y0,
+                x1.min(self.config.width).saturating_sub(x0).max(1),
+                y1.min(self.config.height).saturating_sub(y0).max(1),
+            ]
+        };
+        let walk = rect(walk_x, walk_y, walk_width, walk_height);
+        let overview = rect(overview_x, overview_y, overview_width, overview_height);
+        self.scene.resize(&self.device, walk[2], walk[3], scale);
+        self.scene
+            .resize_overview(&self.device, overview[2], overview[3], scale);
+        self.scene
+            .set_view_origins([walk[0], walk[1]], [overview[0], overview[1]]);
+        self.overview_visible = overview_visible;
     }
 
     pub fn frame(&mut self, timestamp_ms: f64) -> Result<(), JsValue> {
@@ -128,7 +170,8 @@ impl ExperimentApp {
         let previous = self.last_frame_ms.unwrap_or(timestamp_ms);
         let delta_seconds = ((timestamp_ms - previous) * 0.001).clamp(0.0, 0.1) as f32;
         self.last_frame_ms = Some(timestamp_ms.max(previous));
-        self.scene.update(&self.device, delta_seconds, timestamp_ms);
+        self.scene
+            .update(&self.device, delta_seconds, self.overview_visible);
         if !self.drawable {
             return Ok(());
         }
@@ -157,7 +200,8 @@ impl ExperimentApp {
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        self.scene.render(&self.device, &view);
+        self.scene
+            .render(&self.device, &view, self.overview_visible);
         self.device.queue().present(frame);
         if reconfigure {
             self.surface.configure(self.device.gpu(), &self.config);
@@ -173,7 +217,9 @@ impl ExperimentApp {
     }
     #[wasm_bindgen(js_name = loadCameras)]
     pub fn load_cameras(&mut self, json: &str) -> Result<u32, JsValue> {
-        self.scene.load_cameras(json).map_err(js_error)
+        self.scene
+            .load_cameras(&self.device, json)
+            .map_err(js_error)
     }
     #[wasm_bindgen(js_name = stepCamera)]
     pub fn step_camera(&mut self, direction: i32) {

@@ -4,9 +4,13 @@ import { loadPlyBytes } from "./load-ply";
 import { VideoScrubber } from "./video-sync";
 import "./style.css";
 
-const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
+const renderer = document.querySelector<HTMLCanvasElement>("#renderer")!;
+const canvas = document.querySelector<HTMLElement>("#walk-canvas")!;
 const comparison = document.querySelector<HTMLElement>("#comparison")!;
 const video = document.querySelector<HTMLVideoElement>("#walk-video")!;
+const overview = document.querySelector<HTMLElement>("#overview")!;
+const videoFrame = document.querySelector<HTMLElement>("#video-frame")!;
+const viewMode = document.querySelector<HTMLSelectElement>("#view-mode")!;
 const videoStatus = document.querySelector<HTMLElement>("#video-status")!;
 const videoSync = new VideoScrubber(video);
 const status = document.querySelector<HTMLElement>("#status")!;
@@ -51,7 +55,7 @@ async function start() {
     status.textContent = "Preparing the forest…";
     await init();
     if (disposed) return;
-    const created = await ExperimentApp.create(canvas);
+    const created = await ExperimentApp.create(renderer);
     if (disposed) {
       created.free();
       return;
@@ -77,9 +81,23 @@ async function start() {
     function frame(timestampMs: number) {
       if (disposed) return;
       try {
-        created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
+        created.resize(renderer.clientWidth, renderer.clientHeight, window.devicePixelRatio);
+        const showOverview = viewMode.value === "overview";
+        const walkRect = canvas.getBoundingClientRect();
+        const overviewRect = overview.parentElement!.getBoundingClientRect();
+        created.setViewports(
+          walkRect.x,
+          walkRect.y,
+          walkRect.width,
+          walkRect.height,
+          overviewRect.x,
+          overviewRect.y,
+          overviewRect.width,
+          overviewRect.height,
+          showOverview,
+        );
         created.frame(timestampMs);
-        videoSync.setTime(created.cameraTime());
+        if (!showOverview) videoSync.setTime(created.cameraTime());
         status.hidden = true;
         animationFrame = requestAnimationFrame(frame);
       } catch (error) {
@@ -92,7 +110,19 @@ async function start() {
   }
 }
 
+function updateViewMode() {
+  const showOverview = viewMode.value === "overview";
+  overview.hidden = !showOverview;
+  videoFrame.hidden = showOverview;
+  updateVideoStatus();
+}
+viewMode.addEventListener("change", updateViewMode, { signal: events.signal });
+
 function updateVideoStatus() {
+  if (viewMode.value === "overview") {
+    videoStatus.hidden = true;
+    return;
+  }
   if (video.error) {
     videoStatus.textContent = "Video could not load. Check forest-walk-720p.mp4 in public/.";
     videoStatus.hidden = false;
@@ -102,7 +132,7 @@ function updateVideoStatus() {
 }
 video.addEventListener("loadeddata", updateVideoStatus, { signal: events.signal });
 video.addEventListener("error", updateVideoStatus, { signal: events.signal });
-updateVideoStatus();
+updateViewMode();
 window.addEventListener("pagehide", onPageHide);
 import.meta.hot?.dispose(dispose);
 void start();

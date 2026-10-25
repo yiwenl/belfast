@@ -7,6 +7,7 @@ pub struct CameraPose {
     /// Camera-local right/up/back axes in the original reconstruction world.
     pub rotation: Quat,
     pub fov_y: f32,
+    pub aspect: f32,
 }
 
 impl CameraPose {
@@ -118,6 +119,7 @@ impl CameraTrack {
                 position: Vec3::new(m[0][3], m[1][3], m[2][3]),
                 rotation,
                 fov_y,
+                aspect: camera.width as f32 / camera.height as f32,
             });
         }
         let timestamps = recording
@@ -162,6 +164,7 @@ impl CameraTrack {
             position: a.position.lerp(b.position, t),
             rotation: a.rotation.slerp(b.rotation, t).normalize(),
             fov_y: a.fov_y + (b.fov_y - a.fov_y) * t,
+            aspect: a.aspect + (b.aspect - a.aspect) * t,
         }
     }
 }
@@ -174,6 +177,7 @@ pub struct CameraNavigator {
     yaw: f32,
     pitch: f32,
     fov_y: f32,
+    aspect: f32,
 }
 
 impl CameraNavigator {
@@ -187,6 +191,7 @@ impl CameraNavigator {
             yaw: 0.,
             pitch: 0.,
             fov_y: initial.fov_y,
+            aspect: initial.aspect,
         }
     }
     pub fn step(&mut self, direction: i32) {
@@ -224,6 +229,7 @@ impl CameraNavigator {
                 * Quat::from_rotation_x(self.pitch))
             .normalize(),
             fov_y: self.fov_y,
+            aspect: self.aspect,
         }
     }
     pub fn timestamp_seconds(&self) -> f64 {
