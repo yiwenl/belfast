@@ -1,0 +1,81 @@
+use belfast_experiment_forest_walk::camera_path::{CameraNavigator, CameraTrack};
+use glam::Vec3;
+use serde_json::json;
+
+fn fixture() -> serde_json::Value {
+    json!({
+        "undistorted_cameras": [{"camera_id":1,"width":800,"height":800,"named_parameters":{"fx":400.0,"fy":400.0}}],
+        "frames": [
+            {"camera_id":1,"timestamp_seconds":0.0,"camera_to_world":[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]},
+            {"camera_id":1,"timestamp_seconds":1.0,"camera_to_world":[[1,0,0,1],[0,1,0,0],[0,0,1,0],[0,0,0,1]]},
+            {"camera_id":1,"timestamp_seconds":2.0,"camera_to_world":[[1,0,0,1],[0,1,0,1],[0,0,1,0],[0,0,0,1]]}
+        ]
+    })
+}
+fn near(a: Vec3, b: Vec3) {
+    assert!((a - b).length() < 1e-5, "{a:?} != {b:?}");
+}
+
+#[test]
+fn converts_opencv_axes_and_preserves_the_recorded_camera_roll() {
+    let track = CameraTrack::from_json(&fixture().to_string()).unwrap();
+    let pose = track.sample(0.);
+    near(
+        pose.view_matrix().transform_point3(Vec3::new(0., 0., 5.)),
+        Vec3::new(0., 0., -5.),
+    );
+    near(pose.rotation * Vec3::Y, -Vec3::Y);
+    assert!((pose.fov_y - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+    let mut data = fixture();
+    data["frames"][0]["camera_to_world"] =
+        json!([[0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]);
+    let pose = CameraTrack::from_json(&data.to_string())
+        .unwrap()
+        .sample(0.);
+    near(pose.rotation * Vec3::Y, Vec3::X);
+}
+
+#[test]
+fn interpolation_follows_each_path_segment_instead_of_cutting_corners() {
+    let track = CameraTrack::from_json(&fixture().to_string()).unwrap();
+    near(track.sample(0.5).position, Vec3::new(0.5, 0., 0.));
+    near(track.sample(1.5).position, Vec3::new(1., 0.5, 0.));
+    near(track.sample(-1.).position, Vec3::ZERO);
+    near(track.sample(99.).position, Vec3::new(1., 1., 0.));
+}
+
+#[test]
+fn navigation_is_smooth_reversible_and_clamps_at_both_ends() {
+    let mut nav = CameraNavigator::new(CameraTrack::from_json(&fixture().to_string()).unwrap());
+    nav.step(-1);
+    assert_eq!(nav.index(), 0);
+    nav.step(1);
+    assert_eq!(nav.index(), 1);
+    near(nav.pose().position, Vec3::ZERO);
+    nav.advance(0.05);
+    assert!(nav.pose().position.x > 0. && nav.pose().position.x < 1.);
+    nav.step(1);
+    nav.step(1);
+    assert_eq!(nav.index(), 2);
+    for _ in 0..180 {
+        nav.advance(1. / 60.);
+    }
+    near(nav.pose().position, Vec3::new(1., 1., 0.));
+    nav.step(-1);
+    for _ in 0..180 {
+        nav.advance(1. / 60.);
+    }
+    near(nav.pose().position, Vec3::new(1., 0., 0.));
+}
+
+#[test]
+fn sorts_by_recorded_time_and_rejects_invalid_transforms() {
+    let mut data = fixture();
+    data["frames"].as_array_mut().unwrap().reverse();
+    let track = CameraTrack::from_json(&data.to_string()).unwrap();
+    near(track.sample(0.).position, Vec3::ZERO);
+    data["frames"][0]["camera_to_world"][0][0] = json!(2);
+    assert!(CameraTrack::from_json(&data.to_string()).is_err());
+    data["frames"] = json!([]);
+    assert!(CameraTrack::from_json(&data.to_string()).is_err());
+}

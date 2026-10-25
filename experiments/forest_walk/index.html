@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast — Forest Walk</title>
+  </head>
+  <body>
+    <canvas
+      aria-label="Forest point cloud. Scroll or use arrow keys to walk along the recorded camera path."
+      tabindex="0"
+    ></canvas>
+    <aside class="title">
+      <strong>Forest Walk</strong>
+      <span>Scroll to walk forwards or backwards</span>
+      <span id="point-count">Loading points…</span>
+    </aside>
+    <section class="controls" aria-label="Point cloud controls">
+      <div class="camera-row"><span>Camera</span><output id="camera-index">— / —</output></div>
+      <label for="point-size">Point size <output id="point-size-value">2.0 px</output></label>
+      <input id="point-size" type="range" min="0.5" max="12" step="0.1" value="2" disabled />
+    </section>
+    <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
+    <p id="status" role="status">Loading scene…</p>
+    <pre id="error" role="alert" hidden></pre>
+    <script type="module" src="./web/main.ts"></script>
+  </body>
+</html>
