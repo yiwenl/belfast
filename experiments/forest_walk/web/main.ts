@@ -2,9 +2,15 @@ import init, { ExperimentApp } from "../pkg/experiment";
 import { createFpsMeter } from "./fps";
 import { bindWalkInput } from "./input";
 import { loadPlyBytes } from "./load-ply";
+import { VideoScrubber } from "./video-sync";
 import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
+const comparison = document.querySelector<HTMLElement>("#comparison")!;
+const video = document.querySelector<HTMLVideoElement>("#walk-video")!;
+const videoStatus = document.querySelector<HTMLElement>("#video-status")!;
+const videoSync = new VideoScrubber(video);
+const walkTime = document.querySelector<HTMLOutputElement>("#walk-time")!;
 const status = document.querySelector<HTMLElement>("#status")!;
 const errorOutput = document.querySelector<HTMLElement>("#error")!;
 const pointCount = document.querySelector<HTMLElement>("#point-count")!;
@@ -19,6 +25,7 @@ let detachInput: (() => void) | undefined;
 let animationFrame = 0;
 let disposed = false;
 let lastIndex = -1;
+let lastTime = "";
 
 function dispose() {
   if (disposed) return;
@@ -28,6 +35,7 @@ function dispose() {
   cancelAnimationFrame(animationFrame);
   fps.dispose();
   detachInput?.();
+  videoSync.dispose();
   app?.free();
   app = undefined;
   window.removeEventListener("pagehide", onPageHide);
@@ -91,13 +99,26 @@ async function start() {
       },
       { signal: events.signal },
     );
-    detachInput = bindWalkInput(canvas, created);
+    detachInput = bindWalkInput(canvas, created, comparison);
     function frame(timestampMs: number) {
       if (disposed) return;
       try {
         created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
         created.frame(timestampMs);
         fps.tick(timestampMs);
+        const time = created.cameraTime();
+        videoSync.setTime(time);
+        const millis = Math.round(time * 1000);
+        const formatted = `${Math.floor(millis / 60000)
+          .toString()
+          .padStart(
+            2,
+            "0",
+          )}:${(Math.floor(millis / 1000) % 60).toString().padStart(2, "0")}.${(millis % 1000).toString().padStart(3, "0")}`;
+        if (formatted !== lastTime) {
+          walkTime.value = formatted;
+          lastTime = formatted;
+        }
         const index = created.cameraIndex();
         if (index !== lastIndex) {
           cameraIndex.textContent = `${index + 1} / ${camerasCount}`;
@@ -115,6 +136,17 @@ async function start() {
   }
 }
 
+function updateVideoStatus() {
+  if (video.error) {
+    videoStatus.textContent = "Video could not load. Check forest-walk-720p.mp4 in public/.";
+    videoStatus.hidden = false;
+  } else {
+    videoStatus.hidden = video.readyState >= 2;
+  }
+}
+video.addEventListener("loadeddata", updateVideoStatus, { signal: events.signal });
+video.addEventListener("error", updateVideoStatus, { signal: events.signal });
+updateVideoStatus();
 window.addEventListener("pagehide", onPageHide);
 import.meta.hot?.dispose(dispose);
 void start();

@@ -191,6 +191,13 @@ impl ExperimentApp {
     pub fn set_point_size(&mut self, pixels: f32) -> Result<(), JsValue> {
         self.scene.set_point_size(pixels).map_err(js_error)
     }
+    #[wasm_bindgen(js_name = cameraTime)]
+    pub fn camera_time(&self) -> f64 {
+        self.scene
+            .navigation
+            .as_ref()
+            .map_or(0., |n| n.timestamp_seconds())
+    }
     #[wasm_bindgen(js_name = cameraIndex)]
     pub fn camera_index(&self) -> u32 {
         self.scene

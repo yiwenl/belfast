@@ -14,9 +14,10 @@ pnpm --dir experiments/forest_walk prepare:assets -- "E:/pointClouds/forest_walk
 pnpm --dir experiments/forest_walk dev
 ```
 
-Open http://localhost:5182.
+Open http://localhost:5182. The 720p video is on the left and the point cloud is on the right, with matching portrait viewports. Place the local compressed video at public/forest-walk-720p.mp4 (ignored by Git).
 
-- Scroll down to select the next recorded camera; scroll up for the previous camera.
+- Scroll over either comparison pane to select the next recorded camera; scroll up for the previous camera.
+- The paused video follows the timestamp interpolated along the same camera path, including smooth transitions and backwards movement. It stops at camera 151 (47.648756 seconds). The point-cloud viewing direction remains independently controlled by dragging.
 - Arrow keys also step through cameras. Scrolling and keys clamp at both ends.
 - Drag with the left mouse button (or one finger) to look around in place. Vertical rotation stops before the poles to prevent flipping.
 - Scrolling smoothly follows the recorded positions while keeping your chosen viewing direction and field of view. The initial view uses camera 1, including its recorded roll.
@@ -44,6 +45,7 @@ The build bundles Wasm and copies the prepared assets into dist/. Preview uses h
 - src/points.wgsl: screen-space billboard expansion and length(point_coord) > 0.5 circle discard.
 - src/scene.rs: immutable instanced vertex buffer, depth attachment and camera uniforms.
 - web/main.ts: asset loading, lifecycle, controls and status.
+- web/video-sync.ts: serializes video seeks and keeps only the latest requested camera time.
 - web/wheel.ts: line/page/pixel wheel normalization and trackpad accumulation.
 
 The point cloud and cameras stay in the same reconstruction world. Camera matrices are row-major OpenCV right/down/forward and become renderer right/up/back without changing the world coordinates. The undistorted vertical field of view is preserved; the horizontal field of view adapts to the viewport. Distances are in reconstruction units, not metres.

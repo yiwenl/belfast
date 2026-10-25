@@ -45,6 +45,7 @@ struct Frame {
 #[derive(Debug)]
 pub struct CameraTrack {
     poses: Vec<CameraPose>,
+    timestamps: Vec<f64>,
 }
 
 impl CameraTrack {
@@ -119,7 +120,12 @@ impl CameraTrack {
                 fov_y,
             });
         }
-        Ok(Self { poses })
+        let timestamps = recording
+            .frames
+            .iter()
+            .map(|frame| frame.timestamp_seconds)
+            .collect();
+        Ok(Self { poses, timestamps })
     }
 
     pub fn len(&self) -> usize {
@@ -127,6 +133,18 @@ impl CameraTrack {
     }
     pub fn is_empty(&self) -> bool {
         self.poses.is_empty()
+    }
+
+    pub fn sample_time(&self, cursor: f32) -> f64 {
+        let cursor = if cursor.is_finite() {
+            cursor.clamp(0., (self.len() - 1) as f32)
+        } else {
+            0.
+        };
+        let index = cursor.floor() as usize;
+        let next = (index + 1).min(self.len() - 1);
+        let t = f64::from(cursor - index as f32);
+        self.timestamps[index] + (self.timestamps[next] - self.timestamps[index]) * t
     }
 
     pub fn sample(&self, cursor: f32) -> CameraPose {
@@ -208,6 +226,10 @@ impl CameraNavigator {
             fov_y: self.fov_y,
         }
     }
+    pub fn timestamp_seconds(&self) -> f64 {
+        self.track.sample_time(self.cursor)
+    }
+
     pub fn index(&self) -> usize {
         self.target
     }

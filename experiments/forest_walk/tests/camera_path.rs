@@ -140,3 +140,42 @@ fn looking_clamps_pitch_without_flipping_and_ignores_invalid_deltas() {
     assert!((nav.pose().rotation * -Vec3::Z).dot(Vec3::Y) > 0.99);
     near(nav.pose().position, Vec3::ZERO);
 }
+
+#[test]
+fn recording_time_follows_the_same_interpolated_position_in_both_directions() {
+    let mut data = fixture();
+    for (frame, time) in data["frames"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .zip([1.25, 4.75, 9.0])
+    {
+        frame["timestamp_seconds"] = json!(time);
+    }
+    data["frames"].as_array_mut().unwrap().reverse();
+    let track = CameraTrack::from_json(&data.to_string()).unwrap();
+    assert_eq!(track.sample_time(-1.), 1.25);
+    assert_eq!(track.sample_time(f32::NAN), 1.25);
+    assert_eq!(track.sample_time(0.5), 3.0);
+    assert_eq!(track.sample_time(1.5), 6.875);
+    assert_eq!(track.sample_time(99.), 9.0);
+    let mut nav = CameraNavigator::new(track);
+    nav.step(1);
+    nav.advance(0.05);
+    assert!(
+        (nav.timestamp_seconds() - (1.25 + f64::from(nav.pose().position.x) * 3.5)).abs() < 1e-6
+    );
+    for _ in 0..180 {
+        nav.advance(1. / 60.);
+    }
+    assert_eq!(nav.timestamp_seconds(), 4.75);
+    nav.look_around(0.5, 0.2);
+    assert_eq!(nav.timestamp_seconds(), 4.75);
+    nav.step(-1);
+    nav.advance(0.05);
+    assert!(nav.timestamp_seconds() > 1.25 && nav.timestamp_seconds() < 4.75);
+    for _ in 0..180 {
+        nav.advance(1. / 60.);
+    }
+    assert_eq!(nav.timestamp_seconds(), 1.25);
+}

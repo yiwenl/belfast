@@ -6,7 +6,11 @@ export interface WalkTarget {
 }
 
 /** Browser input only; camera positions, orientations and transitions stay in Rust. */
-export function bindWalkInput(canvas: HTMLCanvasElement, app: WalkTarget): () => void {
+export function bindWalkInput(
+  canvas: HTMLCanvasElement,
+  app: WalkTarget,
+  wheelTarget: HTMLElement = canvas,
+): () => void {
   const listeners = new AbortController();
   const wheel = new WheelStepper();
   let drag: { id: number; x: number; y: number } | undefined;
@@ -56,7 +60,7 @@ export function bindWalkInput(canvas: HTMLCanvasElement, app: WalkTarget): () =>
     );
   }
   window.addEventListener("blur", endDrag, { signal: listeners.signal });
-  canvas.addEventListener(
+  wheelTarget.addEventListener(
     "wheel",
     (event) => {
       if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
