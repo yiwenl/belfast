@@ -79,3 +79,64 @@ fn sorts_by_recorded_time_and_rejects_invalid_transforms() {
     data["frames"] = json!([]);
     assert!(CameraTrack::from_json(&data.to_string()).is_err());
 }
+
+#[test]
+fn stepping_changes_position_without_replaying_recorded_orientation_or_fov() {
+    let mut data = fixture();
+    data["undistorted_cameras"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
+            "camera_id":2,"width":800,"height":800,"named_parameters":{"fy":800.0}
+        }));
+    data["frames"][1]["camera_id"] = json!(2);
+    data["frames"][1]["camera_to_world"] =
+        json!([[0, 0, 1, 1], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]]);
+    let mut nav = CameraNavigator::new(CameraTrack::from_json(&data.to_string()).unwrap());
+    let initial = nav.pose();
+    nav.step(1);
+    nav.advance(0.05);
+    assert!(nav.pose().position.x > 0. && nav.pose().position.x < 1.);
+    near(nav.pose().rotation * -Vec3::Z, Vec3::Z);
+    for _ in 0..180 {
+        nav.advance(1. / 60.);
+    }
+    near(nav.pose().position, Vec3::X);
+    near(nav.pose().rotation * -Vec3::Z, Vec3::Z);
+    near(nav.pose().rotation * Vec3::Y, -Vec3::Y);
+    assert_eq!(nav.pose().fov_y, initial.fov_y);
+}
+
+#[test]
+fn looking_rotates_in_place_and_survives_forward_and_backward_steps() {
+    let mut nav = CameraNavigator::new(CameraTrack::from_json(&fixture().to_string()).unwrap());
+    nav.look_around(std::f32::consts::FRAC_PI_2, 0.);
+    near(nav.pose().position, Vec3::ZERO);
+    near(nav.pose().rotation * -Vec3::Z, -Vec3::X);
+    for direction in [1, -1] {
+        nav.step(direction);
+        for _ in 0..180 {
+            nav.advance(1. / 60.);
+            near(nav.pose().rotation * -Vec3::Z, -Vec3::X);
+        }
+    }
+    near(nav.pose().position, Vec3::ZERO);
+}
+
+#[test]
+fn looking_clamps_pitch_without_flipping_and_ignores_invalid_deltas() {
+    let mut nav = CameraNavigator::new(CameraTrack::from_json(&fixture().to_string()).unwrap());
+    nav.look_around(0., 100.);
+    let up = nav.pose().rotation * Vec3::Y;
+    let forward = nav.pose().rotation * -Vec3::Z;
+    assert!(up.dot(-Vec3::Y) > 0.);
+    assert!(forward.dot(-Vec3::Y) > 0.99);
+    let rotation = nav.pose().rotation;
+    nav.look_around(f32::NAN, 0.);
+    nav.look_around(0., f32::INFINITY);
+    assert_eq!(nav.pose().rotation, rotation);
+    nav.look_around(0., -200.);
+    assert!((nav.pose().rotation * Vec3::Y).dot(-Vec3::Y) > 0.);
+    assert!((nav.pose().rotation * -Vec3::Z).dot(Vec3::Y) > 0.99);
+    near(nav.pose().position, Vec3::ZERO);
+}

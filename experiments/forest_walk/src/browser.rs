@@ -181,6 +181,12 @@ impl ExperimentApp {
             navigation.step(direction);
         }
     }
+    #[wasm_bindgen(js_name = lookAround)]
+    pub fn look_around(&mut self, yaw_delta: f32, pitch_delta: f32) {
+        if let Some(navigation) = &mut self.scene.navigation {
+            navigation.look_around(yaw_delta, pitch_delta);
+        }
+    }
     #[wasm_bindgen(js_name = setPointSize)]
     pub fn set_point_size(&mut self, pixels: f32) -> Result<(), JsValue> {
         self.scene.set_point_size(pixels).map_err(js_error)

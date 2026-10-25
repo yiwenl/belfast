@@ -152,14 +152,23 @@ pub struct CameraNavigator {
     track: CameraTrack,
     cursor: f32,
     target: usize,
+    initial_rotation: Quat,
+    yaw: f32,
+    pitch: f32,
+    fov_y: f32,
 }
 
 impl CameraNavigator {
     pub fn new(track: CameraTrack) -> Self {
+        let initial = track.sample(0.);
         Self {
             track,
             cursor: 0.,
             target: 0,
+            initial_rotation: initial.rotation,
+            yaw: 0.,
+            pitch: 0.,
+            fov_y: initial.fov_y,
         }
     }
     pub fn step(&mut self, direction: i32) {
@@ -168,6 +177,17 @@ impl CameraNavigator {
             .saturating_add_signed(direction.signum() as isize)
             .min(self.len() - 1);
     }
+    /// Rotate at the current position, relative to the first camera's upright frame.
+    pub fn look_around(&mut self, yaw_delta: f32, pitch_delta: f32) {
+        if !yaw_delta.is_finite() || !pitch_delta.is_finite() {
+            return;
+        }
+        use std::f32::consts::{FRAC_PI_2, PI, TAU};
+        self.yaw = (self.yaw + yaw_delta.rem_euclid(TAU) + PI).rem_euclid(TAU) - PI;
+        let limit = FRAC_PI_2 - 0.01;
+        self.pitch = (self.pitch + pitch_delta).clamp(-limit, limit);
+    }
+
     pub fn advance(&mut self, seconds: f32) {
         if !seconds.is_finite() || seconds <= 0. {
             return;
@@ -179,7 +199,14 @@ impl CameraNavigator {
         }
     }
     pub fn pose(&self) -> CameraPose {
-        self.track.sample(self.cursor)
+        CameraPose {
+            position: self.track.sample(self.cursor).position,
+            rotation: (self.initial_rotation
+                * Quat::from_rotation_y(self.yaw)
+                * Quat::from_rotation_x(self.pitch))
+            .normalize(),
+            fov_y: self.fov_y,
+        }
     }
     pub fn index(&self) -> usize {
         self.target

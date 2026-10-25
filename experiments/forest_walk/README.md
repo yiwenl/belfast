@@ -18,7 +18,8 @@ Open http://localhost:5182.
 
 - Scroll down to select the next recorded camera; scroll up for the previous camera.
 - Arrow keys also step through cameras. Scrolling and keys clamp at both ends.
-- The camera smoothly follows the sequence, interpolating position and recorded orientation, including roll.
+- Drag with the left mouse button (or one finger) to look around in place. Vertical rotation stops before the poles to prevent flipping.
+- Scrolling smoothly follows the recorded positions while keeping your chosen viewing direction and field of view. The initial view uses camera 1, including its recorded roll.
 - Point size controls the circular billboard diameter in CSS pixels (0.5–12 px). Default: 2 px.
 - Camera displays the selected destination frame. The walk ends at camera 151 (inclusive); tracking from camera 152 onward is unreliable.
 
