@@ -8,6 +8,12 @@ import {
   type BenchmarkConfig,
 } from "../web/benchmark-results";
 
+test("rhythm and manual flashes cannot share a comparable benchmark", () => {
+  const manual = { fireflyRhythm: false } as BenchmarkConfig;
+  const rhythm = { fireflyRhythm: true } as BenchmarkConfig;
+  assert.deepEqual(differences(manual, rhythm), ["30 秒節奏"]);
+});
+
 test("height changes invalidate benchmark comparisons", () => {
   const heights = {
     base: 1.25,
@@ -54,6 +60,7 @@ test("baseline loading validates the firefly render mode", () => {
     brushStrokes: true,
     flashRecovery: 0.65,
     fireflyGlow: true,
+    fireflyRhythm: true,
     heights: {
       base: 1.25,
       spread: 0.5,
@@ -107,6 +114,15 @@ test("baseline loading validates the firefly render mode", () => {
   }
   for (const glow of [undefined, null, "false", 0, 1]) {
     baseline.config.fireflyGlow = glow;
+    assert.throws(() => parseBaseline(JSON.stringify(baseline)));
+  }
+  baseline.config.fireflyGlow = true;
+  for (const enabled of [true, false]) {
+    baseline.config.fireflyRhythm = enabled;
+    assert.equal(parseBaseline(JSON.stringify(baseline)).config.fireflyRhythm, enabled);
+  }
+  for (const value of [undefined, null, "true", 1]) {
+    baseline.config.fireflyRhythm = value;
     assert.throws(() => parseBaseline(JSON.stringify(baseline)));
   }
 });

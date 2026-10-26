@@ -187,6 +187,15 @@ impl Scene {
         self.fireflies.set_rates(movement, blinking)
     }
 
+    pub fn set_firefly_rhythm(&mut self, enabled: bool) {
+        self.fireflies.set_rhythm(enabled);
+        self.light_volume.invalidate();
+    }
+
+    pub fn firefly_rhythm_time(&self) -> f32 {
+        self.fireflies.rhythm_time()
+    }
+
     pub fn set_firefly_count(&mut self, count: u32) -> u32 {
         self.light_volume.invalidate();
         self.fireflies.set_count(count)

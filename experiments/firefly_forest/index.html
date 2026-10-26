@@ -34,6 +34,15 @@
       <details class="control-group">
         <summary>螢火蟲</summary>
         <div class="control-body">
+          <label class="benchmark-toggle">
+            <input id="firefly-rhythm" type="checkbox" checked disabled />
+            30 秒節奏
+          </label>
+          <output id="firefly-rhythm-status" aria-live="off">0.0 / 30 秒 · 零散閃爍</output>
+          <small
+            >開啟時自動控制閃爍頻率、時長與隨機性；關閉後使用下方設定。重新開啟從第 0
+            秒開始。</small
+          >
           <div class="control">
             <label for="firefly-render-mode">顯示</label>
             <select id="firefly-render-mode" disabled>

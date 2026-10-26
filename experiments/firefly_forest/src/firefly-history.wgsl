@@ -7,8 +7,10 @@
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let index = id.x;
     if index >= trail.z { return; }
-    // Reuse the fourth component for this frame's flash; no extra history storage.
-    let position = vec4(particles[index].position_phase.xyz, particles[index].flash.y);
+    // Capture the current individual boost too, shared by the whole live trail.
+    let p = particles[index];
+    let brightness = mix(p.flash.y, 1., smoothstep(0., 1., p.drag.x));
+    let position = vec4(p.position_phase.xyz, brightness);
     if trail.w != 0u {
         for (var slot = 0u; slot < CHUNK_FRAMES; slot++) {
             history[slot * trail.y + index] = position;

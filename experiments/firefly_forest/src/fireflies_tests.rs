@@ -28,6 +28,97 @@ fn initial_population_is_finite_bounded_and_has_varied_cycles() {
 }
 
 #[test]
+#[ignore = "requires a GPU"]
+fn gpu_rhythm_stays_local_then_fades_and_repeats_without_a_global_flash() {
+    let device = device();
+    let settings = Settings::default();
+    let input = initial_particles(&settings, 1024);
+    let mut system = FireflySystem::with_particles(&device, &input, settings);
+    system.set_rates(0., 0.28).unwrap();
+    system.set_rhythm(true);
+    for cycle in 0..2 {
+        let mut sum = [0.; 5];
+        let mut peak = [0_f32; 5];
+        let mut frames = [0; 5];
+        for frame in 0..300 {
+            let output = step(&device, &mut system, 0.1);
+            let stage = match frame {
+                0..80 => 0,
+                80..160 => 1,
+                160..220 => 2,
+                220..270 => 3,
+                _ => 4,
+            };
+            let lit = output.iter().filter(|p| p.flash[1] > 0.1).count() as f32 / 1024.;
+            sum[stage] += lit;
+            frames[stage] += 1;
+            peak[stage] = peak[stage].max(lit);
+            assert!(output.iter().all(|p| (0.0..=1.0).contains(&p.flash[1])));
+        }
+        let mean: [f32; 5] = std::array::from_fn(|i| sum[i] / frames[i] as f32);
+        eprintln!("cycle {cycle}: mean={mean:?}, peak={peak:?}");
+        assert!(mean[0] < 0.015, "quiet opening: {mean:?}");
+        assert!(
+            mean[1] > mean[0] * 3. && peak[1] < 0.5,
+            "local waves: {mean:?}"
+        );
+        assert!(
+            peak[2] < 0.35 && mean[2] < mean[1],
+            "waves fade without a global flash: mean={mean:?}, peak={peak:?}"
+        );
+        assert!(
+            mean[3] < 0.002 && mean[4] > mean[3],
+            "dark then returning: {mean:?}"
+        );
+        assert!(system.rhythm_time() < 0.001, "30 second wrap");
+    }
+    // Disabling restores the user's zero frequency without reseeding positions.
+    system.set_rates(0., 0.).unwrap();
+    system.set_rhythm(false);
+    for _ in 0..20 {
+        step(&device, &mut system, 0.1);
+    }
+    let output = step(&device, &mut system, 0.1);
+    assert!(output.iter().all(|p| p.flash[1] == 0.));
+    for (after, before) in output.iter().zip(&input) {
+        assert_eq!(&after.position_phase[..3], &before.position_phase[..3]);
+    }
+    system.set_rhythm(true);
+    assert_eq!(system.rhythm_time(), 0.);
+    system.reset(&device, 123);
+    assert_eq!(system.rhythm_time(), 0.);
+}
+
+#[test]
+#[ignore = "requires a GPU"]
+fn gpu_rhythm_wave_reaches_the_back_before_the_front() {
+    let device = device();
+    let settings = Settings::default();
+    let mut input = initial_particles(&settings, 512);
+    for (i, p) in input.iter_mut().enumerate() {
+        p.position_phase = [0., 1., if i < 256 { -23. } else { -8. }, 0.4];
+    }
+    let mut system = FireflySystem::with_particles(&device, &input, settings);
+    system.set_rates(0., 0.).unwrap();
+    system.set_rhythm(true);
+    let brightness = |system: &mut FireflySystem, time| {
+        system.rhythm_time = time - 0.001;
+        let output = step(&device, system, 0.001);
+        [0, 256].map(|start| {
+            output[start..start + 256]
+                .iter()
+                .map(|p| p.flash[1])
+                .sum::<f32>()
+                / 256.
+        })
+    };
+    let early = brightness(&mut system, 11.7);
+    let later = brightness(&mut system, 14.1);
+    assert!(early[0] > early[1] + 0.1, "back lights first: {early:?}");
+    assert!(later[1] > later[0] + 0.1, "wave reaches front: {later:?}");
+}
+
+#[test]
 fn seeded_ceilings_cluster_near_low_canopy_with_rare_high_outliers() {
     let settings = Settings::default();
     let particles = initial_particles(&settings, PARTICLE_COUNT);
@@ -981,6 +1072,7 @@ fn particle(x: f32, phase: f32) -> Particle {
             DEFAULT_FLASH_DURATION_SECONDS,
             1.,
         ],
+        drag: [0.; 4],
     }
 }
 
@@ -1225,6 +1317,7 @@ fn gpu_glow_pulses_and_forest_depth_occludes_only_distant_fireflies() {
             position_phase: [0., 0., z, 0.],
             velocity_frequency: [0., 0., 0., 0.22],
             flash: [0.05, brightness, DEFAULT_FLASH_DURATION_SECONDS, 1.],
+            drag: [0.; 4],
         };
         let mut system = FireflySystem::with_particles(&device, &[p], Settings::default());
         system.set_glow(glow);

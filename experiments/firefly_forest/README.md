@@ -30,6 +30,35 @@ No performance benchmark has been run for this style.
 
 Original PNGs and licensing information are in `public/brushes/`.
 
+## 30-second flash rhythm
+
+**螢火蟲 → 30 秒節奏** is enabled on page load, starting when the forest is
+ready. The readout shows the current second and stage. Toggle it off to return
+to the manual frequency, duration and randomness sliders; toggle it back on to
+restart from zero without reseeding or moving particles.
+
+| Seconds | Behavior                                                                     |
+| ------- | ---------------------------------------------------------------------------- |
+| 0–8     | Sparse independent flashes, short pulses and high individual variation.      |
+| 8–16    | Local waves grow and travel from the rear of the forest toward the front.    |
+| 16–22   | Local waves disperse into independent flashes and gradually fade away.       |
+| 22–27   | Only a small stable subset can flash; the forest's base color stays visible. |
+| 27–30   | Sparse individual flashes return smoothly into the next cycle.               |
+
+The loop interpolates frequency, pulse duration, randomness and the fraction of
+participating fireflies. World-space pulse delays provide
+local propagation, then blend back to the existing independent oscillators as
+participation falls over 16–22 seconds. There is no forest-wide synchronized pulse.
+Individual oscillators keep running throughout the loop. Effective brightness is
+written to the existing particle state, shared by particles, trail history and
+forest lighting. Dragging retains the existing full-brightness override.
+
+Timing follows rendered simulation seconds (background tabs pause/slow it),
+independent of the motion slider. Benchmark reset restarts the loop and benchmark
+v27 records whether it is enabled and separates this gradual fade from the older chorus rhythm. No extra GPU dispatch or particle buffer is
+allocated. Tuning keyframes live in `src/firefly_rhythm.rs`; wave delay and pulse
+spacing live in `src/firefly-update.wgsl`.
+
 ## Firefly trails
 
 **螢火蟲 → 粒子 Glow** toggles the particle halo (on by default). Turning it off
@@ -40,7 +69,12 @@ Under **螢火蟲 → 顯示**, **拖曳軌跡** is the default: idle shows glow
 pressing the canvas starts a new trail and fades particles out over 0.25 seconds.
 Releasing retracts the tail along the continuously updated curve toward the
 moving particle head and fades particles back. Dragging also
-smoothly brings every firefly to full brightness over 0.25 seconds. On release,
+smoothly brings each firefly to full brightness over **0.35–5 seconds**, using
+independent fixed randomness with the height distribution's power-tail shape:
+`mix(5, 0.35, r⁸)`. Most durations cluster near 5 seconds, with a few fast outliers;
+brightness speed is unrelated to flight height. Each keeps its own progress, including when regrabbing during
+recovery. This is independent of the 0.25-second particle/trail transition and
+movement acceleration. On release,
 that boost fades toward each firefly's current natural flash. **螢火蟲 → 閃爍恢復**
 sets the shared duration for brightness recovery, trail retraction, particle fade-in
 and movement slowdown from 0.1–5 seconds (0.65 seconds by default). Larger values
@@ -51,7 +85,7 @@ The underlying cycles keep running; dragging never restarts or synchronizes them
 Particles and the whole corresponding trail share this effective brightness,
 rather than replaying old tail flashes.
 Motion uses
-the same smooth transition: it accelerates from the configured speed to 1×
+the existing 0.25-second smooth transition: it accelerates from the configured speed to 1×
 while held, then returns to the configured speed on release. The slider value
 and blink timing stay unchanged. Regrabbing during retraction continues from
 the current speed, visible length and opacity. Pointer cancel,
@@ -71,8 +105,9 @@ Trails use unlit colors from the existing firefly palette, with ordinary alpha
 blending and no halo or additive glow.
 Manual trail mode stays solid; drag mode combines the live flash envelope
 with the shared brightness boost using the history sample's fourth component.
-The camera uniform supplies the shared brightness transition without adding
-history storage. **大小** controls their thickness. Forest
+The simulation keeps individual brightness progress in particle state; the
+history sample stores its effective brightness without adding history storage.
+**大小** controls their thickness. Forest
 depth still occludes them, and a separate cleared depth buffer handles trail
 overlap without changing the cached forest. During transitions, a depth prepass
 makes the nearest surface blend once, independent of particle order. Fully held
@@ -144,7 +179,7 @@ The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** co
 
 Changes update two small uniform buffers immediately, with no shader rebuild,
 particle reset or forest-cache rebuild. Color pickers use display RGB hex colors.
-Benchmark v25 records all color, local-light and fog settings (including noise frequency), firefly randomness and height settings, sprite size, shared flash/trail recovery time, particle glow, particle/trail/drag display and brush-rendering mode (2× size / 50% count), and locks these controls during a run. Different recovery times or particle glow settings are incompatible baselines. In drag mode the scripted moving path holds the effect active at 1× after acceleration, while a static run shows particles at the configured speed; completion or cancellation releases it. The Benchmark panel is collapsed by default.
+Benchmark v27 records all color, local-light and fog settings (including noise frequency), firefly randomness and height settings, sprite size, shared flash/trail recovery time, particle glow, 30-second rhythm, particle/trail/drag display and brush-rendering mode (2× size / 50% count), and locks these controls during a run. Different recovery times, particle glow or rhythm settings are incompatible baselines. In drag mode the scripted moving path holds the effect active at 1× after acceleration, while a static run shows particles at the configured speed; completion or cancellation releases it. The Benchmark panel is collapsed by default.
 
 ## Animated volumetric fog
 
@@ -251,7 +286,7 @@ frame index, so slower rendering does not change the route. The camera starts
 at world origin (separate from the interactive starting position); FOV remains the chosen control value. Disable this option
 to benchmark the current static view. Completion or cancellation restores the
 interactive view. Path version, sorting cadence, color, local-light and fog settings are part of
-baseline compatibility; v25 baselines record all height controls and are stored separately from earlier v1–v24 results.
+baseline compatibility; v27 baselines record the rhythm toggle and are stored separately from earlier v1–v26 results, which used different rhythm timing.
 Moving measurements use the same sort thresholds as interactive viewing;
 only stationary setup forces an exact-pose sort.
 The **視角外簡化** checkbox enables or disables offscreen neighbor-search

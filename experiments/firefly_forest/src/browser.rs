@@ -350,6 +350,16 @@ impl ExperimentApp {
         self.scene.set_firefly_count(count)
     }
 
+    #[wasm_bindgen(js_name = setFireflyRhythm)]
+    pub fn set_firefly_rhythm(&mut self, enabled: bool) {
+        self.scene.set_firefly_rhythm(enabled);
+    }
+
+    #[wasm_bindgen(js_name = fireflyRhythmTime)]
+    pub fn firefly_rhythm_time(&self) -> f32 {
+        self.scene.firefly_rhythm_time()
+    }
+
     #[wasm_bindgen(js_name = setFireflyFlashDuration)]
     pub fn set_firefly_flash_duration(&mut self, seconds: f32) -> Result<(), JsValue> {
         self.scene

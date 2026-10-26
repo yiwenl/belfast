@@ -14,7 +14,7 @@ struct Vertex {
 };
 @vertex fn vs_main(@builtin(vertex_index) vertex: u32, @builtin(instance_index) index: u32) -> Vertex {
     let p = particles[index];
-    let intensity = boosted_flash(p.flash.y, camera.effects.x);
+    let intensity = boosted_flash(p.flash.y, smoothstep(0., 1., p.drag.x));
     if intensity <= 0. || camera.sprite.z <= 0. {
         // All six vertices lie outside the clip volume (z > w), so an unlit
         // billboard produces no fragments or additive blending work.

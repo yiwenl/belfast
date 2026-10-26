@@ -12,14 +12,20 @@ pub(super) struct Display {
     mode: RenderMode,
     dragging: bool,
     mix: f32,
+    brightness_mix: f32,
+    brightness_decay: f32,
+    reset_brightness: bool,
     age: f32,
     release_mix: f32,
+    release_brightness_mix: f32,
     release_age: f32,
     release_elapsed: f32,
     flash_recovery: f32,
 }
 
 const FADE_OUT: f32 = 0.25;
+// Track the slowest individual so translucent trails keep their depth prepass.
+const BRIGHTEN: f32 = 5.;
 const DEFAULT_RECOVERY: f32 = 0.65;
 
 impl Default for Display {
@@ -28,8 +34,12 @@ impl Default for Display {
             mode: RenderMode::default(),
             dragging: false,
             mix: 0.,
+            brightness_mix: 0.,
+            brightness_decay: 1.,
+            reset_brightness: true,
             age: 0.,
             release_mix: 0.,
+            release_brightness_mix: 0.,
             release_age: 0.,
             release_elapsed: 0.,
             flash_recovery: DEFAULT_RECOVERY,
@@ -56,6 +66,7 @@ impl Display {
         self.dragging = dragging;
         if !dragging {
             self.release_mix = self.mix;
+            self.release_brightness_mix = self.brightness_mix;
             self.release_age = self.age;
             self.release_elapsed = 0.;
         }
@@ -71,6 +82,7 @@ impl Display {
             // Continue the whole transition from its current state without jumping.
             if !self.dragging {
                 self.release_mix = self.mix;
+                self.release_brightness_mix = self.brightness_mix;
                 self.release_age = self.age;
                 self.release_elapsed = 0.;
             }
@@ -85,7 +97,10 @@ impl Display {
             0.
         };
         self.age = self.mix * (FRAMES - 1) as f32;
+        self.brightness_mix = self.mix;
+        self.reset_brightness = true;
         self.release_mix = 0.;
+        self.release_brightness_mix = 0.;
         self.release_age = 0.;
         self.release_elapsed = self.flash_recovery;
     }
@@ -96,11 +111,20 @@ impl Display {
         }
         if self.dragging {
             self.mix = (self.mix + dt / FADE_OUT).min(1.);
+            self.brightness_mix = (self.brightness_mix + dt / BRIGHTEN).min(1.);
+            self.brightness_decay = 1.;
             self.age = (self.age + 1.).min((FRAMES - 1) as f32);
         } else {
             self.release_elapsed = (self.release_elapsed + dt).min(self.flash_recovery);
             let t = self.release_elapsed / self.flash_recovery;
             self.mix = self.release_mix * (1. - t);
+            let previous_brightness = self.brightness_mix;
+            self.brightness_mix = self.release_brightness_mix * (1. - t);
+            self.brightness_decay = if previous_brightness > 0. {
+                self.brightness_mix / previous_brightness
+            } else {
+                0.
+            };
             // Keep recording the moving head; trim the tail along that live curve.
             self.age = self.release_age * (1. - smooth(t));
         }
@@ -111,7 +135,21 @@ impl Display {
     }
 
     pub(super) fn flash_boost(&self) -> f32 {
-        smooth(self.mix)
+        smooth(self.brightness_mix)
+    }
+
+    pub(super) fn take_brightness_controls(&mut self) -> [f32; 4] {
+        let reset = std::mem::take(&mut self.reset_brightness);
+        [
+            u32::from(self.dragging) as f32,
+            self.brightness_decay,
+            u32::from(reset) as f32,
+            match self.mode {
+                RenderMode::Particles => 0.,
+                RenderMode::Trails => 1.,
+                RenderMode::Drag => 2.,
+            },
+        ]
     }
 
     pub(super) fn movement_rate(&self, configured: f32) -> f32 {

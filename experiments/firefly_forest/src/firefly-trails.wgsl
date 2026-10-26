@@ -39,7 +39,7 @@ fn visible_position(age: u32, index: u32) -> vec3<f32> {
 
 @vertex fn vs_main(@builtin(vertex_index) vertex: u32, @builtin(instance_index) index: u32) -> Vertex {
     // Share the particle's live flash and drag boost across the entire trail.
-    let brightness = boosted_flash(history_sample(0u, index).w, camera.effects.x);
+    let brightness = history_sample(0u, index).w;
     if brightness <= 0. {
         // Unlit tubes must not write depth and hide illuminated tubes behind them.
         return Vertex(vec4(2., 2., 2., 1.), vec4(0.));

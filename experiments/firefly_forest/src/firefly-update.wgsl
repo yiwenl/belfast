@@ -7,6 +7,8 @@ struct SimParams {
     clock: vec4<f32>, // dt, movement noise time, body radius, phase noise time
     controls: vec4<f32>, // movement rate, blinking rate, phase jitter, flash duration
     randomness: vec4<f32>, // movement / blinking randomness multipliers, reserved
+    rhythm: vec4<f32>, // loop seconds (-1: manual), participation, wave, padding
+    drag: vec4<f32>, // held, release decay ratio, reset brightness, display mode
     height: vec4<f32>, // base, random spread, outlier boost, exponent
     height_noise: vec4<f32>, // upper limit, XZ cell size, amplitude, reserved
     grid_count: vec4<u32>, // grid dimensions, particle count
@@ -39,6 +41,12 @@ fn needs_neighbor_search(position: vec3<f32>) -> bool {
     return true;
 }
 
+fn rhythm_pulse(age: f32, duration: f32) -> f32 {
+    if age < 0. || age >= duration { return 0.; }
+    let envelope = sin(3.14159265359 * age / duration);
+    return envelope * envelope;
+}
+
 @compute @workgroup_size(64)
 fn clear_grid(@builtin(global_invocation_id) id: vec3<u32>) {
     let count = params.grid_count.x * params.grid_count.y * params.grid_count.z;
@@ -60,7 +68,25 @@ fn update_particles(@builtin(global_invocation_id) id: vec3<u32>) {
     if id.x >= params.grid_count.w { return; }
     let current = particles_in[id.x];
     let dt = params.clock.x;
-    if dt <= 0. { particles_out[id.x] = current; return; }
+    var brightness = select(current.drag.x, 0., params.drag.z > 0.);
+    if params.drag.w == 1. {
+        brightness = 1.;
+    } else if params.drag.w == 0. {
+        brightness = 0.;
+    } else if params.drag.x > 0. {
+        // Independent fixed randomness; the height distribution's power tail
+        // keeps most durations close while giving a few fireflies a fast wake-up.
+        let wake_seed = petal_noise_hash(vec3<i32>(i32(id.x), 193, 827)).x * 0.5 + 0.5;
+        let duration = mix(5., 0.35, pow(wake_seed, 8.));
+        brightness = min(1., brightness + dt / duration);
+    } else {
+        brightness *= params.drag.y;
+    }
+    let drag = vec4(brightness, 0., 0., 0.);
+    if dt <= 0. {
+        particles_out[id.x] = Firefly(current.position_phase, current.velocity_frequency, current.flash, drag);
+        return;
+    }
     var position = current.position_phase.xyz;
     var velocity = current.velocity_frequency.xyz;
     var separation = vec3(0.);
@@ -195,11 +221,27 @@ fn update_particles(@builtin(global_invocation_id) id: vec3<u32>) {
         let envelope = sin(3.14159265359 * flash_age / duration);
         intensity = envelope * envelope;
     }
+    if params.rhythm.x >= 0. {
+        let time = params.rhythm.x;
+        // World-space delays form local clusters and carry light from the rear
+        // of the forest to the front, independent of camera/culling changes.
+        let depth = clamp((position.z - params.min_cell.z)
+            / (params.max_neighbor.z - params.min_cell.z), 0., 1.);
+        let delay = depth * 4.8 + sin(position.x * 0.8) * 0.25;
+        let wave_age = time - 8. - delay;
+        let wave = rhythm_pulse(fract(wave_age / 3.2) * 3.2, params.controls.w);
+        intensity = mix(intensity, select(0., wave, wave_age >= 0.), params.rhythm.z);
+        // Stable individual participation leaves a few independent stragglers;
+        // fading the threshold avoids popping as the population wakes/sleeps.
+        let seed = individual.z * 0.5 + 0.5;
+        intensity *= 1. - smoothstep(params.rhythm.y * 0.75, params.rhythm.y, seed);
+    }
     // Use unscaled seconds even when blinking is paused, so an active flash
     // completes normally instead of becoming a permanently illuminated particle.
     particles_out[id.x] = Firefly(
         vec4(position, phase),
         vec4(velocity, current.velocity_frequency.w),
-        vec4(flash_age, intensity, duration, current.flash.w)
+        vec4(flash_age, intensity, duration, current.flash.w),
+        drag
     );
 }

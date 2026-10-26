@@ -8,6 +8,8 @@ use crate::sorting::SortCamera;
 mod display;
 #[path = "firefly_height.rs"]
 mod height;
+#[path = "firefly_rhythm.rs"]
+mod rhythm;
 #[path = "firefly_trails.rs"]
 mod trails;
 pub use display::RenderMode;
@@ -40,6 +42,7 @@ struct Particle {
     position_phase: [f32; 4],
     velocity_frequency: [f32; 4],
     flash: [f32; 4],
+    drag: [f32; 4],
 }
 
 /// Tuning lives here, in the forest's existing Y-up scene coordinates.
@@ -93,6 +96,8 @@ struct SimParams {
     clock: [f32; 4],
     controls: [f32; 4],
     randomness: [f32; 4],
+    rhythm: [f32; 4],
+    drag: [f32; 4],
     height: [f32; 4],
     height_noise: [f32; 4],
     grid_count: [u32; 4],
@@ -144,6 +149,7 @@ fn seeded_particles(settings: &Settings, count: u32, seed: u32) -> Vec<Particle>
                     DEFAULT_FLASH_DURATION_SECONDS,
                     r,
                 ],
+                drag: [0.; 4],
             }
         })
         .collect()
@@ -180,6 +186,8 @@ pub struct FireflySystem {
     rates: [f32; 2],
     flash_duration: f32,
     randomness: [f32; 2],
+    rhythm_enabled: bool,
+    rhythm_time: f64,
     size: f32,
     glow: bool,
     pending_dt: f32,
@@ -416,6 +424,8 @@ impl FireflySystem {
             rates: [1., 1.],
             flash_duration: DEFAULT_FLASH_DURATION_SECONDS,
             randomness: [1., 1.],
+            rhythm_enabled: false,
+            rhythm_time: 0.,
             size: 1.,
             glow: true,
             pending_dt: 0.,
@@ -473,6 +483,7 @@ impl FireflySystem {
         self.current = 0;
         self.time = 0.;
         self.phase_time = 0.;
+        self.rhythm_time = 0.;
         self.pending_dt = 0.;
         self.trails.reset();
         self.display.reset();
@@ -485,6 +496,17 @@ impl FireflySystem {
         }
         self.rates = [movement.clamp(0., 1.), blinking.clamp(0., 1.)];
         Ok(())
+    }
+
+    pub fn set_rhythm(&mut self, enabled: bool) {
+        if enabled && !self.rhythm_enabled {
+            self.rhythm_time = 0.;
+        }
+        self.rhythm_enabled = enabled;
+    }
+
+    pub fn rhythm_time(&self) -> f32 {
+        self.rhythm_time as f32
     }
 
     /// Capture this duration on the next flash; active flashes retain their timing.
@@ -532,6 +554,19 @@ impl FireflySystem {
             0.
         };
         self.display.update(self.pending_dt);
+        let drag = self.display.take_brightness_controls();
+        let rhythm_time = (self.rhythm_time + f64::from(self.pending_dt)) % 30.;
+        let [frequency, duration, randomness, activity, wave] = if self.rhythm_enabled {
+            rhythm::sample(rhythm_time as f32)
+        } else {
+            [
+                self.rates[1],
+                self.flash_duration,
+                self.randomness[1],
+                1.,
+                0.,
+            ]
+        };
         let s = &self.settings;
         let view_projection = camera.projection * camera.view;
         // WebGPU clip depth is 0..w. Normalize in world space so the guard band
@@ -560,11 +595,22 @@ impl FireflySystem {
                 clock: [self.pending_dt, self.time, BODY_RADIUS, self.phase_time],
                 controls: [
                     self.display.movement_rate(self.rates[0]),
-                    self.rates[1],
+                    frequency,
                     s.phase_jitter,
-                    self.flash_duration,
+                    duration,
                 ],
-                randomness: [self.randomness[0], self.randomness[1], 0., 0.],
+                randomness: [self.randomness[0], randomness, 0., 0.],
+                rhythm: [
+                    if self.rhythm_enabled {
+                        rhythm_time as f32
+                    } else {
+                        -1.
+                    },
+                    activity,
+                    wave,
+                    0.,
+                ],
+                drag,
                 height: [
                     s.height.base,
                     s.height.spread,
@@ -642,7 +688,15 @@ impl FireflySystem {
         // Noise evolves faster than the slowed simulation at low slider values,
         // while zero still pauses it. Motion and cycle integration keep their rates.
         self.time += self.pending_dt * self.display.movement_rate(self.rates[0]).sqrt();
-        self.phase_time += self.pending_dt * self.rates[1].sqrt();
+        if self.rhythm_enabled {
+            self.rhythm_time = (self.rhythm_time + f64::from(self.pending_dt)) % 30.;
+        }
+        let frequency = if self.rhythm_enabled {
+            rhythm::sample(self.rhythm_time as f32)[0]
+        } else {
+            self.rates[1]
+        };
+        self.phase_time += self.pending_dt * frequency.sqrt();
     }
 
     pub fn set_appearance(
@@ -709,7 +763,7 @@ impl FireflySystem {
             view,
             self.count,
             self.display.max_age(),
-            self.particles_visible(),
+            self.particles_visible() || self.display.flash_boost() < 1.,
             queries.map(|query_set| wgpu::RenderPassTimestampWrites {
                 query_set,
                 beginning_of_pass_write_index: Some(10),

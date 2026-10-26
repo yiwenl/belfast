@@ -19,6 +19,8 @@ const status = document.querySelector<HTMLElement>("#status")!;
 const errorOutput = document.querySelector<HTMLElement>("#error")!;
 const sceneInfo = document.querySelector<HTMLElement>("#scene-info")!;
 const brush = document.querySelector<HTMLInputElement>("#brush-enabled")!;
+const rhythm = document.querySelector<HTMLInputElement>("#firefly-rhythm")!;
+const rhythmStatus = document.querySelector<HTMLOutputElement>("#firefly-rhythm-status")!;
 const fps = createFpsMeter(document.querySelector<HTMLElement>("#fps")!);
 let app: ExperimentApp | undefined;
 let detachInput: (() => void) | undefined;
@@ -105,6 +107,7 @@ function bindSceneControls(target: ExperimentApp) {
       target.setBrushEnabled(brush.checked);
       target.setFireflyRenderMode(renderMode.value);
       target.setFireflyGlow(glow.checked);
+      target.setFireflyRhythm(rhythm.checked && sceneReady);
       count.value = String(activeCount);
       countValue.value = `${activeCount.toLocaleString("en-US")} 隻`;
       const display =
@@ -130,6 +133,7 @@ function bindSceneControls(target: ExperimentApp) {
   const inputs = [
     renderMode,
     glow,
+    rhythm,
     count,
     movement,
     blinking,
@@ -210,7 +214,10 @@ async function start() {
           return;
         }
         created.applySort(data.indices);
-        sceneReady = true;
+        if (!sceneReady) {
+          sceneReady = true;
+          created.setFireflyRhythm(rhythm.checked);
+        }
         benchmark?.setReady();
         sceneInfo.textContent = `${gaussianCount.toLocaleString()} splats · ${created.visibleCount().toLocaleString()} in view · sort ${data.milliseconds.toFixed(1)} ms`;
       } catch (error) {
@@ -225,6 +232,20 @@ async function start() {
         created.resize(RENDER_WIDTH, RENDER_HEIGHT, 1);
         // Use the current clock so input received earlier in this RAF is not dated in the future.
         if (!benchmark?.tick(timestampMs)) created.frame(performance.now());
+        const seconds = created.fireflyRhythmTime();
+        const stage =
+          seconds < 8
+            ? "零散閃爍"
+            : seconds < 16
+              ? "局部同步・光沿森林傳播"
+              : seconds < 22
+                ? "局部光逐漸散去"
+                : seconds < 27
+                  ? "沉寂"
+                  : "零星甦醒";
+        rhythmStatus.value = rhythm.checked
+          ? `${seconds.toFixed(1)} / 30 秒 · ${stage}`
+          : "手動閃爍";
         fps.tick(timestampMs);
         if (sorterReady) {
           // Rust allows one pending sort and accumulates small camera movements.
