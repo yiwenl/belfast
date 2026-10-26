@@ -7,7 +7,7 @@ import { bindFogControls } from "./fog-controls";
 import { bindHeightControls } from "./height-controls";
 import { createFpsMeter } from "./fps";
 import { bindOrbitInput } from "./input";
-import { createSkeletonAdapter } from "./kinetic";
+import { bindInteractionControls } from "./interaction-controls";
 import { loadPlyBytes } from "./load-ply";
 import type { SortReply, SortRequest } from "./sort-protocol";
 import "./style.css";
@@ -30,6 +30,8 @@ let detachLights: (() => void) | undefined;
 let detachFog: (() => void) | undefined;
 let detachHeight: (() => void) | undefined;
 let benchmark: ReturnType<typeof createBenchmark> | undefined;
+let interaction: ReturnType<typeof bindInteractionControls> | undefined;
+let benchmarkLocked = false;
 let animationFrame = 0;
 let disposed = false;
 let sortWorker: Worker | undefined;
@@ -46,6 +48,7 @@ function dispose() {
   cancelAnimationFrame(animationFrame);
   fps.dispose();
   benchmark?.dispose();
+  interaction?.dispose();
   detachInput?.();
   detachControls?.();
   detachColors?.();
@@ -206,12 +209,19 @@ async function start() {
     detachLights = bindLightControls(created, reportError);
     detachFog = bindFogControls(created, reportError);
     detachHeight = bindHeightControls(created, reportError);
+    interaction = bindInteractionControls(created, (active) => {
+      detachInput?.();
+      detachInput =
+        !active && !benchmarkLocked && !disposed ? bindOrbitInput(canvas, created) : undefined;
+    });
     benchmark = createBenchmark(created, canvas, (locked) => {
+      benchmarkLocked = locked;
       for (const input of document.querySelectorAll<
         HTMLInputElement | HTMLSelectElement | HTMLButtonElement
-      >("#firefly-controls input, #firefly-controls select, #color-reset")) {
+      >("#firefly-controls input, #firefly-controls select, #firefly-controls button")) {
         input.disabled = locked;
       }
+      interaction?.setLocked(locked);
       if (locked) {
         detachInput?.();
         detachInput = undefined;
@@ -219,10 +229,6 @@ async function start() {
         detachInput = bindOrbitInput(canvas, created);
       }
     });
-
-    // Future Kinetic integration: forward each event's poses and performance.now().
-    const skeleton = createSkeletonAdapter(created);
-    skeleton.clear();
 
     sortWorker = new Worker(new URL("./sort.worker.ts", import.meta.url), { type: "module" });
     sortWorker.onerror = (event) =>
@@ -241,6 +247,7 @@ async function start() {
         if (!sceneReady) {
           sceneReady = true;
           created.setFireflyRhythm(rhythm.checked);
+          interaction?.setReady();
         }
         benchmark?.setReady();
         sceneInfo.textContent = `${gaussianCount.toLocaleString()} splats · ${created.visibleCount().toLocaleString()} in view · sort ${data.milliseconds.toFixed(1)} ms`;

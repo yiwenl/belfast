@@ -303,6 +303,9 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = pointerDown)]
     pub fn pointer_down(&mut self, x: f32, y: f32, button: u16, pan: bool) {
+        if !self.scene.control.enabled() {
+            return;
+        }
         let button = match button {
             0 => OrbitalPointerButton::Primary,
             1 => OrbitalPointerButton::Middle,
@@ -326,6 +329,21 @@ impl ExperimentApp {
 
     pub fn scroll(&mut self, delta: f32) {
         self.scene.control.scroll(delta);
+    }
+
+    #[wasm_bindgen(js_name = setInteractionMode)]
+    pub fn set_interaction_mode(&mut self, enabled: bool) {
+        self.scene.set_interaction_mode(enabled);
+    }
+
+    #[wasm_bindgen(js_name = setNosePosition)]
+    pub fn set_nose_position(&mut self, x: f32, y: f32) -> Result<(), JsValue> {
+        self.scene.set_nose_position(x, y).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setInteractionDragging)]
+    pub fn set_interaction_dragging(&mut self, dragging: bool) {
+        self.scene.set_interaction_dragging(dragging);
     }
 
     #[wasm_bindgen(js_name = hdrEnabled)]

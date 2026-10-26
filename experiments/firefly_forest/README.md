@@ -63,6 +63,35 @@ v27 records whether it is enabled and separates this gradual fade from the older
 allocated. Tuning keyframes live in `src/firefly_rhythm.rs`; wave delay and pulse
 spacing live in `src/firefly-update.wgsl`.
 
+## Projection interaction
+
+Open **投影互動** and click **進入互動模式** to use Kinetic Station's nose tracking.
+Station must be running on this computer (default `ws://127.0.0.1:8787`).
+Both the local page and HTTPS Wi-Fi preview connect through the same-origin
+`/kinetic` WebSocket proxy. To use a different Station, start the server with
+`KINETIC_WS_URL=ws://<station-ip>:8787`.
+
+The first pose's image-space `nose` is mapped to camera XY:
+`x = (2 * nose.x / video.width - 1) * scale` and
+`y = (1 - 2 * nose.y / video.height) * scale`, clamped to ±scale.
+Station already mirrors X when enabled. **XY 移動幅度** sets scale from 0 to 5
+(default 2). Z stays at the default camera position, 5, looking at the forest
+centre; motion has a 0.6-second exponential response to reduce tracking jitter.
+
+Raising either hand holds the existing drag effect: fireflies brighten and grow
+trails using the same settings as mouse dragging. A hand is raised when its wrist
+is above its same-side shoulder (`wrist.y < shoulder.y` in image coordinates).
+Lowering both hands releases the effect with its existing fade. Each wrist and
+shoulder must have valid coordinates and visibility of at least 0.5 when supplied.
+The gesture works independently of nose visibility; missing nose tracking holds
+the camera position. Missing, invalid or stale poses release the effect.
+
+Orbit, pan and zoom are disabled in interaction mode. Missing, stale (250 ms),
+invalid or low-confidence nose data holds the last target; the connection status
+is shown in the panel. Disconnections retry after 1.5 seconds. Exit restores the
+previous orbital view. Starting a benchmark exits interaction mode so live
+tracking cannot alter a deterministic run. Press **F** for canvas-only fullscreen.
+
 ## Firefly trails
 
 **螢火蟲 → 粒子 Glow** toggles the particle halo (off by default). Turning it off

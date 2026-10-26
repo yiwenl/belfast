@@ -16,6 +16,30 @@
     </aside>
     <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
     <section id="firefly-controls" lang="zh-Hant" aria-label="場景控制">
+      <details class="control-group" open>
+        <summary>投影互動</summary>
+        <div class="control-body">
+          <button id="interaction-toggle" type="button" aria-pressed="false" disabled>
+            進入互動模式
+          </button>
+          <div class="control">
+            <label for="interaction-scale">XY 移動幅度</label>
+            <output id="interaction-scale-value" for="interaction-scale">2.00×</output>
+            <input
+              id="interaction-scale"
+              type="range"
+              min="0"
+              max="5"
+              step="0.05"
+              value="2"
+              disabled
+            />
+          </div>
+          <small>以影像中心為原點，用鼻子移動視角。互動時停用滑鼠控制。</small>
+          <small>任一手腕高於同側肩膀時觸發拖曳效果，雙手放下後結束。</small>
+          <p id="interaction-status" role="status">尚未進入互動模式</p>
+        </div>
+      </details>
       <details class="control-group">
         <summary>場景</summary>
         <div class="control-body">

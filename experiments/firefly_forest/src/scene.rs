@@ -13,6 +13,8 @@ use crate::{
     splat::SplatRenderer,
 };
 
+const DEFAULT_CAMERA_Z: f32 = 5.0;
+
 /// Rust owns the forest renderer and camera; a worker supplies sorted indices.
 pub struct Scene {
     pub camera: PerspectiveCamera,
@@ -33,6 +35,9 @@ pub struct Scene {
     forest_camera: Option<SortCamera>,
     forest_dirty: bool,
     camera_frozen: bool,
+    interaction_active: bool,
+    nose_target: [f32; 2],
+    nose_position: [f32; 2],
     benchmark_restore: Option<PerspectiveCamera>,
     benchmark_path_started: bool,
     gpu_timing: Option<GpuTiming>,
@@ -43,7 +48,7 @@ impl Scene {
         let mut camera = PerspectiveCamera::new(50.0_f32.to_radians(), 1.0, 0.02, 200.0);
         let mut control = OrbitalControl::new(OrbitalControlOptions {
             center: [0.0, 0.0, 0.0],
-            radius: 5.0,
+            radius: DEFAULT_CAMERA_Z,
             min_radius: 0.05,
             max_radius: 100.0,
             rotate_sensitivity: 0.003,
@@ -75,6 +80,9 @@ impl Scene {
             forest_camera: None,
             forest_dirty: true,
             camera_frozen: false,
+            interaction_active: false,
+            nose_target: [0.0; 2],
+            nose_position: [0.0; 2],
             benchmark_restore: None,
             benchmark_path_started: false,
             gpu_timing: None,
@@ -297,7 +305,45 @@ impl Scene {
             .configure(enabled, density, speed, light, noise_frequency)
     }
 
+    pub fn set_interaction_mode(&mut self, enabled: bool) {
+        if self.camera_frozen || self.interaction_active == enabled {
+            return;
+        }
+        self.interaction_active = enabled;
+        self.control.set_enabled(!enabled);
+        self.fireflies.set_dragging(false);
+        if enabled {
+            // Settle the stored orbital view before temporarily taking over the camera.
+            self.control.update(10.0, &mut self.camera);
+            self.nose_target = [0.0; 2];
+            self.nose_position = [0.0; 2];
+            self.camera.look_at([0.0, 0.0, DEFAULT_CAMERA_Z], [0.0; 3]);
+        } else {
+            self.control.update(0.0, &mut self.camera);
+        }
+    }
+
+    pub fn set_nose_position(&mut self, x: f32, y: f32) -> Result<(), String> {
+        if ![x, y]
+            .iter()
+            .all(|value| value.is_finite() && value.abs() <= 5.0)
+        {
+            return Err("Nose camera coordinates must be finite and within [-5, 5]".into());
+        }
+        if self.interaction_active {
+            self.nose_target = [x, y];
+        }
+        Ok(())
+    }
+
+    pub fn set_interaction_dragging(&mut self, dragging: bool) {
+        if self.interaction_active && !self.camera_frozen {
+            self.fireflies.set_dragging(dragging);
+        }
+    }
+
     pub fn begin_benchmark(&mut self, device: &Device, seed: u32, moving: bool) {
+        self.set_interaction_mode(false);
         // Finish orbital damping before capturing the view, so a completed run
         // does not resume old camera motion and invalidate the next A/B run.
         self.control.update(10., &mut self.camera);
@@ -385,7 +431,26 @@ impl Scene {
 
     pub fn update(&mut self, device: &Device, delta_seconds: f32, now_ms: f64) {
         if !self.camera_frozen {
-            self.control.update(delta_seconds, &mut self.camera);
+            if self.interaction_active {
+                let blend = 1.0 - (-delta_seconds / 0.6).exp();
+                for axis in 0..2 {
+                    let delta = self.nose_target[axis] - self.nose_position[axis];
+                    self.nose_position[axis] += delta * blend;
+                    if delta.abs() < 0.0001 {
+                        self.nose_position[axis] = self.nose_target[axis];
+                    }
+                }
+                self.camera.look_at(
+                    [
+                        self.nose_position[0],
+                        self.nose_position[1],
+                        DEFAULT_CAMERA_Z,
+                    ],
+                    [0.0; 3],
+                );
+            } else {
+                self.control.update(delta_seconds, &mut self.camera);
+            }
         }
         if self.benchmark_restore.is_some() && self.benchmark_path_started {
             self.set_benchmark_camera((now_ms * 0.001) as f32);

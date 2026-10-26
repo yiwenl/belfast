@@ -176,7 +176,8 @@ aside span {
   cursor: pointer;
 }
 
-#color-reset {
+#color-reset,
+#interaction-toggle {
   padding: 8px;
   border: 1px solid #dce88d40;
   border-radius: 4px;
@@ -184,6 +185,16 @@ aside span {
   color: #edf4c7;
   font: inherit;
   cursor: pointer;
+}
+
+#interaction-toggle[aria-pressed="true"] {
+  background: #dce88d24;
+}
+
+#interaction-status {
+  margin: 0;
+  color: #edf4c7;
+  line-height: 1.5;
 }
 
 #firefly-controls :disabled {
