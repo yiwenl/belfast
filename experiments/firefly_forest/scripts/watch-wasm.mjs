@@ -5,21 +5,26 @@ import { createBuildQueue, watchSources } from "./wasm-watch.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const withVite = process.argv.includes("--vite");
+const withLan = process.argv.includes("--lan");
 let child;
 let server;
 let listening;
+let lanServer;
+let lanListening;
 let stopped = false;
 let closeWatchers = () => {};
 let builds = 0;
 
 async function build() {
   const number = ++builds;
-  console.log(`\n[wasm] Build #${number} (release)…`);
+  console.log(`\n[wasm] Build #${number} (${withLan ? "release + LAN bundle" : "release"})…`);
   const result = await new Promise((resolveBuild) => {
     // A separate process group lets Ctrl+C stop Cargo/wasm-bindgen as well.
     child = spawn(
-      "wasm-pack",
-      ["build", ".", "--target", "web", "--out-dir", "pkg", "--out-name", "experiment"],
+      withLan ? "pnpm" : "wasm-pack",
+      withLan
+        ? ["build"]
+        : ["build", ".", "--target", "web", "--out-dir", "pkg", "--out-name", "experiment"],
       {
         cwd: root,
         stdio: "inherit",
@@ -39,6 +44,21 @@ async function build() {
     return;
   }
   console.log(`[wasm] Build #${number} complete.`);
+  if (withLan && !lanServer) {
+    const { preview } = await import("vite");
+    if (stopped) return;
+    try {
+      lanListening = preview({ root, mode: "lan" });
+      lanServer = await lanListening;
+      if (!stopped) lanServer.printUrls();
+    } catch (error) {
+      console.error(error);
+      await shutdown(1);
+      return;
+    }
+  }
+  if (stopped) return;
+  if (withLan) console.log("[lan] Updated dist/. Refresh the page on other computers.");
   if (!withVite) return;
   if (!server) {
     const { createServer } = await import("vite");
@@ -87,12 +107,17 @@ async function shutdown(exitCode) {
   // Wait for that bind (or its failure) before closing the server.
   await listening?.catch(() => {});
   await server?.close();
+  await lanListening?.catch(() => {});
+  await lanServer?.close();
   process.exitCode = exitCode;
 }
 
 process.once("SIGINT", () => void shutdown(130));
 process.once("SIGTERM", () => void shutdown(143));
 try {
+  if (withLan && !process.env.LAN_HOST) {
+    throw new Error("Set LAN_HOST to this computer's Wi-Fi IP address when using --lan.");
+  }
   closeWatchers = watchSources(
     [resolve(root, "src"), resolve(root, "../../crates/belfast/src")],
     (file) => {

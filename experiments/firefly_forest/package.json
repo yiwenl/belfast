@@ -8,6 +8,7 @@
     "build:wasm:release": "wasm-pack build . --target web --out-dir pkg --out-name experiment",
     "watch:wasm": "node scripts/watch-wasm.mjs",
     "dev": "node scripts/watch-wasm.mjs --vite",
+    "dev:lan": "node scripts/watch-wasm.mjs --vite --lan",
     "build": "pnpm build:wasm:release && tsc --noEmit && vite build",
     "preview": "vite preview",
     "preview:lan": "pnpm build && vite preview --mode lan",

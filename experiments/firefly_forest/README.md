@@ -4,6 +4,10 @@ Renders `public/forest.ply` with the Rust/WebGPU 3D Gaussian splatting pipeline 
 
 The entire scene is translated **0.5 units down**. The shared view transform includes this translation for splat rendering/sorting, firefly rendering/culling, fog and local-light reconstruction. Simulation bounds, ground height and lights remain in scene-local coordinates, so they move together. Benchmark camera snapshots include the translation, preventing comparisons against baselines with the old placement.
 
+Press **F** to toggle fullscreen for the canvas only; **Esc** also exits.
+The image keeps its 16:9 aspect ratio with black bars as needed, and controls stay
+outside fullscreen. The shortcut is ignored while editing a control or text.
+
 ## Brush stroke rendering
 
 **森林筆觸 / 使用短筆觸 splats** is enabled by default. Turn it off to compare
@@ -260,6 +264,12 @@ fixed timestep), with cadence reset alongside the seed. Disabling lighting
 skips volume generation; enabling it or changing update frequency, radius, count or firefly
 appearance forces a fresh volume. Strength changes apply immediately.
 
+Accumulated forest illumination has a hue-preserving soft ceiling after the
+strength control: peak RGB values up to **0.25** are unchanged, then smoothly
+approach **0.5**. Dense clusters therefore stop getting arbitrarily brighter;
+the particle cores/glow, trails and fog are unaffected. This ceiling is set by
+`FIREFLY_LIGHT_LIMIT` in `src/forest-color.wgsl`, before surface-color modulation.
+
 The existing forest copy pass reconstructs world coordinates from cached depth
 and the inverse camera matrix, trilinearly samples this volume, and adds warm
 light modulated by the source forest color **after** night grading. No extra
@@ -439,6 +449,22 @@ cargo test -p belfast-experiment-firefly-forest -- --ignored --nocapture
 ```
 
 Deploy `dist/` as a static site, including `forest.ply`. For HTTPS preview on the same Wi-Fi, use `LAN_HOST=<your-local-IP> pnpm --dir experiments/firefly_forest preview:lan` and open port 5179. The receiving browser must trust the development certificate and support WebGPU.
+
+To rebuild the Wi-Fi version automatically while editing Rust or WGSL, use one
+combined watcher instead of running `dev` and `preview:lan` separately:
+
+```sh
+LAN_HOST=<your-local-IP> pnpm --dir experiments/firefly_forest dev:lan
+```
+
+This builds release WASM, checks TypeScript and bundles `dist/` at startup and
+after `.rs` / `.wgsl` saves in the experiment or shared Belfast source. The same
+queue coalesces saves and serializes builds. It serves local development at
+`http://localhost:5178` and the built HTTPS preview at `https://<your-local-IP>:5179`.
+The local page reloads after each successful build; refresh the page on other
+computers after `[lan] Updated dist/` appears. Ctrl+C stops both servers and the
+watcher. Frontend-only edits still use local HMR; restart `dev:lan` to bundle them
+for Wi-Fi. No tests run as part of this command.
 
 ## Structure
 

@@ -55,6 +55,30 @@ function dispose() {
   app?.free();
   app = undefined;
   window.removeEventListener("pagehide", onPageHide);
+  window.removeEventListener("keydown", onFullscreenKey);
+}
+
+async function onFullscreenKey(event: KeyboardEvent) {
+  if (
+    event.key.toLowerCase() !== "f" ||
+    event.repeat ||
+    event.isComposing ||
+    event.defaultPrevented ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey ||
+    (event.target instanceof HTMLElement &&
+      (event.target.isContentEditable || event.target.closest("input, textarea, select")))
+  )
+    return;
+  event.preventDefault();
+  try {
+    if (document.fullscreenElement === canvas) await document.exitFullscreen();
+    else await canvas.requestFullscreen();
+  } catch (error) {
+    // A denied fullscreen request must not stop the experiment.
+    console.warn("Unable to toggle canvas fullscreen", error);
+  }
 }
 
 function onPageHide(event: PageTransitionEvent) {
@@ -288,5 +312,6 @@ async function start() {
 }
 
 window.addEventListener("pagehide", onPageHide);
+window.addEventListener("keydown", onFullscreenKey);
 import.meta.hot?.dispose(dispose);
 void start();

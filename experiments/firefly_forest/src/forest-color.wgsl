@@ -1,5 +1,6 @@
 @group(0) @binding(0) var forest: texture_2d<f32>;
 override srgb_attachment: bool = false;
+const FIREFLY_LIGHT_LIMIT: f32 = 0.5;
 struct Grade {
     params: vec4<f32>, // strength, brightness
     shadow: vec4<f32>,
@@ -53,7 +54,16 @@ fn lighting(position: vec2<f32>, depth: f32) -> vec3<f32> {
     let world = homogeneous.xyz / homogeneous.w;
     let uvw = (world - volume.min_radius.xyz) / volume.extent_strength.xyz;
     if any(uvw < vec3(0.)) || any(uvw > vec3(1.)) { return vec3(0.); }
-    return textureSampleLevel(light_map, light_sampler, uvw.xzy, 0.).rgb * volume.extent_strength.w;
+    // Saturate possible RGBA16Float overflow before applying the light-strength control.
+    let light = min(textureSampleLevel(light_map, light_sampler, uvw.xzy, 0.).rgb, vec3(65504.))
+        * volume.extent_strength.w * 0.1;
+    let peak = max(light.r, max(light.g, light.b));
+    let knee = FIREFLY_LIGHT_LIMIT * 0.5;
+    if peak <= knee { return light; }
+    // Roll off the accumulated light together so dense groups retain their hue.
+    let limited = knee + (FIREFLY_LIGHT_LIMIT - knee)
+        * (1. - exp(-(peak - knee) / (FIREFLY_LIGHT_LIMIT - knee)));
+    return light * (limited / peak);
 }
 
 fn night_grade(rgb: vec3<f32>) -> vec3<f32> {
