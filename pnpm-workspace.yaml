@@ -2,6 +2,7 @@ packages:
   - "packages/belfast-wasm"
   - "web"
   - "experiments/template"
+  - "experiments/forest_walk"
   - "experiments/particles"
   - "experiments/firefly_forest"
   - "experiments/image_volume"

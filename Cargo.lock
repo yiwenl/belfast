@@ -152,6 +152,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "belfast-experiment-forest-walk"
+version = "0.1.0"
+dependencies = [
+ "belfast",
+ "bytemuck",
+ "glam",
+ "naga",
+ "pollster",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+]
+
+[[package]]
 name = "belfast-experiment-image-volume"
 version = "0.1.0"
 dependencies = [

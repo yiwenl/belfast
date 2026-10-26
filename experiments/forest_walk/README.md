@@ -1,0 +1,62 @@
+# Forest Walk
+
+An opaque RGB point cloud viewed from the camera poses recorded during the forest walk. Rust/wgpu renders instanced circular billboards with depth testing. Each dot retains its PLY color.
+
+## Run
+
+Requires Node 20+, pnpm, Rust with the wasm32-unknown-unknown target, and wasm-pack.
+
+From the repository root:
+
+```sh
+pnpm install
+pnpm --dir experiments/forest_walk prepare:assets -- "E:/pointClouds/forest_walk_2/output"
+pnpm --dir experiments/forest_walk dev
+```
+
+Open http://localhost:5182. The 720p video is on the left and the point cloud is on the right, with matching portrait viewports. Place the local compressed video at public/forest-walk-720p.mp4 (ignored by Git).
+
+- Scroll over either comparison pane to select the next recorded camera; scroll up for the previous camera.
+- The paused video follows the timestamp interpolated along the same camera path, including smooth transitions and backwards movement. It stops at camera 151 (47.648756 seconds). The point-cloud viewing direction remains independently controlled by dragging.
+- Arrow keys also step through cameras. Scrolling and keys clamp at both ends.
+- Drag with the left mouse button (or one finger) to look around in place. Vertical rotation stops before the poles to prevent flipping.
+- Scrolling smoothly follows the recorded positions while keeping your chosen viewing direction and field of view. The initial view uses camera 1, including its recorded roll.
+- The comparison fills the viewport without headings or a footer. A small View selector switches the left pane between Video and Overview. Circular billboard diameter stays at the default 2 CSS pixels.
+- The walk ends at camera 151 (inclusive); tracking from camera 152 onward is unreliable.
+
+The preparation command copies the PLY to public/forest.ply and writes public/cameras.json with the first 151 poses in timestamp order and the intrinsics required by the viewer. These local assets are ignored by Git. Repeat this step on another checkout or before building for deployment.
+
+## Overview
+
+Select **Overview** in the left pane for a fixed 45-degree elevated view. It fits the actual cloud and camera path bounds in overview space with a small margin, uses reconstruction up (-Y), and stays fixed while walking or looking around. Cyan frustums show all 151 recorded poses; the orange frustum follows the current interpolated position and independent viewing direction. The overview fills its pane; video keeps the original portrait aspect. Switching back to Video seeks to the current walk time.
+
+Both 3D panes render into one WebGPU canvas with separate viewports and camera uniforms, sharing one device, depth attachment, and point-cloud buffer. The overview draws only while visible. The recorded cameras use one instanced line-list draw (24 vertices per camera); the current camera is a separate updated instance with wider screen-space lines for visibility. The inverse-view-projection construction follows archive/packages/alfrid/src/helper/DrawCamera.js and Belfast CameraHelper, using WebGPU clip depth 0–1. Frustums have short visualization far planes and draw over the canopy to remain visible; they are camera markers rather than full reconstruction clipping distances.
+
+## Build and verify
+
+```sh
+pnpm --dir experiments/forest_walk test
+cargo test -p belfast-experiment-forest-walk
+cargo test -p belfast-experiment-forest-walk --test real_assets -- --ignored
+pnpm --dir experiments/forest_walk build
+pnpm --dir experiments/forest_walk preview
+```
+
+The build bundles Wasm and copies the prepared assets into dist/. Preview uses http://localhost:4177.
+
+## Implementation
+
+- src/point_cloud.rs: binary little-endian PLY decoding; keeps original positions and RGB.
+- src/camera_path.rs: camera JSON validation, OpenCV camera-axis conversion, path interpolation and endpoint clamping.
+- src/points.wgsl: screen-space billboard expansion and length(point_coord) > 0.5 circle discard.
+- src/overview.rs and src/frustums.rs: fixed overview fitting and instanced camera markers.
+- src/scene.rs: shared instanced point buffer, per-view camera uniforms, and one render pass for both panes.
+- web/main.ts: asset loading, lifecycle, controls and status.
+- web/video-sync.ts: serializes video seeks and keeps only the latest requested camera time.
+- web/wheel.ts: line/page/pixel wheel normalization and trackpad accumulation.
+
+The point cloud and cameras stay in the same reconstruction world. Camera matrices are row-major OpenCV right/down/forward and become renderer right/up/back without changing the world coordinates. The undistorted vertical field of view is preserved; the horizontal field of view adapts to the viewport. Distances are in reconstruction units, not metres.
+
+## Local point-cloud cleanup
+
+The supplied cloud now contains 2,011,687 points. The detached tail (121,239 points supported only by cameras 152–200 in COLMAP fusion visibility) was removed. Retained point positions, normals and RGB values are unchanged. The original PLY, visibility file and camera JSON are backed up under E:/pointClouds/forest_walk_2/output/backups/before-tail-cleanup-20261025-203901. The cleanup report is E:/pointClouds/forest_walk_2/output/forest_walk_2_tail_cleanup.json.
