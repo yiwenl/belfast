@@ -34,7 +34,7 @@ impl Fog {
         let values = Params {
             inverse_camera: glam::Mat4::IDENTITY.to_cols_array(),
             eye_time: [0.; 4],
-            controls: [0.06, 1., 0.7, 1.],
+            controls: [0.06, 2., 0.6, 1.],
             light_position: [0., 2.2, -10., 32.],
             light_color: [0.30, 0.55, 0.95, 0.45],
         };
@@ -206,7 +206,7 @@ impl Fog {
             distance,
             params,
             values,
-            animation_speed: 1.,
+            animation_speed: 1.8,
             pipeline,
             layout,
             binding,

@@ -219,8 +219,8 @@ Benchmark v27 records all color, local-light and fog settings (including noise f
 ## Animated volumetric fog
 
 The **體積霧** controls toggle fog, density (0–0.2, default 0.06), animation
-speed (0–2×, default 1) and light intensity (0–4×, default 0.7). Speed zero freezes
-the density field. **霧的 Noise 頻率** (0.1–4×, default 1, step 0.05) scales both
+speed (0–2×, default 1.8) and light intensity (0–4×, default 0.6). Speed zero freezes
+the density field. **霧的 Noise 頻率** (0.1–4×, default 2, step 0.05) scales both
 noise octaves together: lower values create broader fog patches, higher values
 create finer detail. It preserves their frequency ratio and the world-space wind
 speed; 1× preserves the original noise scale. Changes take effect immediately
