@@ -208,6 +208,7 @@ impl FireflySystem {
         system.rates = [0.27, 0.28];
         system.randomness = [0.6, 0.6];
         system.size = 0.75;
+        system.glow = false;
         system
     }
 
@@ -372,8 +373,8 @@ impl FireflySystem {
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("FireflyAppearance"),
                 contents: bytemuck::cast_slice(&[
-                    [0.60f32, 1.0, 0.08, 0.18],
-                    [1.0, 0.91, 0.14, 0.45],
+                    [239.0f32 / 255.0, 1.0, 20.0 / 255.0, 0.18],
+                    [1.0, 226.0 / 255.0, 36.0 / 255.0, 0.45],
                     [1.0, 0.61, 0.08, 1.4],
                 ]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,

@@ -193,10 +193,10 @@ impl ForestColor {
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("ForestGrade"),
                 contents: bytemuck::cast_slice(&[
-                    [1.0f32, 1.0, 0.0, 0.0],
-                    [0.055, 0.10, 0.26, 0.0],
-                    [0.18, 0.30, 0.50, 0.0],
-                    [0.025, 0.36, 0.41, 0.0],
+                    [1.0f32, 0.55, 0.0, 0.0],
+                    [25.0 / 255.0, 31.0 / 255.0, 51.0 / 255.0, 0.0],
+                    [62.0 / 255.0, 79.0 / 255.0, 106.0 / 255.0, 0.0],
+                    [55.0 / 255.0, 94.0 / 255.0, 119.0 / 255.0, 0.0],
                 ]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });

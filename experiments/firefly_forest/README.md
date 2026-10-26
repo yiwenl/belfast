@@ -65,7 +65,7 @@ spacing live in `src/firefly-update.wgsl`.
 
 ## Firefly trails
 
-**螢火蟲 → 粒子 Glow** toggles the particle halo (on by default). Turning it off
+**螢火蟲 → 粒子 Glow** toggles the particle halo (off by default). Turning it off
 retains the bright core, individual blinking and drag transitions. Trails and
 forest lighting are unchanged; the toggle takes effect without resetting particles.
 
@@ -174,10 +174,12 @@ allocation is added. Earlier optimization journals measure the pre-grade look.
 The right-hand panel has collapsible **森林調色** and **螢火蟲色彩** controls:
 
 - Forest grade strength (0–100%; 0 restores original colors), brightness
-  (0–2×), foliage color, tree/shadow color and highlight color.
+  (0–2×, default 0.55×), foliage color (`#375e77`), tree/shadow color (`#191f33`)
+  and highlight color (`#3e4f6a`).
 - Firefly main, transition and warm colors; warm-color share (0–100%);
   minimum and maximum peak multipliers (0–3×). Equal limits remove individual
   peak variation. Moving one limit across the other moves the other with it.
+  Default colors are `#efff14`, `#ffe224` and `#ff9c14` respectively.
 - **恢復調色預設** restores the current night palette and 0.45–1.4× peak range,
   without changing simulation controls or the camera. Reload also restores defaults.
 
@@ -215,7 +217,7 @@ Depth-aware four-tap upsampling composites scattering/transmittance in the
 existing forest-copy pass, after grading. Fog animation does not invalidate
 the static forest cache. Additional textures occupy about **1.52 MiB** at 1080p.
 
-Firefly local lighting is **off by default** and can still be enabled separately.
+Firefly local lighting is **on by default** and can be toggled separately.
 Fog does not sample the firefly light volume; sprites retain their existing
 emission and are drawn afterward. This first version uses approximate splat
 surface depth and an unshadowed broad light cone, without light-space occlusion,
@@ -235,9 +237,9 @@ Those measurements predate the denser ground profile.
 
 ## Firefly light volume
 
-The **螢火蟲照亮森林** controls enable local lighting (off by default), set
-strength (0–1×, default 0.1), world-space radius (0.25–2, default 0.9), and
-update frequency (1–120 Hz, default 30 Hz, or **每幀更新** at the slider's
+The **螢火蟲照亮森林** controls enable local lighting (on by default), set
+strength (0–1×, default 0.35), world-space radius (0.25–2, default 0.9), and
+update frequency (1–120 Hz, default 60 Hz, or **每幀更新** at the slider's
 rightmost position). Every-frame mode samples the latest particle state each rendered
 frame, keeping lighting in step with the sprites; frequency is capped by actual
 rendered FPS. Benchmark metadata uses `hz: 0` for this mode. Radius uses the

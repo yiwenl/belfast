@@ -52,7 +52,7 @@
             </select>
           </div>
           <label class="benchmark-toggle">
-            <input id="firefly-glow" type="checkbox" checked disabled />
+            <input id="firefly-glow" type="checkbox" disabled />
             粒子 Glow
           </label>
           <details class="firefly-height">
@@ -279,28 +279,28 @@
               </div>
               <div class="control">
                 <label for="forest-brightness">亮度</label
-                ><output id="forest-brightness-value" for="forest-brightness">1.00×</output>
+                ><output id="forest-brightness-value" for="forest-brightness">0.55×</output>
                 <input
                   id="forest-brightness"
                   type="range"
                   min="0"
                   max="2"
                   step="0.05"
-                  value="1"
+                  value="0.55"
                   disabled
                 />
               </div>
               <div class="color-control">
                 <label for="forest-foliage">植被</label
-                ><input id="forest-foliage" type="color" value="#065c69" disabled />
+                ><input id="forest-foliage" type="color" value="#375e77" disabled />
               </div>
               <div class="color-control">
                 <label for="forest-shadow">陰影</label
-                ><input id="forest-shadow" type="color" value="#0e1a42" disabled />
+                ><input id="forest-shadow" type="color" value="#191f33" disabled />
               </div>
               <div class="color-control">
                 <label for="forest-highlight">亮部</label
-                ><input id="forest-highlight" type="color" value="#2e4d80" disabled />
+                ><input id="forest-highlight" type="color" value="#3e4f6a" disabled />
               </div>
             </div>
           </details>
@@ -309,11 +309,11 @@
             <div class="appearance-body">
               <div class="color-control">
                 <label for="firefly-lime">主色</label
-                ><input id="firefly-lime" type="color" value="#99ff14" disabled />
+                ><input id="firefly-lime" type="color" value="#efff14" disabled />
               </div>
               <div class="color-control">
                 <label for="firefly-yellow">過渡色</label
-                ><input id="firefly-yellow" type="color" value="#ffe824" disabled />
+                ><input id="firefly-yellow" type="color" value="#ffe224" disabled />
               </div>
               <div class="color-control">
                 <label for="firefly-amber">暖色</label
@@ -413,33 +413,33 @@
         <summary>光照</summary>
         <div class="control-body">
           <label class="benchmark-toggle">
-            <input id="light-enabled" type="checkbox" disabled />
+            <input id="light-enabled" type="checkbox" checked disabled />
             螢火蟲照明
           </label>
           <div class="control">
             <label for="light-hz">更新頻率</label>
-            <output id="light-hz-value" for="light-hz">30 次／秒</output>
+            <output id="light-hz-value" for="light-hz">60 次／秒</output>
             <input
               id="light-hz"
               type="range"
               min="1"
               max="121"
               step="1"
-              value="30"
-              aria-valuetext="30 次／秒"
+              value="60"
+              aria-valuetext="60 次／秒"
               disabled
             />
           </div>
           <div class="control">
             <label for="light-strength">強度</label>
-            <output id="light-strength-value" for="light-strength">0.10×</output>
+            <output id="light-strength-value" for="light-strength">0.35×</output>
             <input
               id="light-strength"
               type="range"
               min="0"
               max="1"
               step="0.05"
-              value="0.1"
+              value="0.35"
               disabled
             />
           </div>
