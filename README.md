@@ -45,6 +45,8 @@ Rust-owned experiment starter (Vite/TypeScript host, axes, mouse orbit, reserved
 
 The independent particle experiment starts in [`experiments/particles`](experiments/particles/README.md): `pnpm --dir experiments/particles dev`, <http://localhost:5176>.
 
+The minimal courtyard experiment lives in [`experiments/courtyard02`](experiments/courtyard02/README.md): `pnpm --dir experiments/courtyard02 dev`, <http://localhost:5184>.
+
 ```
 crates/belfast          Native wgpu engine
 crates/belfast-wasm     wasm-bindgen facade
