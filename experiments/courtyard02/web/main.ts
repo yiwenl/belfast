@@ -11,10 +11,11 @@ const settings = {
   splatHideDistance: 3.5,
   showPetal: true,
   petalSize: 0.02,
-  petalCount: 10_000,
+  petalCount: 20_000,
   showFlowerMarkers: false,
   shadowStrength: 0.65,
   showShadowCamera: true,
+  showShadowMapDebug: true,
   animatePetals: true,
   updraft: 0.18,
   vortexStrength: 1.0,
@@ -62,6 +63,9 @@ shadowControls
 shadowControls
   .addBinding(settings, "showShadowCamera", { label: "Camera helper" })
   .on("change", ({ value }) => app?.setShadowCameraVisible(value));
+shadowControls
+  .addBinding(settings, "showShadowMapDebug", { label: "Shadow map debug" })
+  .on("change", ({ value }) => app?.setShadowMapDebugVisible(value));
 const stats = { fps: 0 };
 const fpsDisplay = pane.addBinding(stats, "fps", {
   label: "FPS",
@@ -152,6 +156,7 @@ async function start() {
     created.setFlowerMarkersVisible(settings.showFlowerMarkers);
     created.setShadowStrength(settings.shadowStrength);
     created.setShadowCameraVisible(settings.showShadowCamera);
+    created.setShadowMapDebugVisible(settings.showShadowMapDebug);
     updatePetalPreview();
     updateMotion();
     detachInput = bindOrbitInput(canvas, created);

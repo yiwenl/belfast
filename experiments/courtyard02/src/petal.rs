@@ -257,6 +257,7 @@ impl Petal {
         for index in self.initialized_count..count {
             let source = Vec3::from_array(emitters[index as usize % emitters.len()].position);
             let jitter = Vec3::new(random() - 0.5, random() - 0.5, random() - 0.5) * 0.02;
+            let z_offset = Vec3::new(0.0, 0.0, random() * -0.2);
             // Uniform unit quaternion: independent orientation around arbitrary axes.
             let u = random();
             let a = random() * std::f32::consts::TAU;
@@ -268,7 +269,7 @@ impl Petal {
                     .normalize();
             let lifetime = 6.0 + random() * 4.0;
             particles.push(Particle {
-                position: (source + jitter).extend(1.0).to_array(),
+                position: (source + jitter + z_offset).extend(1.0).to_array(),
                 rotation: rotation.to_array(),
                 velocity: [0.0, 0.0, 0.0, random() * lifetime * 0.75],
                 origin: source.extend(lifetime).to_array(),
@@ -310,10 +311,10 @@ impl Petal {
     }
 
     pub fn shadow_bounds(&self, scale: f32) -> (Vec3, Vec3) {
-        // Includes every source, all rotations, and the per-axis spawn jitter.
+        // Include the full -Z spawn offset so new petals stay inside the respawn boundary.
         let padding = Vec3::splat(self.mesh_radius * scale + 0.01);
         (
-            self.source_bounds.0 - padding,
+            self.source_bounds.0 - Vec3::Z * 0.2 - padding,
             self.source_bounds.1 + padding,
         )
     }

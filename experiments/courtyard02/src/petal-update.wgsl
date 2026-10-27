@@ -20,7 +20,8 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (age >= p.origin.w || boundary_distance(p.position.xyz) <= 0.0) {
         let seed = hash_u32(id.x ^ u32(flow.step.y * 4096.0));
         let jitter = (vec3<f32>(random01(seed), random01(seed + 1u), random01(seed + 2u)) - 0.5) * 0.02;
-        p.position = vec4<f32>(p.origin.xyz + jitter, 0.0);
+        let z_offset = vec3<f32>(0.0, 0.0, random01(seed + 3u) * -0.2);
+        p.position = vec4<f32>(p.origin.xyz + jitter + z_offset, 0.0);
         p.velocity = vec4<f32>(0.0);
         petals_out[id.x] = p;
         return;

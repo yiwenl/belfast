@@ -277,6 +277,11 @@ impl ExperimentApp {
         self.scene.show_shadow_camera = visible;
     }
 
+    #[wasm_bindgen(js_name = setShadowMapDebugVisible)]
+    pub fn set_shadow_map_debug_visible(&mut self, visible: bool) {
+        self.scene.show_shadow_map_debug = visible;
+    }
+
     #[wasm_bindgen(js_name = requestSort)]
     pub fn request_sort(&mut self) -> Vec<f32> {
         self.scene.request_sort()

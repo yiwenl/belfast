@@ -25,6 +25,7 @@ pub struct Scene {
     shadow: ShadowMap,
     shadow_debug: ShadowDebug,
     pub show_shadow_camera: bool,
+    pub show_shadow_map_debug: bool,
     pub show_petal: bool,
     pub petal_size: f32,
     petal_count: u32,
@@ -71,6 +72,7 @@ impl Scene {
             shadow,
             shadow_debug,
             show_shadow_camera: true,
+            show_shadow_map_debug: true,
             show_petal: true,
             petal_size: 0.02,
             petal_count: MIN_PETALS,
@@ -346,7 +348,9 @@ impl Scene {
                 flowers.draw(&mut pass);
             }
         }
-        self.shadow_debug.render(&mut encoder, view, self.viewport);
+        if self.show_shadow_map_debug {
+            self.shadow_debug.render(&mut encoder, view, self.viewport);
+        }
         device.queue().submit([encoder.finish()]);
     }
 }

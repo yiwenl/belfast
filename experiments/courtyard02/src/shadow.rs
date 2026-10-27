@@ -7,7 +7,7 @@ use glam::{Mat4, Vec3};
 pub const MAP_SIZE: u32 = 2048;
 pub const STRENGTH: f32 = 0.65;
 pub const SAMPLING_SHADER: &str = include_str!("shadow-sampling.wgsl");
-const LIGHT_POSITION: Vec3 = Vec3::new(0.0, 8.0, 0.5);
+const LIGHT_POSITION: Vec3 = Vec3::new(0.0, 8.0, 3.0);
 
 pub struct ShadowMap {
     pub map: Texture,
@@ -167,15 +167,15 @@ impl ShadowMap {
         let margin = 0.02;
         let center = (min + max) * 0.5;
         let half_width = ((max.x - min.x) * 0.5 + margin) * 3.0;
-        let half_height = ((max.y - min.y) * 0.5 + margin) * 3.0;
+        let half_height = ((max.y - min.y) * 0.5 + margin) * 6.0;
         let matrix = Mat4::orthographic_rh(
             center.x - half_width,
             center.x + half_width,
             center.y - half_height,
             center.y + half_height,
             // From above the flowers to below the floor, relative to the light at Y = 8.
-            6.5,
-            10.0,
+            5.0,
+            9.5,
         ) * view;
         self.camera_helper.set_matrix(&matrix.to_cols_array())?;
         self.view_projection = matrix.to_cols_array();
