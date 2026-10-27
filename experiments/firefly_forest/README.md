@@ -131,6 +131,9 @@ sample per rendered frame while held, and smoothly decreases during release.
 Fractional sampling at the tail prevents whole-segment jumps. At idle all visible
 nodes resolve to the current head and the trail draw is skipped, so stale
 pre-drag history never appears without rewriting all 409.6 MB each idle frame.
+The first and last 10% of the visible tube taper smoothly to zero radius at the
+head and tail. The taper follows the current visible length during growth and
+retraction, and is shared by the color and depth passes.
 Startup, increased particle counts and benchmark resets still initialize every
 history slot at the current positions.
 

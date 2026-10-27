@@ -58,7 +58,10 @@ fn visible_position(age: u32, index: u32) -> vec3<f32> {
     let normal = normalize(cross(tangent, helper));
     let binormal = cross(normal, tangent);
     let angle = f32(side) * 6.28318530718 / 3.;
-    let radius = 0.003 * camera.sprite.x;
+    // Taper the live head and fractional visible tail, including during retraction.
+    let along = clamp(f32(age) / max(camera.sprite.w, 1.), 0., 1.);
+    let taper = smoothstep(0., 0.1, min(along, 1. - along));
+    let radius = 0.003 * camera.sprite.x * taper;
     let position = center + (normal * cos(angle) + binormal * sin(angle)) * radius;
     // Keep solid palette colors, with no HDR emission gain or glow.
     var color = firefly_emission(index, 1.).rgb;
