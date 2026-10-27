@@ -6,12 +6,20 @@ import type { SortReply, SortRequest } from "./sort-protocol";
 import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
-const settings = { fixedResolution: true };
+const settings = { fixedResolution: true, splatHideDistance: 3.5 };
 const pane = new Pane({ title: "Courtyard" });
 pane.addBinding(settings, "fixedResolution", { label: "1920 × 1080" }).on("change", ({ value }) => {
   canvas.classList.toggle("fixed-resolution", value);
 });
 canvas.classList.toggle("fixed-resolution", settings.fixedResolution);
+pane
+  .addBinding(settings, "splatHideDistance", {
+    label: "Hide distance",
+    min: 2,
+    max: 4,
+    step: 0.01,
+  })
+  .on("change", ({ value }) => app?.setSplatHideDistance(value));
 const loading = new AbortController();
 let app: ExperimentApp | undefined;
 let worker: Worker | undefined;
@@ -56,6 +64,7 @@ async function start() {
       return;
     }
     app = created;
+    created.setSplatHideDistance(settings.splatHideDistance);
     detachInput = bindOrbitInput(canvas, created);
     worker = new Worker(new URL("./sort.worker.ts", import.meta.url), { type: "module" });
     worker.onerror = (event) =>

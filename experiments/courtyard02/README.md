@@ -7,6 +7,8 @@ Drag to orbit, Shift + drag or middle-button drag to pan, and scroll to zoom.
 
 The Tweakpane `1920 × 1080` switch defaults to enabled: the canvas drawing buffer stays exactly 1920 × 1080, independent of device pixel ratio, while CSS centers and scales the image to fit the window at 16:9. Disable it to fill the window and render at its size and device pixel ratio. Loading and rendering errors are reported in the browser console.
 
+`Hide distance` defaults to 3.5 and ranges from 2 to 4 scene units. Splats whose centers are closer than this distance to the camera collapse to zero-area geometry in the vertex shader, before attribute loading and covariance projection. The cutoff uses Euclidean distance, takes effect without re-sorting, and avoids rasterizing those splats. Flower markers are unaffected.
+
 The local asset `public/courtyard1.ply` is copied from `/Users/yi-wenlin/Desktop/projects/courtyard02/courtyard1.ply` (1,920,000 source Gaussians). PLY files are ignored by Git; copy the asset into place on another machine before running or building.
 
 ## Initial camera

@@ -18,6 +18,7 @@ pub struct Scene {
     splats: Option<SplatRenderer>,
     pub flowers: Option<FlowerMarkers>,
     pub show_flower_markers: bool,
+    pub splat_hide_distance: f32,
     sort_positions: Vec<[f32; 4]>,
     sort_gate: SortGate,
     pending_sort: Option<SortCamera>,
@@ -52,6 +53,7 @@ impl Scene {
             splats: None,
             flowers: None,
             show_flower_markers: true,
+            splat_hide_distance: 3.5,
             sort_positions: Vec::new(),
             sort_gate: SortGate::default(),
             pending_sort: None,
@@ -148,7 +150,7 @@ impl Scene {
     pub fn update(&mut self, device: &Device, delta_seconds: f32) {
         self.control.update(delta_seconds, &mut self.camera);
         if let Some(splats) = &self.splats {
-            splats.update_camera(device, &self.sort_camera());
+            splats.update_camera(device, &self.sort_camera(), self.splat_hide_distance);
         }
         if let Some(flowers) = &self.flowers {
             flowers.update_camera(device, &self.camera.view_projection_matrix());

@@ -228,7 +228,7 @@ fn gpu_draws_anisotropic_gaussians_in_back_to_front_order() {
     assert!(renderer.set_indices(&device, &[2]).is_err());
     let mut camera = camera(0., 0.);
     camera.viewport = [64, 64];
-    renderer.update_camera(&device, &camera);
+    renderer.update_camera(&device, &camera, 0.0);
     let texture = device.gpu().create_texture(&wgpu::TextureDescriptor {
         label: Some("SplatTestTarget"),
         size: wgpu::Extent3d {

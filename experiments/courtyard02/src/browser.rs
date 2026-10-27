@@ -216,6 +216,15 @@ impl ExperimentApp {
         self.scene.show_flower_markers = visible;
     }
 
+    #[wasm_bindgen(js_name = setSplatHideDistance)]
+    pub fn set_splat_hide_distance(&mut self, distance: f32) -> Result<(), JsValue> {
+        if distance < 0.0 || !(distance * distance).is_finite() {
+            return Err(js_error("Invalid splat hide distance"));
+        }
+        self.scene.splat_hide_distance = distance;
+        Ok(())
+    }
+
     #[wasm_bindgen(js_name = requestSort)]
     pub fn request_sort(&mut self) -> Vec<f32> {
         self.scene.request_sort()

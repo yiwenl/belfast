@@ -207,9 +207,9 @@ impl SplatRenderer {
         Ok(())
     }
 
-    pub fn update_camera(&self, device: &Device, camera: &SortCamera) {
+    pub fn update_camera(&self, device: &Device, camera: &SortCamera, hide_distance: f32) {
         let mut data = camera.encode();
-        data.extend([u32::from(self.srgb) as f32, 0.]);
+        data.extend([u32::from(self.srgb) as f32, hide_distance * hide_distance]);
         device
             .queue()
             .write_buffer(&self.camera, 0, bytemuck::cast_slice(&data));

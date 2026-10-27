@@ -1,7 +1,7 @@
 struct Camera {
     view: mat4x4<f32>,
     projection: mat4x4<f32>,
-    // Width, height, sRGB render attachment, padding.
+    // Width, height, sRGB render attachment, squared hide distance.
     viewport: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -21,6 +21,8 @@ struct Vertex {
     let uv = vec2<i32>(i32(index % size.x), i32(index / size.x));
     let p = textureLoad(positions, uv, 0);
     let center = camera.view * vec4<f32>(p.xyz, 1.0);
+    // Collapse all six vertices to the same clipped point before expanding the splat.
+    if (dot(center.xyz, center.xyz) < camera.viewport.w) { return out; }
     let clip = camera.projection * center;
     if (clip.w <= 0.0 || clip.z < 0.0 || clip.z > clip.w) { return out; }
 
