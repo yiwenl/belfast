@@ -14,14 +14,15 @@ const settings = {
   petalCount: 50_000,
   showFlowerMarkers: false,
   shadowStrength: 0.65,
-  showShadowCamera: true,
-  showShadowMapDebug: true,
+  showShadowCamera: false,
+  showShadowMapDebug: false,
+  showFilamentDebug: false,
   animatePetals: true,
-  petalUpdraft: 0.02,
-  filamentUpdraft: 0.085,
-  ringRadius: 0.265,
-  coreRadius: 0.041,
-  vortexStrength: 1.48,
+  petalUpdraft: 0.05,
+  filamentUpdraft: 0.18,
+  ringRadius: 0.21,
+  coreRadius: 0.036,
+  vortexStrength: 1.61,
 };
 const pane = new Pane({ title: "Courtyard" });
 pane.addBinding(settings, "fixedResolution", { label: "1920 × 1080" }).on("change", ({ value }) => {
@@ -53,6 +54,9 @@ const motionControls = pane.addFolder({ title: "Motion" });
 motionControls
   .addBinding(settings, "animatePetals", { label: "Animate" })
   .on("change", updateMotion);
+motionControls
+  .addBinding(settings, "showFilamentDebug", { label: "Filament debug" })
+  .on("change", ({ value }) => app?.setFilamentDebugVisible(value));
 motionControls
   .addBinding(settings, "petalUpdraft", { label: "Petal updraft", min: 0, max: 0.6, step: 0.005 })
   .on("change", updateMotion);
@@ -178,6 +182,7 @@ async function start() {
     created.setSplatHideDistance(settings.splatHideDistance);
     created.setPetalCount(settings.petalCount);
     created.setFlowerMarkersVisible(settings.showFlowerMarkers);
+    created.setFilamentDebugVisible(settings.showFilamentDebug);
     created.setShadowStrength(settings.shadowStrength);
     created.setShadowCameraVisible(settings.showShadowCamera);
     created.setShadowMapDebugVisible(settings.showShadowMapDebug);

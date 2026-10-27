@@ -1,3 +1,4 @@
+use crate::vortex_debug::VortexDebug;
 use belfast::{BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device};
 use glam::Vec3;
 
@@ -30,11 +31,11 @@ impl Default for MotionSettings {
     fn default() -> Self {
         Self {
             enabled: true,
-            petal_updraft: 0.02,
-            filament_updraft: 0.085,
-            ring_radius: 0.265,
-            core_radius: 0.041,
-            strength: 1.48,
+            petal_updraft: 0.05,
+            filament_updraft: 0.18,
+            ring_radius: 0.21,
+            core_radius: 0.036,
+            strength: 1.61,
         }
     }
 }
@@ -53,6 +54,7 @@ pub struct VortexFlow {
     pub states: [Buffer; 2],
     pub current: usize,
     filaments: [Buffer; 2],
+    debug: VortexDebug,
     filament_step: Compute,
     particle_step: Compute,
     filament_bindings: [BindGroup; 2],
@@ -65,7 +67,7 @@ pub struct VortexFlow {
 }
 
 impl VortexFlow {
-    pub fn new(device: &Device, capacity: u32) -> Result<Self, String> {
+    pub fn new(device: &Device, capacity: u32, camera: &Buffer) -> Result<Self, String> {
         let bytes = u64::from(capacity) * std::mem::size_of::<Particle>() as u64;
         let limits = device.gpu().limits();
         if bytes > limits.max_buffer_size
@@ -150,10 +152,12 @@ impl VortexFlow {
                 "VortexPetalBinding",
             )
         });
+        let debug = VortexDebug::new(device, camera, &filaments, VERTICES_PER_RING)?;
         Ok(Self {
             states,
             current: 0,
             filaments,
+            debug,
             filament_step,
             particle_step,
             filament_bindings,
@@ -253,5 +257,9 @@ impl VortexFlow {
         self.current = 1 - self.current;
         self.time += self.pending_dt;
         self.pending_dt = 0.0;
+    }
+
+    pub fn draw_debug<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+        self.debug.draw(pass, self.current, RINGS);
     }
 }

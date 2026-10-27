@@ -36,13 +36,16 @@ Tweakpane's `Motion` folder provides these controls:
 | Control          | Default | Range     | Effect                                                         |
 | ---------------- | ------- | --------- | -------------------------------------------------------------- |
 | Animate          | On      | On/off    | Pause or resume simulation.                                    |
-| Petal updraft    | 0.02    | 0–0.6     | Uniform upward acceleration on petals, in scene units/s².      |
-| Filament updraft | 0.085   | 0–0.3     | Additional upward drift of the rings, in scene units/s.        |
-| Ring radius      | 0.265   | 0.05–0.5  | Base radius of newly seeded rings, in scene units.             |
-| Core radius      | 0.041   | 0.005–0.1 | Smoothing radius around each filament segment, in scene units. |
-| Vortex           | 1.48    | 0–2       | Scale the induced flow strength.                               |
+| Filament debug   | Off     | On/off    | Show the six live filament loops in distinct colors.           |
+| Petal updraft    | 0.05    | 0–0.6     | Uniform upward acceleration on petals, in scene units/s².      |
+| Filament updraft | 0.18    | 0–0.3     | Additional upward drift of the rings, in scene units/s.        |
+| Ring radius      | 0.21    | 0.05–0.5  | Base radius of newly seeded rings, in scene units.             |
+| Core radius      | 0.036   | 0.005–0.1 | Smoothing radius around each filament segment, in scene units. |
+| Vortex           | 1.61    | 0–2       | Scale the induced flow strength.                               |
 
 The smaller rings and weaker global petal updraft emphasize the local filament flow. Setting petal updraft to zero removes the global lift without stopping filament updraft. Core radius affects both compute passes immediately; ring radius also reseeds rings while paused, but petals stay frozen until resumed. Rings keep their existing ±15% respawn radius variation and can deform as they move. Independent spin axes rotate normalized quaternions, with extra tilting from the local flow. Particle ages start staggered, lifetimes are 6–10 seconds, and respawns use the original flower sources with fresh ±0.01 jitter and a newly sampled Z offset in (-0.2, 0]. Petals scale in and out at birth and death, in both the visible and shadow passes.
+
+`Filament debug` draws each closed loop directly from the current GPU filament buffer after simulation, including its deformation and respawns. It uses one instanced line draw, with no GPU readback or per-frame CPU geometry updates. The lines appear in front of the scene, remain visible when petals are hidden, and do not cast shadows. Disabling the toggle skips this draw.
 
 The previously selected shadow camera remains at near/far 5/9.5 with 3× width and 6× height. Petals fade near that fixed volume's edges and respawn when they leave it, so the effect continuously fills the supported area. There are no courtyard or petal-to-petal collision calculations. Simulation steps cap at 1/30 second to avoid jumps after tab suspension; below 30 FPS the simulation advances more slowly than wall time.
 
@@ -50,9 +53,9 @@ The previously selected shadow camera remains at near/far 5/9.5 with 3× width a
 
 A directional light sits at `[0, 8, 3]` and looks toward the courtyard origin. The positive Z offset avoids a view direction parallel to the Y-up vector. Petal lighting uses this same direction.
 
-Belfast's `CameraHelper` draws the light camera's near and far planes and connecting edges as a yellow wireframe. It uses the exact shadow view-projection matrix and updates when the fitted bounds change. The lines appear in front of the scene independently of `Flower debug` and do not enter the shadow pass. Tweakpane's `Shadows` folder includes a `Camera helper` toggle (enabled by default) and `Strength` from 0 to 1 in steps of 0.01 (default 0.65).
+Belfast's `CameraHelper` draws the light camera's near and far planes and connecting edges as a yellow wireframe. It uses the exact shadow view-projection matrix and updates when the fitted bounds change. The lines appear in front of the scene independently of `Flower debug` and do not enter the shadow pass. Tweakpane's `Shadows` folder includes a `Camera helper` toggle (disabled by default) and `Strength` from 0 to 1 in steps of 0.01 (default 0.65).
 
-A square preview at the bottom-left of the canvas displays the actual shadow depth texture directly on the GPU after the scene and helper overlays. Darker pixels are closer to the light; white is the far plane or empty map. The preview scales with the canvas, keeping a small inset margin. Tweakpane's `Shadows` → `Shadow map debug` toggle controls this preview (enabled by default); disabling it skips the overlay render pass. It is independent of shadow strength and the camera helper.
+A square preview at the bottom-left of the canvas displays the actual shadow depth texture directly on the GPU after the scene and helper overlays. Darker pixels are closer to the light; white is the far plane or empty map. The preview scales with the canvas, keeping a small inset margin. Tweakpane's `Shadows` → `Shadow map debug` toggle controls this preview (disabled by default); disabling it skips the overlay render pass. It is independent of shadow strength and the camera helper.
 
 Before the visible scene, one additional instanced draw renders both sides of the petals into a 2048 × 2048 `Depth32Float` shadow map. It uses the same mesh, quaternion transform, size, and active count as the visible pass. Hiding petals clears their shadows too. The orthographic camera fits all flower sources plus the Z offset, jitter, and the rotated petal radius, then expands width by 3× and height by 6× around the fitted center to allow petal drift; changing size refits it. Near and far are 5 and 9.5 scene units from the light, covering above the flowers to below the courtyard floor.
 

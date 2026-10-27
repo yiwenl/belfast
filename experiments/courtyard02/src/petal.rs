@@ -175,7 +175,7 @@ impl Petal {
         );
         let shadow_draw = Draw::new(device, &depth_source, &mesh, depth_options);
         let camera = Buffer::create(device, 80, BufferUsage::uniform(), "PetalCamera");
-        let flow = VortexFlow::new(device, MAX_PETALS)?;
+        let flow = VortexFlow::new(device, MAX_PETALS, &camera)?;
         let bindings = std::array::from_fn(|i| {
             BindGroup::create(
                 device,
@@ -339,6 +339,10 @@ impl Petal {
 
     pub fn simulate(&mut self, encoder: &mut wgpu::CommandEncoder) {
         self.flow.simulate(encoder);
+    }
+
+    pub fn draw_filament_debug<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
+        self.flow.draw_debug(pass);
     }
 }
 

@@ -26,6 +26,7 @@ pub struct Scene {
     shadow_debug: ShadowDebug,
     pub show_shadow_camera: bool,
     pub show_shadow_map_debug: bool,
+    pub show_filament_debug: bool,
     pub show_petal: bool,
     pub petal_size: f32,
     petal_count: u32,
@@ -71,8 +72,9 @@ impl Scene {
             depth: depth_view(device, [1, 1]),
             shadow,
             shadow_debug,
-            show_shadow_camera: true,
-            show_shadow_map_debug: true,
+            show_shadow_camera: false,
+            show_shadow_map_debug: false,
+            show_filament_debug: false,
             show_petal: true,
             petal_size: 0.02,
             petal_count: 50_000,
@@ -333,7 +335,11 @@ impl Scene {
             }
         }
         let flowers = self.flowers.as_ref().filter(|_| self.show_flower_markers);
-        if (self.show_shadow_camera && self.petal.is_some()) || flowers.is_some() {
+        let filaments = self.petal.as_ref().filter(|_| self.show_filament_debug);
+        if (self.show_shadow_camera && self.petal.is_some())
+            || flowers.is_some()
+            || filaments.is_some()
+        {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("CourtyardDebugOverlay"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -353,6 +359,9 @@ impl Scene {
             // Draw the exact shadow frustum in front of the scene, without casting shadows.
             if self.show_shadow_camera {
                 self.shadow.draw_camera(&mut pass);
+            }
+            if let Some(petal) = filaments {
+                petal.draw_filament_debug(&mut pass);
             }
             if let Some(flowers) = flowers {
                 flowers.draw(&mut pass);

@@ -266,6 +266,11 @@ impl ExperimentApp {
         self.scene.show_flower_markers = visible;
     }
 
+    #[wasm_bindgen(js_name = setFilamentDebugVisible)]
+    pub fn set_filament_debug_visible(&mut self, visible: bool) {
+        self.scene.show_filament_debug = visible;
+    }
+
     #[wasm_bindgen(js_name = setSplatHideDistance)]
     pub fn set_splat_hide_distance(&mut self, distance: f32) -> Result<(), JsValue> {
         if distance < 0.0 || !(distance * distance).is_finite() {
