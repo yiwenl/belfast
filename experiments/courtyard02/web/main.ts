@@ -11,14 +11,17 @@ const settings = {
   splatHideDistance: 3.5,
   showPetal: true,
   petalSize: 0.02,
-  petalCount: 20_000,
+  petalCount: 50_000,
   showFlowerMarkers: false,
   shadowStrength: 0.65,
   showShadowCamera: true,
   showShadowMapDebug: true,
   animatePetals: true,
-  updraft: 0.18,
-  vortexStrength: 1.0,
+  petalUpdraft: 0.02,
+  filamentUpdraft: 0.085,
+  ringRadius: 0.265,
+  coreRadius: 0.041,
+  vortexStrength: 1.48,
 };
 const pane = new Pane({ title: "Courtyard" });
 pane.addBinding(settings, "fixedResolution", { label: "1920 × 1080" }).on("change", ({ value }) => {
@@ -51,7 +54,21 @@ motionControls
   .addBinding(settings, "animatePetals", { label: "Animate" })
   .on("change", updateMotion);
 motionControls
-  .addBinding(settings, "updraft", { label: "Updraft", min: 0, max: 0.6, step: 0.01 })
+  .addBinding(settings, "petalUpdraft", { label: "Petal updraft", min: 0, max: 0.6, step: 0.005 })
+  .on("change", updateMotion);
+motionControls
+  .addBinding(settings, "filamentUpdraft", {
+    label: "Filament updraft",
+    min: 0,
+    max: 0.3,
+    step: 0.005,
+  })
+  .on("change", updateMotion);
+motionControls
+  .addBinding(settings, "ringRadius", { label: "Ring radius", min: 0.05, max: 0.5, step: 0.005 })
+  .on("change", updateMotion);
+motionControls
+  .addBinding(settings, "coreRadius", { label: "Core radius", min: 0.005, max: 0.1, step: 0.001 })
   .on("change", updateMotion);
 motionControls
   .addBinding(settings, "vortexStrength", { label: "Vortex", min: 0, max: 2, step: 0.01 })
@@ -88,7 +105,14 @@ function updatePetalPreview() {
 }
 
 function updateMotion() {
-  app?.setPetalMotion(settings.animatePetals, settings.updraft, settings.vortexStrength);
+  app?.setPetalMotion(
+    settings.animatePetals,
+    settings.petalUpdraft,
+    settings.filamentUpdraft,
+    settings.ringRadius,
+    settings.coreRadius,
+    settings.vortexStrength,
+  );
 }
 
 function dispose() {

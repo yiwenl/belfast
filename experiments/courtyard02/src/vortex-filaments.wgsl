@@ -21,7 +21,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     // Advect all vertices from the same previous state; no in-place neighbor reads.
-    let wind = vec3<f32>(0.0, flow.step.z * 0.5, 0.0);
+    let wind = vec3<f32>(0.0, flow.filament.y, 0.0);
     let v0 = vortex_velocity(previous.xyz) + wind;
     let midpoint = previous.xyz + v0 * flow.step.x * 0.5;
     let velocity = limit_velocity(vortex_velocity(midpoint) + wind, 0.8);

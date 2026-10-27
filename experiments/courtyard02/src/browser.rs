@@ -243,11 +243,21 @@ impl ExperimentApp {
     pub fn set_petal_motion(
         &mut self,
         enabled: bool,
-        updraft: f32,
+        petal_updraft: f32,
+        filament_updraft: f32,
+        ring_radius: f32,
+        core_radius: f32,
         vortex_strength: f32,
     ) -> Result<(), JsValue> {
         self.scene
-            .set_petal_motion(enabled, updraft, vortex_strength)
+            .set_petal_motion(
+                enabled,
+                petal_updraft,
+                filament_updraft,
+                ring_radius,
+                core_radius,
+                vortex_strength,
+            )
             .map_err(js_error)
     }
 

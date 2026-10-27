@@ -75,7 +75,7 @@ impl Scene {
             show_shadow_map_debug: true,
             show_petal: true,
             petal_size: 0.02,
-            petal_count: MIN_PETALS,
+            petal_count: 50_000,
             petal_motion: MotionSettings::default(),
             flowers: None,
             show_flower_markers: false,
@@ -215,19 +215,29 @@ impl Scene {
     pub fn set_petal_motion(
         &mut self,
         enabled: bool,
-        updraft: f32,
+        petal_updraft: f32,
+        filament_updraft: f32,
+        ring_radius: f32,
+        core_radius: f32,
         strength: f32,
     ) -> Result<(), String> {
-        if !updraft.is_finite()
-            || !(0.0..=0.6).contains(&updraft)
-            || !strength.is_finite()
-            || !(0.0..=2.0).contains(&strength)
-        {
-            return Err("Updraft must be 0–0.6 and vortex strength 0–2".into());
+        for (value, min, max, name) in [
+            (petal_updraft, 0.0, 0.6, "Petal updraft"),
+            (filament_updraft, 0.0, 0.3, "Filament updraft"),
+            (ring_radius, 0.05, 0.5, "Ring radius"),
+            (core_radius, 0.005, 0.1, "Core radius"),
+            (strength, 0.0, 2.0, "Vortex strength"),
+        ] {
+            if !value.is_finite() || !(min..=max).contains(&value) {
+                return Err(format!("{name} must be between {min} and {max}"));
+            }
         }
         self.petal_motion = MotionSettings {
             enabled,
-            updraft,
+            petal_updraft,
+            filament_updraft,
+            ring_radius,
+            core_radius,
             strength,
         };
         Ok(())

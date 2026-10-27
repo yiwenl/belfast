@@ -19,7 +19,10 @@ pub struct Particle {
 #[derive(Clone, Copy)]
 pub struct MotionSettings {
     pub enabled: bool,
-    pub updraft: f32,
+    pub petal_updraft: f32,
+    pub filament_updraft: f32,
+    pub ring_radius: f32,
+    pub core_radius: f32,
     pub strength: f32,
 }
 
@@ -27,8 +30,11 @@ impl Default for MotionSettings {
     fn default() -> Self {
         Self {
             enabled: true,
-            updraft: 0.18,
-            strength: 1.0,
+            petal_updraft: 0.02,
+            filament_updraft: 0.085,
+            ring_radius: 0.265,
+            core_radius: 0.041,
+            strength: 1.48,
         }
     }
 }
@@ -39,6 +45,7 @@ struct FlowParams {
     shadow_view_projection: [f32; 16],
     origin_radius: [f32; 4],
     step: [f32; 4],
+    filament: [f32; 4], // Core radius, upward drift speed, reserved, reserved.
     counts: [u32; 4],
 }
 
@@ -161,9 +168,17 @@ impl VortexFlow {
 
     pub fn reset(&mut self, device: &Device, bounds: (Vec3, Vec3)) {
         let center = (bounds.0 + bounds.1) * 0.5;
-        let radius = ((bounds.1.x - bounds.0.x) * 0.3).clamp(0.1, 0.5);
         let origin = Vec3::new(center.x, bounds.0.y - 0.12, center.z);
-        self.origin_radius = origin.extend(radius).to_array();
+        self.origin_radius = origin.extend(MotionSettings::default().ring_radius).to_array();
+        self.seed_filaments(device);
+        self.current = 0;
+        self.time = 0.0;
+        self.pending_dt = 0.0;
+    }
+
+    fn seed_filaments(&self, device: &Device) {
+        let [x, y, z, radius] = self.origin_radius;
+        let origin = Vec3::new(x, y, z);
         let vertices: Vec<[f32; 4]> = (0..RINGS * VERTICES_PER_RING)
             .map(|index| {
                 let ring = index / VERTICES_PER_RING;
@@ -179,9 +194,6 @@ impl VortexFlow {
         for buffer in &self.filaments {
             buffer.write(device, &vertices, 0);
         }
-        self.current = 0;
-        self.time = 0.0;
-        self.pending_dt = 0.0;
     }
 
     pub fn prepare(
@@ -192,6 +204,11 @@ impl VortexFlow {
         settings: MotionSettings,
         shadow_view_projection: [f32; 16],
     ) {
+        if self.origin_radius[3] != settings.ring_radius {
+            self.origin_radius[3] = settings.ring_radius;
+            // Resize rings immediately without rewinding the current petal buffer.
+            self.seed_filaments(device);
+        }
         // Avoid a large jump after a suspended tab; rendering and shadows use the same step.
         self.pending_dt = if settings.enabled && dt.is_finite() {
             dt.clamp(0.0, 1.0 / 30.0)
@@ -207,9 +224,10 @@ impl VortexFlow {
                 step: [
                     self.pending_dt,
                     self.time,
-                    settings.updraft,
+                    settings.petal_updraft,
                     settings.strength,
                 ],
+                filament: [settings.core_radius, settings.filament_updraft, 0.0, 0.0],
                 counts: [count, RINGS, VERTICES_PER_RING, 0],
             }],
             0,

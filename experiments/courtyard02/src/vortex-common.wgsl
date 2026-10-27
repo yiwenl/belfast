@@ -3,14 +3,14 @@
 struct FlowParams {
     shadow_view_projection: mat4x4<f32>,
     origin_radius: vec4<f32>,
-    step: vec4<f32>, // dt, time, upward acceleration, vortex strength
+    step: vec4<f32>, // dt, time, petal upward acceleration, vortex strength
+    filament: vec4<f32>, // core radius, upward drift speed, reserved, reserved
     counts: vec4<u32>, // petals, rings, vertices per ring, reserved
 };
 @group(0) @binding(0) var<uniform> flow: FlowParams;
 @group(0) @binding(1) var<storage, read> filaments_in: array<vec4<f32>>;
 
 const FILAMENT_LIFETIME: f32 = 6.0;
-const CORE_RADIUS: f32 = 0.06;
 const CIRCULATION: f32 = 0.003;
 
 fn hash_u32(value: u32) -> u32 {
@@ -34,7 +34,7 @@ fn segment_velocity(start: vec3<f32>, end: vec3<f32>, position: vec3<f32>) -> ve
     let d = dot(g0, g1);
     let r0 = dot(g0, g0);
     let r1 = dot(g1, g1);
-    let a2 = CORE_RADIUS * CORE_RADIUS;
+    let a2 = flow.filament.x * flow.filament.x;
     let cross_g = cross(g1, g0);
     let numerator = (d - r0) * inverseSqrt(a2 + r0) + (d - r1) * inverseSqrt(a2 + r1);
     let segment = g1 - g0;
