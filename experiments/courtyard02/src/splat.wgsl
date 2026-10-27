@@ -69,10 +69,5 @@ struct Vertex {
     let alpha = min(0.99, in.color.a * exp(-0.5 * radius_squared));
     if (radius_squared > 9.0 || alpha < 1.0 / 255.0) { discard; }
 
-    var greyscale = dot(in.color.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
-    let mid = 0.6;
-    greyscale = clamp((greyscale - mid) * 1.5 + (1.0 - mid), 0.0, 1.0);
-    var final_color = mix(in.color.rgb, vec3<f32>(greyscale), 0.7);
-    final_color *= 0.5;
-    return vec4<f32>(final_color * alpha, alpha);
+    return vec4<f32>(in.color.rgb * alpha, alpha);
 }
