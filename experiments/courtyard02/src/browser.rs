@@ -230,6 +230,13 @@ impl ExperimentApp {
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = setPetalCount)]
+    pub fn set_petal_count(&mut self, count: u32) -> Result<(), JsValue> {
+        self.scene
+            .set_petal_count(&self.device, count)
+            .map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = setFlowerMarkersVisible)]
     pub fn set_flower_markers_visible(&mut self, visible: bool) {
         self.scene.show_flower_markers = visible;

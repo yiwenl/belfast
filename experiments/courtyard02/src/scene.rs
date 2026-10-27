@@ -1,6 +1,6 @@
 use crate::{
     markers::FlowerMarkers,
-    petal::{depth_view, Petal, DEPTH_FORMAT},
+    petal::{depth_view, Petal, DEPTH_FORMAT, MAX_PETALS, MIN_PETALS},
     ply::GaussianCloud,
     sorting::{SortCamera, SortGate},
     splat::SplatRenderer,
@@ -21,6 +21,7 @@ pub struct Scene {
     depth: wgpu::TextureView,
     pub show_petal: bool,
     pub petal_size: f32,
+    petal_count: u32,
     pub flowers: Option<FlowerMarkers>,
     pub show_flower_markers: bool,
     pub splat_hide_distance: f32,
@@ -60,8 +61,9 @@ impl Scene {
             depth: depth_view(device, [1, 1]),
             show_petal: true,
             petal_size: 0.02,
+            petal_count: MIN_PETALS,
             flowers: None,
-            show_flower_markers: true,
+            show_flower_markers: false,
             splat_hide_distance: 3.5,
             sort_positions: Vec::new(),
             sort_gate: SortGate::default(),
@@ -102,12 +104,39 @@ impl Scene {
     pub fn load_flower_emitters(&mut self, device: &Device, bytes: &[u8]) -> Result<u32, String> {
         let flowers = FlowerMarkers::new(device, bytes)?;
         let count = flowers.emitters.len() as u32;
+        if let Some(petal) = &mut self.petal {
+            petal.reset_instances(device, &flowers.emitters, self.petal_count)?;
+        }
         self.flowers = Some(flowers);
         Ok(count)
     }
 
     pub fn load_petal(&mut self, device: &Device, bytes: &[u8]) -> Result<(), String> {
-        self.petal = Some(Petal::new(device, bytes)?);
+        let flowers = self
+            .flowers
+            .as_ref()
+            .ok_or("Load flower positions before petals")?;
+        self.petal = Some(Petal::new(
+            device,
+            bytes,
+            &flowers.emitters,
+            self.petal_count,
+        )?);
+        Ok(())
+    }
+
+    pub fn set_petal_count(&mut self, device: &Device, count: u32) -> Result<(), String> {
+        if !(MIN_PETALS..=MAX_PETALS).contains(&count) {
+            return Err("Petal count must be between 10,000 and 100,000".into());
+        }
+        if let Some(petal) = &mut self.petal {
+            let flowers = self
+                .flowers
+                .as_ref()
+                .ok_or("Petals require flower positions")?;
+            petal.ensure_instances(device, &flowers.emitters, count)?;
+        }
+        self.petal_count = count;
         Ok(())
     }
 
@@ -217,7 +246,7 @@ impl Scene {
             // Opaque petals establish depth; nearer sorted splats blend over them.
             if self.show_petal {
                 if let Some(petal) = &self.petal {
-                    petal.draw(&mut pass);
+                    petal.draw(&mut pass, self.petal_count);
                 }
             }
             if let Some(splats) = &self.splats {

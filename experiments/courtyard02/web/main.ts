@@ -11,6 +11,8 @@ const settings = {
   splatHideDistance: 3.5,
   showPetal: true,
   petalSize: 0.02,
+  petalCount: 10_000,
+  showFlowerMarkers: false,
 };
 const pane = new Pane({ title: "Courtyard" });
 pane.addBinding(settings, "fixedResolution", { label: "1920 × 1080" }).on("change", ({ value }) => {
@@ -25,7 +27,13 @@ pane
     step: 0.01,
   })
   .on("change", ({ value }) => app?.setSplatHideDistance(value));
-const petalControls = pane.addFolder({ title: "Petal" });
+pane
+  .addBinding(settings, "showFlowerMarkers", { label: "Flower debug" })
+  .on("change", ({ value }) => app?.setFlowerMarkersVisible(value));
+const petalControls = pane.addFolder({ title: "Petals" });
+petalControls
+  .addBinding(settings, "petalCount", { label: "Count", min: 10_000, max: 100_000, step: 1_000 })
+  .on("change", ({ value }) => app?.setPetalCount(value));
 petalControls
   .addBinding(settings, "showPetal", { label: "Visible" })
   .on("change", updatePetalPreview);
@@ -114,6 +122,8 @@ async function start() {
     }
     app = created;
     created.setSplatHideDistance(settings.splatHideDistance);
+    created.setPetalCount(settings.petalCount);
+    created.setFlowerMarkersVisible(settings.showFlowerMarkers);
     updatePetalPreview();
     detachInput = bindOrbitInput(canvas, created);
     worker = new Worker(new URL("./sort.worker.ts", import.meta.url), { type: "module" });

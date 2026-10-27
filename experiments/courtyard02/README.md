@@ -1,6 +1,6 @@
 # Courtyard 02
 
-Minimal copy of `experiments/particles`: 3D Gaussian splat rendering with worker depth sorting, frustum culling, orbital control, flower source markers, and a static petal model.
+Minimal copy of `experiments/particles`: 3D Gaussian splat rendering with worker depth sorting, frustum culling, orbital control, flower source markers, and instanced petals.
 
 Run `pnpm --dir experiments/courtyard02 dev`, then open http://localhost:5184.
 Drag to orbit, Shift + drag or middle-button drag to pan, and scroll to zoom.
@@ -13,11 +13,15 @@ The read-only `FPS` display averages animation-frame intervals and refreshes eve
 
 ## Petal model
 
-`assets/white-petal.blend` is the editable rounded white petal, with a cupped surface, a shallow center fold, and a warm ivory base. `public/white-petal.glb` is the portable model. Both contain the same 8-vertex, 8-triangle mesh, designed for petals around 0.02 scene units long and future particle instancing. Two interior rows preserve the cupped shape; smooth normals soften the low-poly surface. The asset retains UVs, linear vertex colors, and a double-sided material without image textures. The shader uses simple lighting without fine vein calculations. The enlarged studio preview exposes the coarser outline; the model is intended for small on-screen petals.
+`assets/white-petal.blend` is the editable rounded white petal, with a cupped surface, a shallow center fold, and a warm ivory base. `public/white-petal.glb` is the portable model. Both contain the same 8-vertex, 8-triangle mesh, designed for petals around 0.02 scene units long and particle instancing. Two interior rows preserve the cupped shape; smooth normals soften the low-poly surface. The asset retains UVs, linear vertex colors, and a double-sided material without image textures. The shader uses simple lighting without fine vein calculations. The enlarged studio preview exposes the coarser outline; the model is intended for small on-screen petals.
 
-The renderer loads `public/white-petal.mesh.json`, exported from that same Blender mesh, through the existing Belfast `Mesh`/`Draw` API. The asset's local base is at the origin, its tip points along +Y, its front is +Z, and its length is 1 unit. These local coordinates are ready for future transforms at the flower emitter positions.
+The renderer loads `public/white-petal.mesh.json`, exported from that same Blender mesh, through the existing Belfast `Mesh`/`Draw` API. The asset's local base is at the origin, its tip points along +Y, its front is +Z, and its length is 1 unit. Instances rotate this local mesh and its normals with their quaternion, then translate it to the flower source position plus jitter.
 
-For inspection, one static petal starts in front of the tree at `[-1.19, 0.05, -0.93]`. Tweakpane's `Petal` folder controls visibility and size: default 0.02 scene units, range 0.005–0.05, step 0.001. It writes depth before splat rendering, so nearer splats can blend over it; the splats use center-depth testing, as in `experiments/particles`. Flower markers keep their In Front overlay behavior. Petal emission, motion, and cast shadows are not implemented yet.
+Tweakpane's `Petals` folder controls visibility, size, and `Count`: initially 10,000 petals, adjustable to 100,000 in steps of 1,000. Size remains 0.02 scene units by default (range 0.005–0.05, step 0.001). Petals are distributed evenly across all 312 imported flower positions, with independent random offsets of ±0.01 per axis and uniformly sampled unit quaternions in xyzw order. Initialization uses a fixed random seed so the layout is repeatable.
+
+All petals share one mesh and one indexed instanced draw. A storage buffer reserves 100,000 slots (32 bytes per slot: position/padding plus quaternion), but only the active count is initialized at startup. Increasing the count initializes and uploads only previously unused slots; reducing it changes the draw count without reshuffling any particles. The camera and global size use an 80-byte uniform, and particle state is not uploaded every frame.
+
+Petals write depth before splat rendering, so nearer splats can blend over them; the splats use center-depth testing, as in `experiments/particles`. `Flower debug` toggles the source spheres and defaults to disabled; when enabled, the spheres retain their In Front overlay behavior. This step creates the initial particle state; petal motion, emission cycles, and cast shadows are not implemented yet.
 
 To regenerate the model, GLB, runtime mesh, and studio preview, run Blender with `--background --factory-startup --python experiments/courtyard02/tools/create_white_petal.py` from the repository root. This regenerates these asset files; it does not open or modify `court.blend`. The standalone studio image is saved as `assets/white-petal-preview.png`.
 
