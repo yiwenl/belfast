@@ -13,6 +13,8 @@ const settings = {
   petalSize: 0.02,
   petalCount: 10_000,
   showFlowerMarkers: false,
+  shadowStrength: 0.65,
+  showShadowCamera: true,
 };
 const pane = new Pane({ title: "Courtyard" });
 pane.addBinding(settings, "fixedResolution", { label: "1920 × 1080" }).on("change", ({ value }) => {
@@ -40,6 +42,13 @@ petalControls
 petalControls
   .addBinding(settings, "petalSize", { label: "Size", min: 0.005, max: 0.05, step: 0.001 })
   .on("change", updatePetalPreview);
+const shadowControls = pane.addFolder({ title: "Shadows" });
+shadowControls
+  .addBinding(settings, "shadowStrength", { label: "Strength", min: 0, max: 1, step: 0.01 })
+  .on("change", ({ value }) => app?.setShadowStrength(value));
+shadowControls
+  .addBinding(settings, "showShadowCamera", { label: "Camera helper" })
+  .on("change", ({ value }) => app?.setShadowCameraVisible(value));
 const stats = { fps: 0 };
 const fpsDisplay = pane.addBinding(stats, "fps", {
   label: "FPS",
@@ -124,6 +133,8 @@ async function start() {
     created.setSplatHideDistance(settings.splatHideDistance);
     created.setPetalCount(settings.petalCount);
     created.setFlowerMarkersVisible(settings.showFlowerMarkers);
+    created.setShadowStrength(settings.shadowStrength);
+    created.setShadowCameraVisible(settings.showShadowCamera);
     updatePetalPreview();
     detachInput = bindOrbitInput(canvas, created);
     worker = new Worker(new URL("./sort.worker.ts", import.meta.url), { type: "module" });

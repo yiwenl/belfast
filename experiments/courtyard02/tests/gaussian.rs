@@ -191,7 +191,8 @@ fn frozen_culling_handles_empty_views_and_projection_changes() {
 #[test]
 fn shader_parses_and_validates() {
     let module =
-        naga::front::wgsl::parse_str(belfast_experiment_courtyard02::splat::SHADER).unwrap();
+        naga::front::wgsl::parse_str(&belfast_experiment_courtyard02::splat::shader_source())
+            .unwrap();
     naga::valid::Validator::new(
         naga::valid::ValidationFlags::all(),
         naga::valid::Capabilities::SHADER_FLOAT16_IN_FLOAT32,

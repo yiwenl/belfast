@@ -1,4 +1,4 @@
-use crate::markers::FlowerEmitter;
+use crate::{markers::FlowerEmitter, shadow::ShadowMap};
 use belfast::{
     BindGroup, Buffer, BufferUsage, Device, Draw, DrawOptions, Mesh, MeshIndexFormat,
     VertexAttributeDescriptor, VertexBufferBinding,
@@ -10,6 +10,7 @@ pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub const MIN_PETALS: u32 = 10_000;
 pub const MAX_PETALS: u32 = 100_000;
 const PARTICLE_SEED: u32 = 0x6d61_676e;
+const TRANSFORM_SHADER: &str = include_str!("petal-transform.wgsl");
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -29,12 +30,17 @@ struct PetalMesh {
 pub struct Petal {
     mesh: Mesh,
     draw: Draw,
+    shadow_draw: Draw,
+    shadow_binding: wgpu::BindGroup,
+    shadow_depth_binding: wgpu::BindGroup,
     camera: Buffer,
     binding: BindGroup,
     srgb: bool,
     instances: Buffer,
     initialized_count: u32,
     random_state: u32,
+    source_bounds: (Vec3, Vec3),
+    mesh_radius: f32,
 }
 
 impl Petal {
@@ -43,6 +49,7 @@ impl Petal {
         bytes: &[u8],
         emitters: &[FlowerEmitter],
         count: u32,
+        shadow: &ShadowMap,
     ) -> Result<Self, String> {
         let data: PetalMesh = serde_json::from_slice(bytes)
             .map_err(|error| format!("Invalid petal mesh: {error}"))?;
@@ -98,7 +105,43 @@ impl Petal {
             .map_err(|error| error.to_string())?;
         mesh.set_index_buffer(indices, data.indices.len() as u32, MeshIndexFormat::Uint32)
             .map_err(|error| error.to_string())?;
+        let layout = device
+            .gpu()
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("PetalLayout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+        let pipeline_layout =
+            device
+                .gpu()
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("PetalPipelineLayout"),
+                    bind_group_layouts: &[Some(&layout), Some(&shadow.sample_layout)],
+                    immediate_size: 0,
+                });
         let mut options = DrawOptions::new("WhitePetal", device.format());
+        options.layout = Some(&pipeline_layout);
         options.primitive.cull_mode = None;
         options.depth_stencil = Some(wgpu::DepthStencilState {
             format: DEPTH_FORMAT,
@@ -107,7 +150,30 @@ impl Petal {
             stencil: Default::default(),
             bias: Default::default(),
         });
-        let draw = Draw::new(device, include_str!("petal.wgsl"), &mesh, options);
+        let source = format!(
+            "{TRANSFORM_SHADER}\n{}\n{}\n{}",
+            belfast::WGSL_SHADOW_PCF_3X3,
+            crate::shadow::SAMPLING_SHADER,
+            include_str!("petal.wgsl")
+        );
+        let draw = Draw::new(device, &source, &mesh, options);
+        let depth_layout = device
+            .gpu()
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("PetalShadowPipelineLayout"),
+                bind_group_layouts: &[Some(&layout), Some(&shadow.depth_layout)],
+                immediate_size: 0,
+            });
+        let mut depth_options = DrawOptions::depth_only("PetalShadow");
+        depth_options.layout = Some(&depth_layout);
+        depth_options.primitive.cull_mode = None;
+        depth_options.depth_stencil.as_mut().unwrap().bias = wgpu::DepthBiasState {
+            constant: 2,
+            slope_scale: 2.0,
+            clamp: 0.0,
+        };
+        let depth_source = format!("{TRANSFORM_SHADER}\n{}", include_str!("petal-shadow.wgsl"));
+        let shadow_draw = Draw::new(device, &depth_source, &mesh, depth_options);
         let camera = Buffer::create(device, 80, BufferUsage::uniform(), "PetalCamera");
         let capacity = u64::from(MAX_PETALS) * std::mem::size_of::<PetalInstance>() as u64;
         if capacity > limit
@@ -118,7 +184,7 @@ impl Petal {
         let instances = Buffer::create(device, capacity, BufferUsage::storage(), "PetalInstances");
         let binding = BindGroup::create(
             device,
-            &draw.get_bind_group_layout(0),
+            &layout,
             &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -134,12 +200,21 @@ impl Petal {
         let mut petals = Self {
             mesh,
             draw,
+            shadow_draw,
+            shadow_binding: shadow.sample_binding.clone(),
+            shadow_depth_binding: shadow.depth_binding.clone(),
             camera,
             binding,
             srgb: device.format().is_srgb(),
             instances,
             initialized_count: 0,
             random_state: PARTICLE_SEED,
+            source_bounds: (Vec3::ZERO, Vec3::ZERO),
+            mesh_radius: data
+                .vertices
+                .iter()
+                .map(|v| Vec3::new(v[0], v[1], v[2]).length())
+                .fold(0.0, f32::max),
         };
         petals.ensure_instances(device, emitters, count)?;
         Ok(petals)
@@ -164,6 +239,15 @@ impl Petal {
         }
         if count <= self.initialized_count {
             return Ok(());
+        }
+        if self.initialized_count == 0 {
+            self.source_bounds = emitters.iter().fold(
+                (Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY)),
+                |(min, max), emitter| {
+                    let p = Vec3::from_array(emitter.position);
+                    (min.min(p), max.max(p))
+                },
+            );
         }
         // Continue the seeded stream so changing the visible count never reshuffles existing petals.
         let mut random = || {
@@ -218,7 +302,23 @@ impl Petal {
 
     pub fn draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, count: u32) {
         self.binding.bind(pass, 0);
+        pass.set_bind_group(1, &self.shadow_binding, &[]);
         self.draw.draw(pass, &self.mesh, count);
+    }
+
+    pub fn shadow_bounds(&self, scale: f32) -> (Vec3, Vec3) {
+        // Includes every source, all rotations, and the per-axis spawn jitter.
+        let padding = Vec3::splat(self.mesh_radius * scale + 0.01);
+        (
+            self.source_bounds.0 - padding,
+            self.source_bounds.1 + padding,
+        )
+    }
+
+    pub fn draw_shadow<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, count: u32) {
+        self.binding.bind(pass, 0);
+        pass.set_bind_group(1, &self.shadow_depth_binding, &[]);
+        self.shadow_draw.draw(pass, &self.mesh, count);
     }
 }
 

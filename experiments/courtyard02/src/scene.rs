@@ -2,6 +2,8 @@ use crate::{
     markers::FlowerMarkers,
     petal::{depth_view, Petal, DEPTH_FORMAT, MAX_PETALS, MIN_PETALS},
     ply::GaussianCloud,
+    shadow::{ShadowMap, MAP_SIZE, STRENGTH},
+    shadow_debug::ShadowDebug,
     sorting::{SortCamera, SortGate},
     splat::SplatRenderer,
 };
@@ -19,6 +21,9 @@ pub struct Scene {
     splats: Option<SplatRenderer>,
     petal: Option<Petal>,
     depth: wgpu::TextureView,
+    shadow: ShadowMap,
+    shadow_debug: ShadowDebug,
+    pub show_shadow_camera: bool,
     pub show_petal: bool,
     pub petal_size: f32,
     petal_count: u32,
@@ -53,12 +58,17 @@ impl Scene {
         control.snap_yaw((-forward.x).atan2(-forward.z));
         control.snap_pitch((-forward.y).asin());
         control.update(0.0, &mut camera);
+        let shadow = ShadowMap::new(device, MAP_SIZE, STRENGTH)?;
+        let shadow_debug = ShadowDebug::new(device, &shadow.map);
         Ok(Self {
             camera,
             control,
             splats: None,
             petal: None,
             depth: depth_view(device, [1, 1]),
+            shadow,
+            shadow_debug,
+            show_shadow_camera: true,
             show_petal: true,
             petal_size: 0.02,
             petal_count: MIN_PETALS,
@@ -85,7 +95,8 @@ impl Scene {
 
     pub fn load_ply(&mut self, device: &Device, bytes: &[u8]) -> Result<u32, String> {
         let mut cloud = GaussianCloud::parse(bytes)?;
-        let renderer = SplatRenderer::new_with_depth(device, &mut cloud, Some(DEPTH_FORMAT))?;
+        let renderer =
+            SplatRenderer::new_shadowed(device, &mut cloud, Some(DEPTH_FORMAT), &self.shadow)?;
         let count = renderer.count();
         self.source_count = cloud.source_count;
         self.sort_positions = cloud.sort_positions;
@@ -121,6 +132,7 @@ impl Scene {
             bytes,
             &flowers.emitters,
             self.petal_count,
+            &self.shadow,
         )?);
         Ok(())
     }
@@ -191,7 +203,11 @@ impl Scene {
         self.splats.as_ref().map_or(0, SplatRenderer::visible)
     }
 
-    pub fn update(&mut self, device: &Device, delta_seconds: f32) {
+    pub fn set_shadow_strength(&mut self, device: &Device, strength: f32) -> Result<(), String> {
+        self.shadow.set_strength(device, strength)
+    }
+
+    pub fn update(&mut self, device: &Device, delta_seconds: f32) -> BelfastResult<()> {
         self.control.update(delta_seconds, &mut self.camera);
         if let Some(splats) = &self.splats {
             splats.update_camera(device, &self.sort_camera(), self.splat_hide_distance);
@@ -200,12 +216,17 @@ impl Scene {
             flowers.update_camera(device, &self.camera.view_projection_matrix());
         }
         if let Some(petal) = &self.petal {
+            self.shadow
+                .fit(device, petal.shadow_bounds(self.petal_size))?;
             petal.update(
                 device,
                 &self.camera.view_projection_matrix(),
                 self.petal_size,
             );
         }
+        self.shadow
+            .update_viewer(device, &self.camera.view_projection_matrix());
+        Ok(())
     }
 
     pub fn render(&mut self, device: &Device, view: &wgpu::TextureView) {
@@ -214,6 +235,18 @@ impl Scene {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("CourtyardEncoder"),
             });
+        {
+            // Clear even when petals are hidden so the scene cannot retain stale shadows.
+            let mut pass = self
+                .shadow
+                .map
+                .begin_depth_pass(&mut encoder, wgpu::LoadOp::Clear(1.0));
+            if self.show_petal {
+                if let Some(petal) = &self.petal {
+                    petal.draw_shadow(&mut pass, self.petal_count);
+                }
+            }
+        }
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("CourtyardScene"),
@@ -253,9 +286,10 @@ impl Scene {
                 splats.draw(&mut pass);
             }
         }
-        if let Some(flowers) = self.flowers.as_ref().filter(|_| self.show_flower_markers) {
+        let flowers = self.flowers.as_ref().filter(|_| self.show_flower_markers);
+        if (self.show_shadow_camera && self.petal.is_some()) || flowers.is_some() {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("FlowerMarkerOverlay"),
+                label: Some("CourtyardDebugOverlay"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view,
                     depth_slice: None,
@@ -270,8 +304,15 @@ impl Scene {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            flowers.draw(&mut pass);
+            // Draw the exact shadow frustum in front of the scene, without casting shadows.
+            if self.show_shadow_camera {
+                self.shadow.draw_camera(&mut pass);
+            }
+            if let Some(flowers) = flowers {
+                flowers.draw(&mut pass);
+            }
         }
+        self.shadow_debug.render(&mut encoder, view, self.viewport);
         device.queue().submit([encoder.finish()]);
     }
 }

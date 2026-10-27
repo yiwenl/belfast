@@ -1,11 +1,20 @@
-use crate::{ply::GaussianCloud, sorting::SortCamera};
+use crate::{ply::GaussianCloud, shadow::ShadowMap, sorting::SortCamera};
 use belfast::Device;
 
 pub const SHADER: &str = include_str!("splat.wgsl");
 
+pub fn shader_source() -> String {
+    format!(
+        "{}\n{}\n{SHADER}",
+        belfast::WGSL_SHADOW_PCF_3X3,
+        crate::shadow::SAMPLING_SHADER
+    )
+}
+
 pub struct SplatRenderer {
     pipeline: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
+    shadow_binding: wgpu::BindGroup,
     camera: wgpu::Buffer,
     indices: wgpu::Buffer,
     count: u32,
@@ -22,6 +31,16 @@ impl SplatRenderer {
         device: &Device,
         cloud: &mut GaussianCloud,
         depth_format: Option<wgpu::TextureFormat>,
+    ) -> Result<Self, String> {
+        let shadow = ShadowMap::new(device, 1, 0.0).map_err(|error| error.to_string())?;
+        Self::new_shadowed(device, cloud, depth_format, &shadow)
+    }
+
+    pub fn new_shadowed(
+        device: &Device,
+        cloud: &mut GaussianCloud,
+        depth_format: Option<wgpu::TextureFormat>,
+        shadow: &ShadowMap,
     ) -> Result<Self, String> {
         let count = cloud.positions.len() as u32;
         let limit = device.gpu().limits().max_texture_dimension_2d;
@@ -133,14 +152,14 @@ impl SplatRenderer {
                 .gpu()
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("GaussianPipelineLayout"),
-                    bind_group_layouts: &[Some(&layout)],
+                    bind_group_layouts: &[Some(&layout), Some(&shadow.sample_layout)],
                     immediate_size: 0,
                 });
         let shader = device
             .gpu()
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("GaussianShader"),
-                source: wgpu::ShaderSource::Wgsl(SHADER.into()),
+                source: wgpu::ShaderSource::Wgsl(shader_source().into()),
             });
         let pipeline = device
             .gpu()
@@ -186,6 +205,7 @@ impl SplatRenderer {
         Ok(Self {
             pipeline,
             bind_group,
+            shadow_binding: shadow.sample_binding.clone(),
             camera,
             indices,
             count,
@@ -218,6 +238,7 @@ impl SplatRenderer {
     pub fn draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.set_bind_group(1, &self.shadow_binding, &[]);
         pass.set_vertex_buffer(0, self.indices.slice(..));
         pass.draw(0..6, 0..self.visible);
     }

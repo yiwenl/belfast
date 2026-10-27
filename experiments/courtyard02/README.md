@@ -21,9 +21,21 @@ Tweakpane's `Petals` folder controls visibility, size, and `Count`: initially 10
 
 All petals share one mesh and one indexed instanced draw. A storage buffer reserves 100,000 slots (32 bytes per slot: position/padding plus quaternion), but only the active count is initialized at startup. Increasing the count initializes and uploads only previously unused slots; reducing it changes the draw count without reshuffling any particles. The camera and global size use an 80-byte uniform, and particle state is not uploaded every frame.
 
-Petals write depth before splat rendering, so nearer splats can blend over them; the splats use center-depth testing, as in `experiments/particles`. `Flower debug` toggles the source spheres and defaults to disabled; when enabled, the spheres retain their In Front overlay behavior. This step creates the initial particle state; petal motion, emission cycles, and cast shadows are not implemented yet.
+Petals write depth before splat rendering, so nearer splats can blend over them; the splats use center-depth testing, as in `experiments/particles`. `Flower debug` toggles the source spheres and defaults to disabled; when enabled, the spheres retain their In Front overlay behavior. Petal motion and emission cycles are not implemented yet.
 
 To regenerate the model, GLB, runtime mesh, and studio preview, run Blender with `--background --factory-startup --python experiments/courtyard02/tools/create_white_petal.py` from the repository root. This regenerates these asset files; it does not open or modify `court.blend`. The standalone studio image is saved as `assets/white-petal-preview.png`.
+
+## Shadows
+
+A directional light sits at `[0, 8, 0.5]` and looks toward the courtyard origin. The small positive Z offset avoids a view direction parallel to the Y-up vector. Petal lighting uses this same direction.
+
+Belfast's `CameraHelper` draws the light camera's near and far planes and connecting edges as a yellow wireframe. It uses the exact shadow view-projection matrix and updates when the fitted bounds change. The lines appear in front of the scene independently of `Flower debug` and do not enter the shadow pass. Tweakpane's `Shadows` folder includes a `Camera helper` toggle (enabled by default) and `Strength` from 0 to 1 in steps of 0.01 (default 0.65).
+
+A square preview at the bottom-left of the canvas displays the actual shadow depth texture directly on the GPU after the scene and helper overlays. Darker pixels are closer to the light; white is the far plane or empty map. The preview scales with the canvas, keeping a small inset margin. It remains visible when shadow strength is zero or the camera helper is hidden.
+
+Before the visible scene, one additional instanced draw renders both sides of the petals into a 2048 × 2048 `Depth32Float` shadow map. It uses the same mesh, quaternion transform, size, and active count as the visible pass. Hiding petals clears their shadows too. The orthographic camera fits all flower sources plus jitter and the rotated petal radius, then expands both width and height by 3× around the fitted center to allow petal drift; changing size refits it. Near and far are 6.5 and 10 scene units from the light, covering above the flowers to below the courtyard floor.
+
+Belfast's 3 × 3 PCF helper softens shadows, with default strength 0.65, comparison bias 0.00002, normal bias 0.0005, and raster depth bias. Petals receive shadows per fragment on all lighting, including ambient, direct, and transmitted light; fully occluded fragments become black at strength 1, while partially covered PCF edges remain softened. The 3DGS scene receives petal shadows at each splat center in the vertex shader, skipping shadow texture reads outside the caster footprint and applying attenuation in linear color space. This center-based approximation can lose shadow detail on large splats. The scanned courtyard retains its baked lighting and does not cast new shadows onto petals.
 
 The local asset `public/courtyard1.ply` is copied from `/Users/yi-wenlin/Desktop/projects/courtyard02/courtyard1.ply` (1,920,000 source Gaussians). PLY files are ignored by Git; copy the asset into place on another machine before running or building.
 

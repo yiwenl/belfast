@@ -134,7 +134,9 @@ impl ExperimentApp {
         let previous = self.last_frame_ms.unwrap_or(timestamp_ms);
         let delta_seconds = ((timestamp_ms - previous) * 0.001).clamp(0.0, 0.1) as f32;
         self.last_frame_ms = Some(timestamp_ms.max(previous));
-        self.scene.update(&self.device, delta_seconds);
+        self.scene
+            .update(&self.device, delta_seconds)
+            .map_err(js_error)?;
         if !self.drawable {
             return Ok(());
         }
@@ -249,6 +251,18 @@ impl ExperimentApp {
         }
         self.scene.splat_hide_distance = distance;
         Ok(())
+    }
+
+    #[wasm_bindgen(js_name = setShadowStrength)]
+    pub fn set_shadow_strength(&mut self, strength: f32) -> Result<(), JsValue> {
+        self.scene
+            .set_shadow_strength(&self.device, strength)
+            .map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setShadowCameraVisible)]
+    pub fn set_shadow_camera_visible(&mut self, visible: bool) {
+        self.scene.show_shadow_camera = visible;
     }
 
     #[wasm_bindgen(js_name = requestSort)]

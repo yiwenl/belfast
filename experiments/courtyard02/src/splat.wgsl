@@ -58,10 +58,16 @@ struct Vertex {
     out.position = vec4<f32>(clip.xy + offset * (2.0 / camera.viewport.xy) * clip.w, clip.zw);
     out.gaussian = local;
     out.color = unpack4x8unorm(packed.w);
-    if (camera.viewport.z > 0.5) {
-        // SH DC is display RGB; avoid applying the attachment's sRGB curve twice.
+    // shortcut: splats receive at their centers; use a surface proxy for detailed per-pixel shadows.
+    let visibility = shadow_visibility(p.xyz);
+    if (camera.viewport.z > 0.5 || visibility < 1.0) {
+        // Apply shadow attenuation in linear space while preserving the SH DC display colors.
         let rgb = out.color.rgb;
-        out.color = vec4<f32>(select(rgb / 12.92, pow((rgb + 0.055) / 1.055, vec3<f32>(2.4)), rgb > vec3<f32>(0.04045)), out.color.a);
+        var shaded = select(rgb / 12.92, pow((rgb + 0.055) / 1.055, vec3<f32>(2.4)), rgb > vec3<f32>(0.04045)) * visibility;
+        if (camera.viewport.z < 0.5) {
+            shaded = select(12.92 * shaded, 1.055 * pow(shaded, vec3<f32>(1.0 / 2.4)) - 0.055, shaded > vec3<f32>(0.0031308));
+        }
+        out.color = vec4<f32>(shaded, out.color.a);
     }
     return out;
 }
