@@ -1,7 +1,7 @@
 export async function loadPlyBytes(
   url: string,
   signal: AbortSignal,
-  progress: (received: number, total: number) => void,
+  progress?: (received: number, total: number) => void,
 ): Promise<Uint8Array> {
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`Unable to load PLY (${response.status})`);
@@ -28,7 +28,7 @@ export async function loadPlyBytes(
         throw new Error("PLY download exceeds its declared size");
       bytes.set(value, received);
       received += value.byteLength;
-      progress(received, total);
+      progress?.(received, total);
     }
     if (received !== total) throw new Error("PLY download was truncated");
     return bytes;

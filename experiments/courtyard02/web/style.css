@@ -1,10 +1,13 @@
 :root {
-  font-family: system-ui, sans-serif;
-  color: #eee;
   background: #060606;
 }
 body {
   margin: 0;
+  width: 100vw;
+  height: 100dvh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
 }
 canvas {
   display: block;
@@ -12,54 +15,7 @@ canvas {
   height: 100dvh;
   touch-action: none;
 }
-aside {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  font-size: 12px;
-  pointer-events: none;
-}
-#status,
-#error {
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  right: 16px;
-  margin: 0;
-  padding: 12px;
-  background: #171717dd;
-}
-#error {
-  color: #ffaaaa;
-  white-space: pre-wrap;
-}
-[hidden] {
-  display: none !important;
-}
-#marker-controls {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  border-radius: 6px;
-  background: #171717dd;
-  font-size: 12px;
-}
-#marker-controls label {
-  cursor: pointer;
-}
-#marker-controls i {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 4px;
-}
-.likely {
-  background: #00e6ff;
-}
-.review {
-  background: #ff5908;
+canvas.fixed-resolution {
+  width: min(100vw, calc(100dvh * 16 / 9));
+  height: min(100dvh, calc(100vw * 9 / 16));
 }

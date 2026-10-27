@@ -1,3 +1,4 @@
+import { Pane } from "tweakpane";
 import init, { ExperimentApp } from "../pkg/experiment";
 import { bindOrbitInput } from "./input";
 import { loadPlyBytes } from "./load-ply";
@@ -5,11 +6,13 @@ import type { SortReply, SortRequest } from "./sort-protocol";
 import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
-const status = document.querySelector<HTMLElement>("#status")!;
-const errorOutput = document.querySelector<HTMLElement>("#error")!;
+const settings = { fixedResolution: true };
+const pane = new Pane({ title: "Courtyard" });
+pane.addBinding(settings, "fixedResolution", { label: "1920 × 1080" }).on("change", ({ value }) => {
+  canvas.classList.toggle("fixed-resolution", value);
+});
+canvas.classList.toggle("fixed-resolution", settings.fixedResolution);
 const loading = new AbortController();
-const markerToggle = document.querySelector<HTMLInputElement>("#flower-markers")!;
-const markerInfo = document.querySelector<HTMLElement>("#marker-info")!;
 let app: ExperimentApp | undefined;
 let worker: Worker | undefined;
 let detachInput: (() => void) | undefined;
@@ -24,16 +27,11 @@ function dispose() {
   loading.abort();
   worker?.terminate();
   detachInput?.();
-  markerToggle.removeEventListener("change", onMarkerToggle);
+  pane.dispose();
   app?.free();
   app = undefined;
   window.removeEventListener("pagehide", onPageHide);
 }
-
-function onMarkerToggle() {
-  app?.setFlowerMarkersVisible(markerToggle.checked);
-}
-markerToggle.addEventListener("change", onMarkerToggle);
 
 function onPageHide(event: PageTransitionEvent) {
   if (!event.persisted) dispose();
@@ -41,9 +39,7 @@ function onPageHide(event: PageTransitionEvent) {
 
 function reportError(error: unknown) {
   if (disposed) return;
-  status.hidden = true;
-  errorOutput.hidden = false;
-  errorOutput.textContent = error instanceof Error ? error.message : String(error);
+  console.error(error);
   dispose();
 }
 
@@ -74,7 +70,6 @@ async function start() {
           return;
         }
         created.applySort(data.indices, data.didSort);
-        status.hidden = true;
       } catch (error) {
         reportError(error);
       }
@@ -82,7 +77,12 @@ async function start() {
     function frame(timestamp: number) {
       if (disposed) return;
       try {
-        created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
+        if (settings.fixedResolution) {
+          // Keep the drawing buffer exact; CSS fits the 16:9 image to the window.
+          created.resize(1920, 1080, 1);
+        } else {
+          created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
+        }
         created.frame(timestamp);
         if (sorterReady) {
           const camera = created.requestSort();
@@ -98,13 +98,7 @@ async function start() {
     }
     animationFrame = requestAnimationFrame(frame);
     const [bytes, emitters] = await Promise.all([
-      loadPlyBytes(
-        `${import.meta.env.BASE_URL}courtyard1.ply`,
-        loading.signal,
-        (received, total) => {
-          status.textContent = `Loading courtyard · ${Math.round((received / total) * 100)}%`;
-        },
-      ),
+      loadPlyBytes(`${import.meta.env.BASE_URL}courtyard1.ply`, loading.signal),
       fetch(`${import.meta.env.BASE_URL}flower-emitters.json`, { signal: loading.signal }).then(
         async (response) => {
           if (!response.ok) throw new Error(`Unable to load flower emitters (${response.status})`);
@@ -113,18 +107,11 @@ async function start() {
       ),
     ]);
     if (disposed) return;
-    status.textContent = "Preparing scene…";
-    await new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
-    if (disposed) return;
     created.loadPly(bytes);
-    const markerCount = created.loadFlowerEmitters(emitters);
-    created.setFlowerMarkersVisible(markerToggle.checked);
-    markerInfo.textContent = `${markerCount} flower sources`;
-    markerToggle.disabled = false;
+    created.loadFlowerEmitters(emitters);
     const positions = created.takeSortPositions();
     const message: SortRequest = { type: "init", positions };
     worker.postMessage(message, [positions.buffer]);
-    status.textContent = "Sorting the first view…";
   } catch (error) {
     reportError(error);
   }

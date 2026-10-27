@@ -41,7 +41,14 @@ importers:
         version: 6.4.2(tsx@4.23.15)(yaml@2.9.0)
 
   experiments/courtyard02:
+    dependencies:
+      tweakpane:
+        specifier: ^4.0.5
+        version: 4.0.5
     devDependencies:
+      '@tweakpane/core':
+        specifier: ^2.0.5
+        version: 2.0.5
       '@vitejs/plugin-basic-ssl':
         specifier: ^2
         version: 2.3.0(vite@6.4.2(tsx@4.23.15)(yaml@2.9.0))

@@ -5,7 +5,12 @@ use crate::{
     splat::SplatRenderer,
 };
 use belfast::{BelfastResult, Device, OrbitalControl, OrbitalControlOptions, PerspectiveCamera};
-use glam::Mat4;
+use glam::{Mat4, Vec3};
+
+// court.blend / Camera / frame 32: 35 mm lens, 36 mm sensor, AUTO sensor fit.
+fn blender_fovy(aspect: f32) -> f32 {
+    2.0 * (36.0 / (2.0 * 35.0 * aspect.max(1.0))).atan()
+}
 
 pub struct Scene {
     pub camera: PerspectiveCamera,
@@ -23,15 +28,23 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(_device: &Device) -> BelfastResult<Self> {
-        let mut camera = PerspectiveCamera::new(40.0_f32.to_radians(), 1.0, 0.02, 200.0);
+        let aspect = 1920.0 / 1080.0;
+        let mut camera = PerspectiveCamera::new(blender_fovy(aspect), aspect, 0.1, 100.0);
+        // Same Blender-to-scene transform as flower-emitters.json; directions omit the offset.
+        let eye = Vec3::new(-2.2536968, 0.15622632, 1.7343298);
+        let forward = Vec3::new(0.5391256, 0.0976027, -0.8365508).normalize();
+        // Put the orbit pivot at the flower cloud's depth along the camera's viewing ray.
+        let radius = 4.1207833;
         let mut control = OrbitalControl::new(OrbitalControlOptions {
-            center: [0.0, 0.0, -1.0],
-            radius: 1.0,
+            center: (eye + forward * radius).to_array(),
+            radius,
             min_radius: 0.05,
             max_radius: 100.0,
             rotate_sensitivity: 0.003,
             ..Default::default()
         })?;
+        control.snap_yaw((-forward.x).atan2(-forward.z));
+        control.snap_pitch((-forward.y).asin());
         control.update(0.0, &mut camera);
         Ok(Self {
             camera,
@@ -47,6 +60,15 @@ impl Scene {
             source_count: 0,
         })
     }
+
+    pub fn resize(&mut self, width: u32, height: u32) -> BelfastResult<()> {
+        let aspect = width as f32 / height as f32;
+        self.camera.set_aspect(aspect)?;
+        self.camera.set_fovy_radians(blender_fovy(aspect))?;
+        self.viewport = [width, height];
+        Ok(())
+    }
+
     pub fn load_ply(&mut self, device: &Device, bytes: &[u8]) -> Result<u32, String> {
         let mut cloud = GaussianCloud::parse(bytes)?;
         let renderer = SplatRenderer::new(device, &mut cloud)?;

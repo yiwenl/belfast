@@ -111,14 +111,10 @@ impl ExperimentApp {
         if !self.drawable || self.config.width != width || self.config.height != height {
             self.config.width = width;
             self.config.height = height;
-            self.scene.viewport = [width, height];
             self.canvas.set_width(width);
             self.canvas.set_height(height);
             self.surface.configure(self.device.gpu(), &self.config);
-            self.scene
-                .camera
-                .set_aspect(width as f32 / height as f32)
-                .map_err(js_error)?;
+            self.scene.resize(width, height).map_err(js_error)?;
         }
         self.drawable = true;
         Ok(())
