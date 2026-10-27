@@ -1,5 +1,6 @@
 use crate::{
     markers::FlowerMarkers,
+    petal::{depth_view, Petal, DEPTH_FORMAT},
     ply::GaussianCloud,
     sorting::{SortCamera, SortGate},
     splat::SplatRenderer,
@@ -16,6 +17,10 @@ pub struct Scene {
     pub camera: PerspectiveCamera,
     pub control: OrbitalControl,
     splats: Option<SplatRenderer>,
+    petal: Option<Petal>,
+    depth: wgpu::TextureView,
+    pub show_petal: bool,
+    pub petal_size: f32,
     pub flowers: Option<FlowerMarkers>,
     pub show_flower_markers: bool,
     pub splat_hide_distance: f32,
@@ -28,7 +33,7 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(_device: &Device) -> BelfastResult<Self> {
+    pub fn new(device: &Device) -> BelfastResult<Self> {
         let aspect = 1920.0 / 1080.0;
         let mut camera = PerspectiveCamera::new(blender_fovy(aspect), aspect, 0.1, 100.0);
         // Same Blender-to-scene transform as flower-emitters.json; directions omit the offset.
@@ -51,6 +56,10 @@ impl Scene {
             camera,
             control,
             splats: None,
+            petal: None,
+            depth: depth_view(device, [1, 1]),
+            show_petal: true,
+            petal_size: 0.02,
             flowers: None,
             show_flower_markers: true,
             splat_hide_distance: 3.5,
@@ -63,17 +72,18 @@ impl Scene {
         })
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) -> BelfastResult<()> {
+    pub fn resize(&mut self, device: &Device, width: u32, height: u32) -> BelfastResult<()> {
         let aspect = width as f32 / height as f32;
         self.camera.set_aspect(aspect)?;
         self.camera.set_fovy_radians(blender_fovy(aspect))?;
         self.viewport = [width, height];
+        self.depth = depth_view(device, self.viewport);
         Ok(())
     }
 
     pub fn load_ply(&mut self, device: &Device, bytes: &[u8]) -> Result<u32, String> {
         let mut cloud = GaussianCloud::parse(bytes)?;
-        let renderer = SplatRenderer::new(device, &mut cloud)?;
+        let renderer = SplatRenderer::new_with_depth(device, &mut cloud, Some(DEPTH_FORMAT))?;
         let count = renderer.count();
         self.source_count = cloud.source_count;
         self.sort_positions = cloud.sort_positions;
@@ -94,6 +104,11 @@ impl Scene {
         let count = flowers.emitters.len() as u32;
         self.flowers = Some(flowers);
         Ok(count)
+    }
+
+    pub fn load_petal(&mut self, device: &Device, bytes: &[u8]) -> Result<(), String> {
+        self.petal = Some(Petal::new(device, bytes)?);
+        Ok(())
     }
 
     fn sort_camera(&self) -> SortCamera {
@@ -155,6 +170,13 @@ impl Scene {
         if let Some(flowers) = &self.flowers {
             flowers.update_camera(device, &self.camera.view_projection_matrix());
         }
+        if let Some(petal) = &self.petal {
+            petal.update(
+                device,
+                &self.camera.view_projection_matrix(),
+                self.petal_size,
+            );
+        }
     }
 
     pub fn render(&mut self, device: &Device, view: &wgpu::TextureView) {
@@ -165,7 +187,7 @@ impl Scene {
             });
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("CourtyardSplats"),
+                label: Some("CourtyardScene"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view,
                     depth_slice: None,
@@ -180,19 +202,46 @@ impl Scene {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            // Opaque petals establish depth; nearer sorted splats blend over them.
+            if self.show_petal {
+                if let Some(petal) = &self.petal {
+                    petal.draw(&mut pass);
+                }
+            }
+            if let Some(splats) = &self.splats {
+                splats.draw(&mut pass);
+            }
+        }
+        if let Some(flowers) = self.flowers.as_ref().filter(|_| self.show_flower_markers) {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("FlowerMarkerOverlay"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            if let Some(splats) = &self.splats {
-                splats.draw(&mut pass);
-            }
-            if self.show_flower_markers {
-                if let Some(flowers) = &self.flowers {
-                    flowers.draw(&mut pass);
-                }
-            }
+            flowers.draw(&mut pass);
         }
         device.queue().submit([encoder.finish()]);
     }

@@ -114,7 +114,9 @@ impl ExperimentApp {
             self.canvas.set_width(width);
             self.canvas.set_height(height);
             self.surface.configure(self.device.gpu(), &self.config);
-            self.scene.resize(width, height).map_err(js_error)?;
+            self.scene
+                .resize(&self.device, width, height)
+                .map_err(js_error)?;
         }
         self.drawable = true;
         Ok(())
@@ -209,6 +211,23 @@ impl ExperimentApp {
         self.scene
             .load_flower_emitters(&self.device, bytes)
             .map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = loadPetal)]
+    pub fn load_petal(&mut self, bytes: &[u8]) -> Result<(), JsValue> {
+        self.scene.load_petal(&self.device, bytes).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setPetalPreview)]
+    pub fn set_petal_preview(&mut self, visible: bool, size: f32) -> Result<(), JsValue> {
+        if !size.is_finite() || !(0.001..=1.0).contains(&size) {
+            return Err(js_error(
+                "Petal size must be between 0.001 and 1 scene units",
+            ));
+        }
+        self.scene.show_petal = visible;
+        self.scene.petal_size = size;
+        Ok(())
     }
 
     #[wasm_bindgen(js_name = setFlowerMarkersVisible)]

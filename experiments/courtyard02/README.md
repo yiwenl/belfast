@@ -1,6 +1,6 @@
 # Courtyard 02
 
-Minimal copy of `experiments/particles`: 3D Gaussian splat rendering with worker depth sorting, frustum culling, orbital control, and flower source markers.
+Minimal copy of `experiments/particles`: 3D Gaussian splat rendering with worker depth sorting, frustum culling, orbital control, flower source markers, and a static petal model.
 
 Run `pnpm --dir experiments/courtyard02 dev`, then open http://localhost:5184.
 Drag to orbit, Shift + drag or middle-button drag to pan, and scroll to zoom.
@@ -8,6 +8,18 @@ Drag to orbit, Shift + drag or middle-button drag to pan, and scroll to zoom.
 The Tweakpane `1920 × 1080` switch defaults to enabled: the canvas drawing buffer stays exactly 1920 × 1080, independent of device pixel ratio, while CSS centers and scales the image to fit the window at 16:9. Disable it to fill the window and render at its size and device pixel ratio. Loading and rendering errors are reported in the browser console.
 
 `Hide distance` defaults to 3.5 and ranges from 2 to 4 scene units. Splats whose centers are closer than this distance to the camera collapse to zero-area geometry in the vertex shader, before attribute loading and covariance projection. The cutoff uses Euclidean distance, takes effect without re-sorting, and avoids rasterizing those splats. Flower markers are unaffected.
+
+The read-only `FPS` display averages animation-frame intervals and refreshes every half second. Sampling resets when the page visibility changes so background pauses are excluded.
+
+## Petal model
+
+`assets/white-petal.blend` is the editable rounded white petal, with a cupped surface, a shallow center fold, and a warm ivory base. `public/white-petal.glb` is the portable model. Both contain the same 8-vertex, 8-triangle mesh, designed for petals around 0.02 scene units long and future particle instancing. Two interior rows preserve the cupped shape; smooth normals soften the low-poly surface. The asset retains UVs, linear vertex colors, and a double-sided material without image textures. The shader uses simple lighting without fine vein calculations. The enlarged studio preview exposes the coarser outline; the model is intended for small on-screen petals.
+
+The renderer loads `public/white-petal.mesh.json`, exported from that same Blender mesh, through the existing Belfast `Mesh`/`Draw` API. The asset's local base is at the origin, its tip points along +Y, its front is +Z, and its length is 1 unit. These local coordinates are ready for future transforms at the flower emitter positions.
+
+For inspection, one static petal starts in front of the tree at `[-1.19, 0.05, -0.93]`. Tweakpane's `Petal` folder controls visibility and size: default 0.02 scene units, range 0.005–0.05, step 0.001. It writes depth before splat rendering, so nearer splats can blend over it; the splats use center-depth testing, as in `experiments/particles`. Flower markers keep their In Front overlay behavior. Petal emission, motion, and cast shadows are not implemented yet.
+
+To regenerate the model, GLB, runtime mesh, and studio preview, run Blender with `--background --factory-startup --python experiments/courtyard02/tools/create_white_petal.py` from the repository root. This regenerates these asset files; it does not open or modify `court.blend`. The standalone studio image is saved as `assets/white-petal-preview.png`.
 
 The local asset `public/courtyard1.ply` is copied from `/Users/yi-wenlin/Desktop/projects/courtyard02/courtyard1.ply` (1,920,000 source Gaussians). PLY files are ignored by Git; copy the asset into place on another machine before running or building.
 
