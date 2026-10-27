@@ -18,6 +18,7 @@ pub struct ShadowMap {
     pub depth_binding: wgpu::BindGroup,
     strength: f32,
     bounds: Option<(Vec3, Vec3)>,
+    view_projection: [f32; 16],
     camera_helper: CameraHelper,
     viewer_camera: Buffer,
     viewer_binding: BindGroup,
@@ -137,6 +138,7 @@ impl ShadowMap {
             depth_binding,
             strength,
             bounds: None,
+            view_projection: Mat4::IDENTITY.to_cols_array(),
             camera_helper,
             viewer_camera,
             viewer_binding,
@@ -176,6 +178,7 @@ impl ShadowMap {
             10.0,
         ) * view;
         self.camera_helper.set_matrix(&matrix.to_cols_array())?;
+        self.view_projection = matrix.to_cols_array();
         self.update_matrix(device, matrix);
         self.bounds = Some(bounds);
         Ok(())
@@ -183,6 +186,10 @@ impl ShadowMap {
 
     pub fn update_viewer(&self, device: &Device, view_projection: &[f32; 16]) {
         self.viewer_camera.write(device, view_projection, 0);
+    }
+
+    pub fn view_projection(&self) -> [f32; 16] {
+        self.view_projection
     }
 
     pub fn set_strength(&mut self, device: &Device, strength: f32) -> Result<(), String> {

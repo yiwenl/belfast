@@ -6,6 +6,7 @@ use crate::{
     shadow_debug::ShadowDebug,
     sorting::{SortCamera, SortGate},
     splat::SplatRenderer,
+    vortex::MotionSettings,
 };
 use belfast::{BelfastResult, Device, OrbitalControl, OrbitalControlOptions, PerspectiveCamera};
 use glam::{Mat4, Vec3};
@@ -27,6 +28,7 @@ pub struct Scene {
     pub show_petal: bool,
     pub petal_size: f32,
     petal_count: u32,
+    petal_motion: MotionSettings,
     pub flowers: Option<FlowerMarkers>,
     pub show_flower_markers: bool,
     pub splat_hide_distance: f32,
@@ -72,6 +74,7 @@ impl Scene {
             show_petal: true,
             petal_size: 0.02,
             petal_count: MIN_PETALS,
+            petal_motion: MotionSettings::default(),
             flowers: None,
             show_flower_markers: false,
             splat_hide_distance: 3.5,
@@ -207,6 +210,27 @@ impl Scene {
         self.shadow.set_strength(device, strength)
     }
 
+    pub fn set_petal_motion(
+        &mut self,
+        enabled: bool,
+        updraft: f32,
+        strength: f32,
+    ) -> Result<(), String> {
+        if !updraft.is_finite()
+            || !(0.0..=0.6).contains(&updraft)
+            || !strength.is_finite()
+            || !(0.0..=2.0).contains(&strength)
+        {
+            return Err("Updraft must be 0–0.6 and vortex strength 0–2".into());
+        }
+        self.petal_motion = MotionSettings {
+            enabled,
+            updraft,
+            strength,
+        };
+        Ok(())
+    }
+
     pub fn update(&mut self, device: &Device, delta_seconds: f32) -> BelfastResult<()> {
         self.control.update(delta_seconds, &mut self.camera);
         if let Some(splats) = &self.splats {
@@ -215,13 +239,20 @@ impl Scene {
         if let Some(flowers) = &self.flowers {
             flowers.update_camera(device, &self.camera.view_projection_matrix());
         }
-        if let Some(petal) = &self.petal {
+        if let Some(petal) = &mut self.petal {
             self.shadow
                 .fit(device, petal.shadow_bounds(self.petal_size))?;
             petal.update(
                 device,
                 &self.camera.view_projection_matrix(),
                 self.petal_size,
+            );
+            petal.prepare_motion(
+                device,
+                delta_seconds,
+                self.petal_count,
+                self.petal_motion,
+                self.shadow.view_projection(),
             );
         }
         self.shadow
@@ -235,6 +266,9 @@ impl Scene {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("CourtyardEncoder"),
             });
+        if let Some(petal) = &mut self.petal {
+            petal.simulate(&mut encoder);
+        }
         {
             // Clear even when petals are hidden so the scene cannot retain stale shadows.
             let mut pass = self

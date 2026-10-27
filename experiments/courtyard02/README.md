@@ -19,11 +19,21 @@ The renderer loads `public/white-petal.mesh.json`, exported from that same Blend
 
 Tweakpane's `Petals` folder controls visibility, size, and `Count`: initially 10,000 petals, adjustable to 100,000 in steps of 1,000. Size remains 0.02 scene units by default (range 0.005–0.05, step 0.001). Petals are distributed evenly across all 312 imported flower positions, with independent random offsets of ±0.01 per axis and uniformly sampled unit quaternions in xyzw order. Initialization uses a fixed random seed so the layout is repeatable.
 
-All petals share one mesh and one indexed instanced draw. A storage buffer reserves 100,000 slots (32 bytes per slot: position/padding plus quaternion), but only the active count is initialized at startup. Increasing the count initializes and uploads only previously unused slots; reducing it changes the draw count without reshuffling any particles. The camera and global size use an 80-byte uniform, and particle state is not uploaded every frame.
+All petals share one mesh and one indexed instanced draw. Two storage buffers reserve 100,000 slots each (80 bytes per slot: position/scale, quaternion, velocity/age, source/lifetime, and spin axis/rate), but only the active count is initialized at startup. Increasing the count initializes and uploads only previously unused slots; reducing it reduces the simulation and draw count without resetting existing particles. The camera and global size use an 80-byte uniform, and particle state is not uploaded every frame.
 
-Petals write depth before splat rendering, so nearer splats can blend over them; the splats use center-depth testing, as in `experiments/particles`. `Flower debug` toggles the source spheres and defaults to disabled; when enabled, the spheres retain their In Front overlay behavior. Petal motion and emission cycles are not implemented yet.
+Petals write depth before splat rendering, so nearer splats can blend over them; the splats use center-depth testing, as in `experiments/particles`. `Flower debug` toggles the source spheres and defaults to disabled; when enabled, the spheres retain their In Front overlay behavior.
 
 To regenerate the model, GLB, runtime mesh, and studio preview, run Blender with `--background --factory-startup --python experiments/courtyard02/tools/create_white_petal.py` from the repository root. This regenerates these asset files; it does not open or modify `court.blend`. The standalone studio image is saved as `assets/white-petal-preview.png`.
+
+## Vortex motion
+
+The flow is adapted from [David Li's vortexspheres](https://github.com/dli/vortexspheres/tree/b2483ce3ccbd3b8f55e34c06ae2092c5f13a8a8f), specifically its regularized vortex-segment velocity, closed filament loops, self-advection, and staggered emission. The original MIT license is retained in `licenses/vortexspheres-LICENSE.txt`. This ports the motion method to WGSL compute; rendering remains the existing petal mesh, 3DGS scene, and shadow map.
+
+Each frame runs two compute passes: six closed rings of twelve vertices first move through their induced flow, then petals follow the updated flow with drag and positive-Y acceleration. Both use ping-pong storage buffers. Shadow and visible draws consume the same newly written particle buffer. Only a 112-byte simulation uniform is uploaded per frame; there is no CPU particle integration or GPU readback. The smoothing core and velocity limits keep near-filament velocities bounded.
+
+Tweakpane's `Motion` folder controls `Animate` (default on), `Updraft` (0–0.6, default 0.18 scene units/s²), and `Vortex` (0–2, default 1). Pausing freezes both the filament and petal state. Independent spin axes rotate normalized quaternions, with extra tilting from the local flow. Particle ages start staggered, lifetimes are 6–10 seconds, and respawns use the original flower sources with fresh ±0.01 jitter. Petals scale in and out at birth and death, in both the visible and shadow passes.
+
+The previously selected shadow camera remains at near/far 6.5/10 with 3× width and height. Petals fade near that fixed volume's edges and respawn when they leave it, so the effect continuously fills the supported area. There are no courtyard or petal-to-petal collision calculations. Simulation steps cap at 1/30 second to avoid jumps after tab suspension; below 30 FPS the simulation advances more slowly than wall time.
 
 ## Shadows
 
@@ -49,10 +59,10 @@ The camera uses Blender's 35 mm lens, 36 mm sensor, AUTO sensor fit, zero lens s
 
 `public/flower-emitters.json` contains 312 live marker positions from the open `court.blend` file's `WhiteFlower_Markers` collection: 215 likely (cyan) and 97 review (orange). The hidden `Flower_Emission_Points` mesh is a duplicate source and is not imported again. The live markers are used because moving a marker does not update Blender's embedded JSON or source mesh.
 
-Each emitter's `position` is already in Belfast scene coordinates and is retained in `Scene.flowers.emitters` for a future petal simulation. The export also preserves the Blender position, quality, ID, and reference splat indices. Blender indices refer to its filtered point cloud; `ply_splat_index` refers to the original PLY.
+Each emitter's `position` is already in Belfast scene coordinates and is retained in `Scene.flowers.emitters` for spawning petals. The export also preserves the Blender position, quality, ID, and reference splat indices. Blender indices refer to its filtered point cloud; `ply_splat_index` refers to the original PLY.
 
 Blender's cloud has a baked translation as well as a different up axis. The verified mapping is `[x + 0.219901681, z - 0.998482904, -y - 1.806712568]`. This was checked against 1,311 corresponding splats from the PLY, including all 312 marker reference splats; the maximum error was below 0.000003 scene units. Calibration samples and the source PLY hash are stored in the export.
 
-The inspection balls keep Blender's radius of 0.0045 scene units and its In Front behavior: markers remain visible through geometry. The positions are heuristic flower candidates, not verified flower centers. There is no petal simulation yet.
+The inspection balls keep Blender's radius of 0.0045 scene units and its In Front behavior: markers remain visible through geometry. The positions are heuristic flower candidates, not verified flower centers, and are also the spawn sources for the petal simulation.
 
 `pnpm --dir experiments/courtyard02 build` builds WASM and the site. Per the project owner's instruction, do not run tests for this experiment unless explicitly requested.

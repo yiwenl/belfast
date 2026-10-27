@@ -239,6 +239,18 @@ impl ExperimentApp {
             .map_err(js_error)
     }
 
+    #[wasm_bindgen(js_name = setPetalMotion)]
+    pub fn set_petal_motion(
+        &mut self,
+        enabled: bool,
+        updraft: f32,
+        vortex_strength: f32,
+    ) -> Result<(), JsValue> {
+        self.scene
+            .set_petal_motion(enabled, updraft, vortex_strength)
+            .map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = setFlowerMarkersVisible)]
     pub fn set_flower_markers_visible(&mut self, visible: bool) {
         self.scene.show_flower_markers = visible;

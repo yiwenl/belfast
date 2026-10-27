@@ -48,7 +48,7 @@ pub fn parse_emitters(bytes: &[u8]) -> Result<EmitterFile, String> {
 }
 
 pub struct FlowerMarkers {
-    /// Scene-space sources ready for the future petal simulation.
+    /// Scene-space spawn sources shared by the marker overlay and petal simulation.
     pub emitters: Vec<FlowerEmitter>,
     balls: Vec<BallHelper>,
     camera: Buffer,

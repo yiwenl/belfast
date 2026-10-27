@@ -15,6 +15,9 @@ const settings = {
   showFlowerMarkers: false,
   shadowStrength: 0.65,
   showShadowCamera: true,
+  animatePetals: true,
+  updraft: 0.18,
+  vortexStrength: 1.0,
 };
 const pane = new Pane({ title: "Courtyard" });
 pane.addBinding(settings, "fixedResolution", { label: "1920 × 1080" }).on("change", ({ value }) => {
@@ -42,6 +45,16 @@ petalControls
 petalControls
   .addBinding(settings, "petalSize", { label: "Size", min: 0.005, max: 0.05, step: 0.001 })
   .on("change", updatePetalPreview);
+const motionControls = pane.addFolder({ title: "Motion" });
+motionControls
+  .addBinding(settings, "animatePetals", { label: "Animate" })
+  .on("change", updateMotion);
+motionControls
+  .addBinding(settings, "updraft", { label: "Updraft", min: 0, max: 0.6, step: 0.01 })
+  .on("change", updateMotion);
+motionControls
+  .addBinding(settings, "vortexStrength", { label: "Vortex", min: 0, max: 2, step: 0.01 })
+  .on("change", updateMotion);
 const shadowControls = pane.addFolder({ title: "Shadows" });
 shadowControls
   .addBinding(settings, "shadowStrength", { label: "Strength", min: 0, max: 1, step: 0.01 })
@@ -68,6 +81,10 @@ let sorterReady = false;
 
 function updatePetalPreview() {
   app?.setPetalPreview(settings.showPetal, settings.petalSize);
+}
+
+function updateMotion() {
+  app?.setPetalMotion(settings.animatePetals, settings.updraft, settings.vortexStrength);
 }
 
 function dispose() {
@@ -136,6 +153,7 @@ async function start() {
     created.setShadowStrength(settings.shadowStrength);
     created.setShadowCameraVisible(settings.showShadowCamera);
     updatePetalPreview();
+    updateMotion();
     detachInput = bindOrbitInput(canvas, created);
     worker = new Worker(new URL("./sort.worker.ts", import.meta.url), { type: "module" });
     worker.onerror = (event) =>

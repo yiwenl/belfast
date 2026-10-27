@@ -6,6 +6,7 @@ pub mod shadow;
 mod shadow_debug;
 pub mod sorting;
 pub mod splat;
+mod vortex;
 
 #[cfg(target_arch = "wasm32")]
 mod browser;

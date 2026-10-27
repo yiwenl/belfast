@@ -1,4 +1,8 @@
-use crate::{markers::FlowerEmitter, shadow::ShadowMap};
+use crate::{
+    markers::FlowerEmitter,
+    shadow::ShadowMap,
+    vortex::{MotionSettings, Particle, VortexFlow, STATE_SHADER},
+};
 use belfast::{
     BindGroup, Buffer, BufferUsage, Device, Draw, DrawOptions, Mesh, MeshIndexFormat,
     VertexAttributeDescriptor, VertexBufferBinding,
@@ -11,13 +15,6 @@ pub const MIN_PETALS: u32 = 10_000;
 pub const MAX_PETALS: u32 = 100_000;
 const PARTICLE_SEED: u32 = 0x6d61_676e;
 const TRANSFORM_SHADER: &str = include_str!("petal-transform.wgsl");
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-struct PetalInstance {
-    position: [f32; 4],
-    rotation: [f32; 4], // Unit quaternion, xyzw.
-}
 
 #[derive(Deserialize)]
 struct PetalMesh {
@@ -34,9 +31,9 @@ pub struct Petal {
     shadow_binding: wgpu::BindGroup,
     shadow_depth_binding: wgpu::BindGroup,
     camera: Buffer,
-    binding: BindGroup,
+    bindings: [BindGroup; 2],
     srgb: bool,
-    instances: Buffer,
+    flow: VortexFlow,
     initialized_count: u32,
     random_state: u32,
     source_bounds: (Vec3, Vec3),
@@ -151,7 +148,7 @@ impl Petal {
             bias: Default::default(),
         });
         let source = format!(
-            "{TRANSFORM_SHADER}\n{}\n{}\n{}",
+            "{STATE_SHADER}\n{TRANSFORM_SHADER}\n{}\n{}\n{}",
             belfast::WGSL_SHADOW_PCF_3X3,
             crate::shadow::SAMPLING_SHADER,
             include_str!("petal.wgsl")
@@ -172,31 +169,30 @@ impl Petal {
             slope_scale: 2.0,
             clamp: 0.0,
         };
-        let depth_source = format!("{TRANSFORM_SHADER}\n{}", include_str!("petal-shadow.wgsl"));
+        let depth_source = format!(
+            "{STATE_SHADER}\n{TRANSFORM_SHADER}\n{}",
+            include_str!("petal-shadow.wgsl")
+        );
         let shadow_draw = Draw::new(device, &depth_source, &mesh, depth_options);
         let camera = Buffer::create(device, 80, BufferUsage::uniform(), "PetalCamera");
-        let capacity = u64::from(MAX_PETALS) * std::mem::size_of::<PetalInstance>() as u64;
-        if capacity > limit
-            || capacity > u64::from(device.gpu().limits().max_storage_buffer_binding_size)
-        {
-            return Err("Petal instances exceed GPU storage limits".into());
-        }
-        let instances = Buffer::create(device, capacity, BufferUsage::storage(), "PetalInstances");
-        let binding = BindGroup::create(
-            device,
-            &layout,
-            &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: camera.gpu().as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: instances.gpu().as_entire_binding(),
-                },
-            ],
-            "PetalBinding",
-        );
+        let flow = VortexFlow::new(device, MAX_PETALS)?;
+        let bindings = std::array::from_fn(|i| {
+            BindGroup::create(
+                device,
+                &layout,
+                &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: camera.gpu().as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: flow.states[i].gpu().as_entire_binding(),
+                    },
+                ],
+                "PetalBinding",
+            )
+        });
         let mut petals = Self {
             mesh,
             draw,
@@ -204,9 +200,9 @@ impl Petal {
             shadow_binding: shadow.sample_binding.clone(),
             shadow_depth_binding: shadow.depth_binding.clone(),
             camera,
-            binding,
+            bindings,
             srgb: device.format().is_srgb(),
-            instances,
+            flow,
             initialized_count: 0,
             random_state: PARTICLE_SEED,
             source_bounds: (Vec3::ZERO, Vec3::ZERO),
@@ -248,6 +244,7 @@ impl Petal {
                     (min.min(p), max.max(p))
                 },
             );
+            self.flow.reset(device, self.source_bounds);
         }
         // Continue the seeded stream so changing the visible count never reshuffles existing petals.
         let mut random = || {
@@ -269,16 +266,22 @@ impl Petal {
             let rotation =
                 Quat::from_xyzw(low * a.sin(), low * a.cos(), high * b.sin(), high * b.cos())
                     .normalize();
-            particles.push(PetalInstance {
+            let lifetime = 6.0 + random() * 4.0;
+            particles.push(Particle {
                 position: (source + jitter).extend(1.0).to_array(),
                 rotation: rotation.to_array(),
+                velocity: [0.0, 0.0, 0.0, random() * lifetime * 0.75],
+                origin: source.extend(lifetime).to_array(),
+                spin: (rotation * Vec3::Y).extend(0.6 + random() * 1.2).to_array(),
             });
         }
-        self.instances.write(
-            device,
-            &particles,
-            u64::from(self.initialized_count) * std::mem::size_of::<PetalInstance>() as u64,
-        );
+        for buffer in &self.flow.states {
+            buffer.write(
+                device,
+                &particles,
+                u64::from(self.initialized_count) * std::mem::size_of::<Particle>() as u64,
+            );
+        }
         self.initialized_count = count;
         Ok(())
     }
@@ -301,7 +304,7 @@ impl Petal {
     }
 
     pub fn draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, count: u32) {
-        self.binding.bind(pass, 0);
+        self.bindings[self.flow.current].bind(pass, 0);
         pass.set_bind_group(1, &self.shadow_binding, &[]);
         self.draw.draw(pass, &self.mesh, count);
     }
@@ -316,9 +319,25 @@ impl Petal {
     }
 
     pub fn draw_shadow<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, count: u32) {
-        self.binding.bind(pass, 0);
+        self.bindings[self.flow.current].bind(pass, 0);
         pass.set_bind_group(1, &self.shadow_depth_binding, &[]);
         self.shadow_draw.draw(pass, &self.mesh, count);
+    }
+
+    pub fn prepare_motion(
+        &mut self,
+        device: &Device,
+        dt: f32,
+        count: u32,
+        settings: MotionSettings,
+        shadow_matrix: [f32; 16],
+    ) {
+        self.flow
+            .prepare(device, dt, count, settings, shadow_matrix);
+    }
+
+    pub fn simulate(&mut self, encoder: &mut wgpu::CommandEncoder) {
+        self.flow.simulate(encoder);
     }
 }
 

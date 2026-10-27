@@ -4,10 +4,6 @@ struct Uniforms {
 };
 @group(0) @binding(0) var<uniform> scene: Uniforms;
 
-struct PetalInstance {
-    position: vec4<f32>,
-    rotation: vec4<f32>, // Unit quaternion, xyzw.
-};
 @group(0) @binding(1) var<storage, read> petals: array<PetalInstance>;
 
 fn rotate_by_quaternion(v: vec3<f32>, q: vec4<f32>) -> vec3<f32> {
@@ -16,5 +12,5 @@ fn rotate_by_quaternion(v: vec3<f32>, q: vec4<f32>) -> vec3<f32> {
 }
 
 fn petal_world_position(position: vec3<f32>, petal: PetalInstance) -> vec3<f32> {
-    return petal.position.xyz + rotate_by_quaternion(position * scene.options.y, petal.rotation);
+    return petal.position.xyz + rotate_by_quaternion(position * scene.options.y * petal.position.w, petal.rotation);
 }
