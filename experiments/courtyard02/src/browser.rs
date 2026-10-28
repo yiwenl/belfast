@@ -248,6 +248,7 @@ impl ExperimentApp {
         ring_radius: f32,
         core_radius: f32,
         vortex_strength: f32,
+        filament_drift: f32,
     ) -> Result<(), JsValue> {
         self.scene
             .set_petal_motion(
@@ -257,6 +258,7 @@ impl ExperimentApp {
                 ring_radius,
                 core_radius,
                 vortex_strength,
+                filament_drift,
             )
             .map_err(js_error)
     }

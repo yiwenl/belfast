@@ -33,17 +33,20 @@ Each frame runs two compute passes: six closed rings of twelve vertices first mo
 
 Tweakpane's `Motion` folder provides these controls:
 
-| Control          | Default | Range     | Effect                                                         |
-| ---------------- | ------- | --------- | -------------------------------------------------------------- |
-| Animate          | On      | On/off    | Pause or resume simulation.                                    |
-| Filament debug   | Off     | On/off    | Show the six live filament loops in distinct colors.           |
-| Petal updraft    | 0.05    | 0–0.6     | Uniform upward acceleration on petals, in scene units/s².      |
-| Filament updraft | 0.18    | 0–0.3     | Additional upward drift of the rings, in scene units/s.        |
-| Ring radius      | 0.21    | 0.05–0.5  | Base radius of newly seeded rings, in scene units.             |
-| Core radius      | 0.036   | 0.005–0.1 | Smoothing radius around each filament segment, in scene units. |
-| Vortex           | 1.61    | 0–2       | Scale the induced flow strength.                               |
+| Control           | Default | Range     | Effect                                                         |
+| ----------------- | ------- | --------- | -------------------------------------------------------------- |
+| Animate           | On      | On/off    | Pause or resume simulation.                                    |
+| Filament debug    | Off     | On/off    | Show the six live filament loops in distinct colors.           |
+| Petal updraft     | 0.05    | 0–0.6     | Uniform upward acceleration on petals, in scene units/s².      |
+| Filament updraft  | 0.18    | 0–0.3     | Additional upward drift of the rings, in scene units/s.        |
+| Filament XZ drift | 0.06    | 0–0.2     | Maximum additional horizontal drift speed, in scene units/s.   |
+| Ring radius       | 0.21    | 0.05–0.5  | Base radius of newly seeded rings, in scene units.             |
+| Core radius       | 0.036   | 0.005–0.1 | Smoothing radius around each filament segment, in scene units. |
+| Vortex            | 1.61    | 0–2       | Scale the induced flow strength.                               |
 
 The smaller rings and weaker global petal updraft emphasize the local filament flow. Setting petal updraft to zero removes the global lift without stopping filament updraft. Core radius affects both compute passes immediately; ring radius also reseeds rings while paused, but petals stay frozen until resumed. Rings keep their existing ±15% respawn radius variation and can deform as they move. Independent spin axes rotate normalized quaternions, with extra tilting from the local flow. Particle ages start staggered, lifetimes are 6–10 seconds, and respawns use the original flower sources with fresh ±0.01 jitter and a newly sampled Z offset in (-0.2, 0]. Petals scale in and out at birth and death, in both the visible and shadow passes.
+
+`Filament XZ drift` gives each ring a deterministic horizontal heading that turns slowly with simulation time. Every vertex in a ring shares that heading and a speed of 70–100% of the control value, so the added motion moves the whole ring coherently. It acts on the filaments; petals continue to follow the resulting local flow. Changes apply immediately without reseeding rings, and zero disables this additional horizontal drift. Pausing animation also pauses the drift.
 
 `Filament debug` draws each closed loop directly from the current GPU filament buffer after simulation, including its deformation and respawns. It uses one instanced line draw, with no GPU readback or per-frame CPU geometry updates. The lines appear in front of the scene, remain visible when petals are hidden, and do not cast shadows. Disabling the toggle skips this draw.
 

@@ -4,7 +4,7 @@ struct FlowParams {
     shadow_view_projection: mat4x4<f32>,
     origin_radius: vec4<f32>,
     step: vec4<f32>, // dt, time, petal upward acceleration, vortex strength
-    filament: vec4<f32>, // core radius, upward drift speed, reserved, reserved
+    filament: vec4<f32>, // core radius, upward drift speed, XZ drift speed, reserved
     counts: vec4<u32>, // petals, rings, vertices per ring, reserved
 };
 @group(0) @binding(0) var<uniform> flow: FlowParams;

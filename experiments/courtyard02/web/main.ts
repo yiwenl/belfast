@@ -20,6 +20,7 @@ const settings = {
   animatePetals: true,
   petalUpdraft: 0.05,
   filamentUpdraft: 0.18,
+  filamentDrift: 0.06,
   ringRadius: 0.21,
   coreRadius: 0.036,
   vortexStrength: 1.61,
@@ -65,6 +66,14 @@ motionControls
     label: "Filament updraft",
     min: 0,
     max: 0.3,
+    step: 0.005,
+  })
+  .on("change", updateMotion);
+motionControls
+  .addBinding(settings, "filamentDrift", {
+    label: "Filament XZ drift",
+    min: 0,
+    max: 0.2,
     step: 0.005,
   })
   .on("change", updateMotion);
@@ -116,6 +125,7 @@ function updateMotion() {
     settings.ringRadius,
     settings.coreRadius,
     settings.vortexStrength,
+    settings.filamentDrift,
   );
 }
 

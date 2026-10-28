@@ -222,10 +222,12 @@ impl Scene {
         ring_radius: f32,
         core_radius: f32,
         strength: f32,
+        filament_drift: f32,
     ) -> Result<(), String> {
         for (value, min, max, name) in [
             (petal_updraft, 0.0, 0.6, "Petal updraft"),
             (filament_updraft, 0.0, 0.3, "Filament updraft"),
+            (filament_drift, 0.0, 0.2, "Filament XZ drift"),
             (ring_radius, 0.05, 0.5, "Ring radius"),
             (core_radius, 0.005, 0.1, "Core radius"),
             (strength, 0.0, 2.0, "Vortex strength"),
@@ -238,6 +240,7 @@ impl Scene {
             enabled,
             petal_updraft,
             filament_updraft,
+            filament_drift,
             ring_radius,
             core_radius,
             strength,

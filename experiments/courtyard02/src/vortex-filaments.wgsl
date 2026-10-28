@@ -3,10 +3,10 @@
 @compute @workgroup_size(64)
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (id.x >= flow.counts.y * flow.counts.z) { return; }
+    let ring = id.x / flow.counts.z;
     let previous = filaments_in[id.x];
     let age = previous.w + flow.step.x;
     if (age >= FILAMENT_LIFETIME) {
-        let ring = id.x / flow.counts.z;
         let vertex = id.x % flow.counts.z;
         let cycle = u32(floor(flow.step.y / FILAMENT_LIFETIME));
         let seed = hash_u32(ring + cycle * 7919u);
@@ -21,7 +21,12 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     // Advect all vertices from the same previous state; no in-place neighbor reads.
-    let wind = vec3<f32>(0.0, flow.filament.y, 0.0);
+    // A shared heading translates each ring coherently instead of shaking individual vertices.
+    let phase = 6.28318530718 * random01(ring + 97u);
+    let time = flow.step.y + flow.step.x * 0.5;
+    let heading = phase + 0.65 * sin(time * 0.45 + phase);
+    let drift_speed = flow.filament.z * (0.7 + 0.3 * random01(ring + 193u));
+    let wind = vec3<f32>(cos(heading) * drift_speed, flow.filament.y, sin(heading) * drift_speed);
     let v0 = vortex_velocity(previous.xyz) + wind;
     let midpoint = previous.xyz + v0 * flow.step.x * 0.5;
     let velocity = limit_velocity(vortex_velocity(midpoint) + wind, 0.8);

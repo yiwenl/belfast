@@ -22,6 +22,7 @@ pub struct MotionSettings {
     pub enabled: bool,
     pub petal_updraft: f32,
     pub filament_updraft: f32,
+    pub filament_drift: f32,
     pub ring_radius: f32,
     pub core_radius: f32,
     pub strength: f32,
@@ -33,6 +34,7 @@ impl Default for MotionSettings {
             enabled: true,
             petal_updraft: 0.05,
             filament_updraft: 0.18,
+            filament_drift: 0.06,
             ring_radius: 0.21,
             core_radius: 0.036,
             strength: 1.61,
@@ -46,7 +48,7 @@ struct FlowParams {
     shadow_view_projection: [f32; 16],
     origin_radius: [f32; 4],
     step: [f32; 4],
-    filament: [f32; 4], // Core radius, upward drift speed, reserved, reserved.
+    filament: [f32; 4], // Core radius, upward drift speed, XZ drift speed, reserved.
     counts: [u32; 4],
 }
 
@@ -231,7 +233,12 @@ impl VortexFlow {
                     settings.petal_updraft,
                     settings.strength,
                 ],
-                filament: [settings.core_radius, settings.filament_updraft, 0.0, 0.0],
+                filament: [
+                    settings.core_radius,
+                    settings.filament_updraft,
+                    settings.filament_drift,
+                    0.0,
+                ],
                 counts: [count, RINGS, VERTICES_PER_RING, 0],
             }],
             0,
