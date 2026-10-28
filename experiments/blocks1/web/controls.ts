@@ -1,11 +1,13 @@
 import { Pane } from "tweakpane";
 import type { ExperimentApp } from "../pkg/experiment";
 import type { MotionProfile } from "./motion-client";
+import type { bindKineticInput } from "./kinetic-input";
 
 export function createControls(
   app: ExperimentApp,
   openColorDialog: () => void,
   setImagePreviewVisible: (visible: boolean) => void,
+  kinetic: ReturnType<typeof bindKineticInput>,
 ) {
   const values = {
     particleCount: 65_536,
@@ -19,6 +21,9 @@ export function createControls(
     shadowStrength: 0.75,
     mouseStrength: 50,
     mouseRadius: 0.08,
+    handTracking: true,
+    handStrength: 70,
+    handRadius: 0.2,
     paused: false,
     debugMaps: false,
     promptMotion: true,
@@ -41,6 +46,8 @@ export function createControls(
         values.shadowStrength,
         values.mouseStrength,
         values.mouseRadius,
+        values.handStrength,
+        values.handRadius,
       ]),
     );
     app.setPaused(values.paused);
@@ -49,6 +56,7 @@ export function createControls(
     app.setMotionEnabled(values.promptMotion);
     debugLabels.hidden = !values.debugMaps;
     setImagePreviewVisible(values.imagePreview);
+    kinetic.setEnabled(values.handTracking);
   };
   const fluid = pane.addFolder({ title: "Fluid" });
   fluid.addBinding(values, "flowStrength", { label: "Flow strength", min: 0, max: 40, step: 0.1 });
@@ -114,10 +122,18 @@ export function createControls(
     step: 0.005,
   });
   pane.addBinding(values, "paused", { label: "Paused" });
+  const hands = pane.addFolder({ title: "Kinetic hands" });
+  hands.addBinding(values, "handTracking", { label: "Tracking" });
+  hands.addBinding(values, "handStrength", { label: "Strength", min: 0, max: 200, step: 1 });
+  hands.addBinding(values, "handRadius", { label: "Radius", min: 0.01, max: 0.3, step: 0.005 });
+  const handMonitors = [
+    hands.addBinding(kinetic.status, "connection", { readonly: true, label: "Status" }),
+    hands.addBinding(kinetic.status, "hands", { readonly: true, label: "Tracked hands" }),
+  ];
   pane.addButton({ title: "Reset simulation" }).on("click", () => app.reset());
   pane.on("change", (event) => {
     // Monitor refreshes must not feed the effective values back into simulation settings.
-    if (!motionBindings.some((binding) => binding === event.target)) apply();
+    if (![...motionBindings, ...handMonitors].some((binding) => binding === event.target)) apply();
   });
   apply();
   return {

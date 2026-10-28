@@ -156,6 +156,41 @@ plane and spread along each stroke. The fluid moves the particles through their
 existing compute shader. Hovering over the GUI does not push the fluid. Leaving
 the canvas, pausing, resizing, resetting or switching away clears pointer state.
 
+### Kinetic Station hands
+
+With Kinetic Station running on this computer's port 8787, the experiment connects
+automatically. `Kinetic hands` controls tracking, hand strength (default 70) and
+radius (default 0.2), and displays the connection status and tracked hand count.
+Mouse and both hands can interact at the same time. Each moving hand pushes the
+fluid at its projected position; the existing particle compute pass follows that
+flow. Holding a hand still stops adding force, while the fluid keeps flowing.
+
+The client uses Station's `skeleton` WebSocket frames. A palm position is estimated
+from the wrist, index and pinky image landmarks, normalized by the video size and
+mapped across the canvas onto the particle plane. Station already applies its
+`mirror` flag, so the client does not flip X again. This is body-pose hand tracking,
+not a dedicated hand-landmark model; world-space Z is not used.
+
+All three landmarks must be inside the video and have visibility of at least 0.5
+when scores are present. Positions are smoothed over roughly 60 ms. Missing hands,
+invalid frames, gaps over 500 ms, coordinate-system changes and large jumps clear
+the previous position, preventing a sudden stroke when tracking returns. The
+connection retries after disconnecting and is suspended while the page is hidden.
+Mouse and hands share the solver's per-step splat budget.
+
+The browser connects to the same-origin `/kinetic-ws` proxy, so HTTPS LAN clients
+use WSS without connecting directly to an insecure WS address. The default upstream
+is `ws://127.0.0.1:8787` on the **Belfast host**, including for other Wi-Fi computers.
+If Station moves to another computer, restart the server with its actual address:
+
+```sh
+KINETIC_WS_URL=ws://192.168.1.42:8787 pnpm --dir experiments/blocks1 watch:lan
+```
+
+The example IP must be replaced by the address shown in Station. The proxy also
+works in `dev`, `preview` and `preview:lan`; a separately hosted build needs the
+same WebSocket proxy route.
+
 `Fluid → Debug maps` toggles the bottom-left velocity and density previews (off by
 default). Velocity displays X in red, Y in green and zero blue using
 `RG = clamp(0.5 + velocity.xy * 0.5, 0, 1)`: each channel maps -1..1 UV/second

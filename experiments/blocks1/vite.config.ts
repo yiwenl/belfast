@@ -1,8 +1,14 @@
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig } from "vite";
 
-// Keep HTTPS clients on the same origin while the image service uses HTTP/WS.
+// Keep HTTPS clients on the same origin while local services use HTTP/WS.
 const apiProxy = {
+  "^/kinetic-ws$": {
+    target: process.env.KINETIC_WS_URL || "ws://127.0.0.1:8787",
+    changeOrigin: true,
+    ws: true,
+    rewrite: () => "/",
+  },
   "^/image-api/(workflow-api\\.json|queue|prompt|interrupt|ws)(\\?.*)?$": {
     target: "http://192.168.1.201:8189",
     changeOrigin: true,

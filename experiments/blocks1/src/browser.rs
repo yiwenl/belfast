@@ -176,8 +176,8 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setSettings)]
     pub fn set_settings(&mut self, values: &[f32]) -> Result<(), JsValue> {
-        if values.len() != 10 {
-            return Err(js_error("Expected ten blocks settings"));
+        if values.len() != 12 {
+            return Err(js_error("Expected twelve blocks settings"));
         }
         if !values[3].is_finite() || values[3].fract() != 0.0 || !(1.0..=80.0).contains(&values[3])
         {
@@ -195,6 +195,8 @@ impl ExperimentApp {
                 shadow_strength: values[7],
                 mouse_strength: values[8],
                 mouse_radius: values[9],
+                hand_strength: values[10],
+                hand_radius: values[11],
             })
             .map_err(js_error)
     }
@@ -285,6 +287,14 @@ impl ExperimentApp {
     #[wasm_bindgen(js_name = clearPointer)]
     pub fn clear_pointer(&mut self) {
         self.scene.clear_pointer();
+    }
+    #[wasm_bindgen(js_name = handMove)]
+    pub fn hand_move(&mut self, hand: u32, x: f32, y: f32, width: f32, height: f32) {
+        self.scene.hand_move(hand as usize, x, y, width, height);
+    }
+    #[wasm_bindgen(js_name = clearHand)]
+    pub fn clear_hand(&mut self, hand: u32) {
+        self.scene.clear_hand(hand as usize);
     }
     #[wasm_bindgen(js_name = setDebugMaps)]
     pub fn set_debug_maps(&mut self, visible: bool) {

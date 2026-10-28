@@ -47,17 +47,33 @@ impl MouseFlow {
         self.previous.get_or_insert(uv);
     }
 
-    pub fn append_splats(&mut self, strength: f32, radius: f32, splats: &mut Vec<FluidSplat>) {
+    pub fn has_motion(&self) -> bool {
+        self.current
+            .zip(self.previous)
+            .is_some_and(|(current, previous)| {
+                current.distance_squared(previous) >= 0.000001 * 0.000001
+            })
+    }
+
+    pub fn append_splats(
+        &mut self,
+        strength: f32,
+        radius: f32,
+        max_splats: usize,
+        splats: &mut Vec<FluidSplat>,
+    ) {
         let (Some(current), Some(previous)) = (self.current, self.previous) else {
             return;
         };
         self.previous = Some(current);
         let delta = current - previous;
         let distance = delta.length();
-        if distance < 0.000001 || strength == 0.0 {
+        if distance < 0.000001 || strength == 0.0 || max_splats == 0 {
             return;
         }
-        let count = (distance / (radius * 0.5)).ceil().clamp(1.0, 24.0) as u32;
+        let count = (distance / (radius * 0.5))
+            .ceil()
+            .clamp(1.0, max_splats as f32) as u32;
         // Integrate displacement once per simulation step, independent of pointer event rate.
         let impulse = delta.clamp_length_max(0.2) * strength / count as f32;
         for i in 0..count {

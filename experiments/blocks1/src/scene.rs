@@ -1,6 +1,6 @@
 use crate::{motion::Motion, mouse::MouseFlow, particles::Particles, renderer::Renderer};
 use belfast::{
-    fluid::{FluidSettings, FluidSimulation, FluidSplat},
+    fluid::{FluidSettings, FluidSimulation, FluidSplat, MAX_SPLATS},
     Device, PerspectiveCamera,
 };
 
@@ -16,6 +16,8 @@ pub struct Settings {
     pub shadow_strength: f32,
     pub mouse_strength: f32,
     pub mouse_radius: f32,
+    pub hand_strength: f32,
+    pub hand_radius: f32,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -30,6 +32,8 @@ impl Default for Settings {
             shadow_strength: 0.75,
             mouse_strength: 50.0,
             mouse_radius: 0.08,
+            hand_strength: 70.0,
+            hand_radius: 0.2,
         }
     }
 }
@@ -45,6 +49,8 @@ impl Settings {
             (self.shadow_strength, 0.0, 1.0),
             (self.mouse_strength, 0.0, 200.0),
             (self.mouse_radius, 0.01, 0.3),
+            (self.hand_strength, 0.0, 200.0),
+            (self.hand_radius, 0.01, 0.3),
         ] {
             if !v.is_finite() || !(min..=max).contains(&v) {
                 return Err("Blocks setting is non-finite or outside its supported range".into());
@@ -81,6 +87,7 @@ pub struct Scene {
     pub paused: bool,
     pub show_debug_maps: bool,
     mouse: MouseFlow,
+    hands: [MouseFlow; 2],
     motion: Motion,
     clock: FixedClock,
     time: f32,
@@ -101,6 +108,7 @@ impl Scene {
             paused: false,
             show_debug_maps: false,
             mouse: MouseFlow::default(),
+            hands: std::array::from_fn(|_| MouseFlow::default()),
             motion: Motion::default(),
             clock: FixedClock::default(),
             time: 0.0,
@@ -131,6 +139,7 @@ impl Scene {
             return Err("Scene dimensions must be positive".into());
         }
         self.mouse.clear();
+        self.clear_hands();
         let radius = if width >= height {
             12.0
         } else {
@@ -149,6 +158,7 @@ impl Scene {
     }
     pub fn reset(&mut self, device: &Device) {
         self.mouse.clear();
+        self.clear_hands();
         let mut encoder = device.gpu().create_command_encoder(&Default::default());
         self.fluid.reset(&mut encoder);
         device.queue().submit([encoder.finish()]);
@@ -184,9 +194,27 @@ impl Scene {
     pub fn clear_pointer(&mut self) {
         self.mouse.clear();
     }
+    pub fn hand_move(&mut self, hand: usize, x: f32, y: f32, width: f32, height: f32) {
+        if !self.paused {
+            if let Some(flow) = self.hands.get_mut(hand) {
+                flow.move_to(&self.camera, x, y, width, height);
+            }
+        }
+    }
+    pub fn clear_hand(&mut self, hand: usize) {
+        if let Some(flow) = self.hands.get_mut(hand) {
+            flow.clear();
+        }
+    }
+    fn clear_hands(&mut self) {
+        for hand in &mut self.hands {
+            hand.clear();
+        }
+    }
     pub fn set_paused(&mut self, paused: bool) {
         if self.paused != paused {
             self.mouse.clear();
+            self.clear_hands();
         }
         self.paused = paused;
     }
@@ -203,11 +231,24 @@ impl Scene {
             self.time += 1.0 / 60.0;
             let gain = self.motion.step(1.0 / 60.0);
             let mut splats = emitters(self.time, &self.settings, gain).to_vec();
+            // Share the remaining splats fairly between the mouse and both palms.
+            let moving_inputs = usize::from(self.mouse.has_motion())
+                + self.hands.iter().filter(|hand| hand.has_motion()).count();
+            let per_input = (MAX_SPLATS - splats.len()) / moving_inputs.max(1);
             self.mouse.append_splats(
                 self.settings.mouse_strength,
                 self.settings.mouse_radius,
+                per_input,
                 &mut splats,
             );
+            for hand in &mut self.hands {
+                hand.append_splats(
+                    self.settings.hand_strength,
+                    self.settings.hand_radius,
+                    per_input,
+                    &mut splats,
+                );
+            }
             self.fluid.step(device, &mut encoder, 1.0 / 60.0, &splats)?;
             self.particles.step(
                 device,
