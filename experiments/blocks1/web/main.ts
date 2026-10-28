@@ -1,6 +1,7 @@
 import init, { ExperimentApp } from "../pkg/experiment";
 import { createFpsMeter } from "./fps";
 import { createControls } from "./controls";
+import { bindFluidInput } from "./input";
 import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
@@ -9,6 +10,7 @@ const errorOutput = document.querySelector<HTMLElement>("#error")!;
 const fps = createFpsMeter(document.querySelector<HTMLElement>("#fps")!);
 let app: ExperimentApp | undefined;
 let controls: ReturnType<typeof createControls> | undefined;
+let detachInput: (() => void) | undefined;
 let animationFrame = 0;
 let disposed = false;
 
@@ -18,6 +20,7 @@ function dispose() {
   cancelAnimationFrame(animationFrame);
   fps.dispose();
   controls?.dispose();
+  detachInput?.();
   app?.free();
   app = undefined;
   window.removeEventListener("pagehide", onPageHide);
@@ -52,6 +55,7 @@ async function start() {
     }
     app = created;
     controls = createControls(created);
+    detachInput = bindFluidInput(canvas, created);
 
     function frame(timestampMs: number) {
       if (disposed) return;

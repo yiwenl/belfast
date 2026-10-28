@@ -1,4 +1,4 @@
-use crate::{particles::Particles, renderer::Renderer};
+use crate::{mouse::MouseFlow, particles::Particles, renderer::Renderer};
 use belfast::{
     fluid::{FluidSettings, FluidSimulation, FluidSplat},
     Device, PerspectiveCamera,
@@ -14,6 +14,8 @@ pub struct Settings {
     pub depth_motion: f32,
     pub block_size: f32,
     pub shadow_strength: f32,
+    pub mouse_strength: f32,
+    pub mouse_radius: f32,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -26,6 +28,8 @@ impl Default for Settings {
             depth_motion: 1.0,
             block_size: 1.0,
             shadow_strength: 0.75,
+            mouse_strength: 50.0,
+            mouse_radius: 0.08,
         }
     }
 }
@@ -39,6 +43,8 @@ impl Settings {
             (self.depth_motion, 0.0, 3.0),
             (self.block_size, 0.2, 3.0),
             (self.shadow_strength, 0.0, 1.0),
+            (self.mouse_strength, 0.0, 200.0),
+            (self.mouse_radius, 0.01, 0.3),
         ] {
             if !v.is_finite() || !(min..=max).contains(&v) {
                 return Err("Blocks setting is non-finite or outside its supported range".into());
@@ -74,6 +80,7 @@ pub struct Scene {
     settings: Settings,
     pub paused: bool,
     pub show_debug_maps: bool,
+    mouse: MouseFlow,
     clock: FixedClock,
     time: f32,
 }
@@ -92,6 +99,7 @@ impl Scene {
             settings: Settings::default(),
             paused: false,
             show_debug_maps: true,
+            mouse: MouseFlow::default(),
             clock: FixedClock::default(),
             time: 0.0,
         })
@@ -101,6 +109,7 @@ impl Scene {
         self.fluid.set_settings(FluidSettings {
             velocity_dissipation: settings.dissipation,
             density_dissipation: settings.dissipation,
+            pressure_dissipation: settings.dissipation,
             pressure_iterations: settings.pressure_iterations,
         })?;
         self.settings = settings;
@@ -116,6 +125,7 @@ impl Scene {
         if width == 0 || height == 0 {
             return Err("Scene dimensions must be positive".into());
         }
+        self.mouse.clear();
         let radius = if width >= height {
             12.0
         } else {
@@ -133,12 +143,27 @@ impl Scene {
             .map_err(|e| e.to_string())
     }
     pub fn reset(&mut self, device: &Device) {
+        self.mouse.clear();
         let mut encoder = device.gpu().create_command_encoder(&Default::default());
         self.fluid.reset(&mut encoder);
         device.queue().submit([encoder.finish()]);
         self.particles.reset(device);
         self.clock = FixedClock::default();
         self.time = 0.0;
+    }
+    pub fn pointer_move(&mut self, x: f32, y: f32, width: f32, height: f32) {
+        if !self.paused {
+            self.mouse.move_to(&self.camera, x, y, width, height);
+        }
+    }
+    pub fn clear_pointer(&mut self) {
+        self.mouse.clear();
+    }
+    pub fn set_paused(&mut self, paused: bool) {
+        if self.paused != paused {
+            self.mouse.clear();
+        }
+        self.paused = paused;
     }
     pub fn frame(
         &mut self,
@@ -149,7 +174,12 @@ impl Scene {
         let mut encoder = device.gpu().create_command_encoder(&Default::default());
         for _ in 0..self.clock.advance(dt, self.paused) {
             self.time += 1.0 / 60.0;
-            let splats = emitters(self.time, &self.settings);
+            let mut splats = emitters(self.time, &self.settings).to_vec();
+            self.mouse.append_splats(
+                self.settings.mouse_strength,
+                self.settings.mouse_radius,
+                &mut splats,
+            );
             self.fluid.step(device, &mut encoder, 1.0 / 60.0, &splats)?;
             self.particles.step(
                 device,

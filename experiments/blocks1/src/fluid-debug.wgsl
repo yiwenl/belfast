@@ -27,11 +27,8 @@ struct Output {
     let value = field[cell.y * n + cell.x];
     var color = vec3<f32>(clamp(value.w / 2.0, 0.0, 1.0));
     if input.map == 0u {
-        let speed = length(value.xy);
-        var hue = 0.0;
-        if speed > 0.000001 { hue = atan2(value.y, value.x) / 6.2831853; }
-        let wheel = clamp(abs(fract(hue + vec3<f32>(0.0, 2.0/3.0, 1.0/3.0)) * 6.0 - 3.0) - 1.0, vec3<f32>(0.0), vec3<f32>(1.0));
-        color = wheel * (1.0 - exp(-speed));
+        // Map signed XY velocity (-1..1 UV/s) to RG; zero velocity is 0.5.
+        color = vec3<f32>(clamp(value.xy * 0.5 + 0.5, vec2<f32>(0.0), vec2<f32>(1.0)), 0.0);
     }
     // The canvas uses an sRGB attachment, so convert the debug display colors to linear.
     return vec4<f32>(pow(color, vec3<f32>(2.2)), 1.0);

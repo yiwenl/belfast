@@ -5,11 +5,14 @@ struct Simulation { clock: vec4<f32>, motion: vec4<f32> }
 @group(0) @binding(3) var<storage, read> fluid: array<vec4<f32>>;
 fn fluid_cell(p: vec2<i32>) -> vec4<f32> {
     let n = i32(sim.clock.w);
-    let c = clamp(p,vec2<i32>(0),vec2<i32>(n-1));
+    // Match the fluid solver and the original WebGL MIRRORED_REPEAT sampler.
+    let period = vec2<i32>(2*n);
+    let wrapped = ((p % period)+period) % period;
+    let c = min(wrapped,period-vec2<i32>(1)-wrapped);
     return fluid[u32(c.y*n+c.x)];
 }
 fn sample_fluid(uv: vec2<f32>) -> vec4<f32> {
-    let p = clamp(uv*sim.clock.w-0.5,vec2<f32>(0.0),vec2<f32>(sim.clock.w-1.0));
+    let p = uv*sim.clock.w-0.5;
     let a = vec2<i32>(floor(p)); let f = fract(p);
     return mix(mix(fluid_cell(a),fluid_cell(a+vec2<i32>(1,0)),f.x),
         mix(fluid_cell(a+vec2<i32>(0,1)),fluid_cell(a+vec2<i32>(1,1)),f.x),f.y);

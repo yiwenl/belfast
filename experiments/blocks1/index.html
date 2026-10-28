@@ -8,7 +8,9 @@
   <body>
     <canvas aria-label="Flowing 3D blocks driven by a GPU fluid simulation"></canvas>
     <div id="fluid-debug-labels" hidden>
-      <span title="Hue shows direction; brightness shows speed in UV per second">Velocity</span>
+      <span title="R = X, G = Y, B = 0; -1 to +1 UV/s maps to 0 to 1, zero = 0.5"
+        >Velocity · RG</span
+      >
       <span title="Black = 0, white = 2">Density · 0–2</span>
     </div>
     <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>

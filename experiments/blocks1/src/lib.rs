@@ -1,3 +1,4 @@
+mod mouse;
 mod particles;
 mod renderer;
 pub mod scene;

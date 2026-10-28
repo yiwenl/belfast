@@ -96,6 +96,7 @@ impl ExperimentApp {
     pub fn resize(&mut self, width: u32, height: u32, dpr: f64) -> Result<(), JsValue> {
         if width == 0 || height == 0 {
             self.drawable = false;
+            self.scene.clear_pointer();
             return Ok(());
         }
         if !dpr.is_finite() || dpr <= 0.0 {
@@ -172,8 +173,8 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setSettings)]
     pub fn set_settings(&mut self, values: &[f32]) -> Result<(), JsValue> {
-        if values.len() != 8 {
-            return Err(js_error("Expected eight blocks settings"));
+        if values.len() != 10 {
+            return Err(js_error("Expected ten blocks settings"));
         }
         if !values[3].is_finite() || values[3].fract() != 0.0 || !(1.0..=80.0).contains(&values[3])
         {
@@ -189,12 +190,22 @@ impl ExperimentApp {
                 depth_motion: values[5],
                 block_size: values[6],
                 shadow_strength: values[7],
+                mouse_strength: values[8],
+                mouse_radius: values[9],
             })
             .map_err(js_error)
     }
     #[wasm_bindgen(js_name = setPaused)]
     pub fn set_paused(&mut self, paused: bool) {
-        self.scene.paused = paused;
+        self.scene.set_paused(paused);
+    }
+    #[wasm_bindgen(js_name = pointerMove)]
+    pub fn pointer_move(&mut self, x: f32, y: f32, width: f32, height: f32) {
+        self.scene.pointer_move(x, y, width, height);
+    }
+    #[wasm_bindgen(js_name = clearPointer)]
+    pub fn clear_pointer(&mut self) {
+        self.scene.clear_pointer();
     }
     #[wasm_bindgen(js_name = setDebugMaps)]
     pub fn set_debug_maps(&mut self, visible: bool) {

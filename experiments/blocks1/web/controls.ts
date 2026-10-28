@@ -11,6 +11,8 @@ export function createControls(app: ExperimentApp) {
     depthMotion: 1,
     blockSize: 1,
     shadowStrength: 0.75,
+    mouseStrength: 50,
+    mouseRadius: 0.08,
     paused: false,
     debugMaps: true,
   };
@@ -27,6 +29,8 @@ export function createControls(app: ExperimentApp) {
         values.depthMotion,
         values.blockSize,
         values.shadowStrength,
+        values.mouseStrength,
+        values.mouseRadius,
       ]),
     );
     app.setPaused(values.paused);
@@ -49,6 +53,14 @@ export function createControls(app: ExperimentApp) {
   blocks.addBinding(values, "depthMotion", { label: "Depth motion", min: 0, max: 3, step: 0.01 });
   blocks.addBinding(values, "blockSize", { label: "Size", min: 0.2, max: 3, step: 0.01 });
   blocks.addBinding(values, "shadowStrength", { label: "Shadows", min: 0, max: 1, step: 0.01 });
+  const interaction = pane.addFolder({ title: "Mouse" });
+  interaction.addBinding(values, "mouseStrength", { label: "Strength", min: 0, max: 200, step: 1 });
+  interaction.addBinding(values, "mouseRadius", {
+    label: "Radius",
+    min: 0.01,
+    max: 0.3,
+    step: 0.005,
+  });
   pane.addBinding(values, "paused", { label: "Paused" });
   pane.addButton({ title: "Reset simulation" }).on("click", () => app.reset());
   pane.on("change", apply);

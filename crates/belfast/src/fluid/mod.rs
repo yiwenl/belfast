@@ -3,6 +3,7 @@
 //! `field()` is a stable storage binding of row-major `vec4<f32>` cells:
 //! `(velocity_u, velocity_v, 0, density)`. UV and velocity use an upward Y axis;
 //! velocity is UV/second. Encode `step` before consumers in the same command stream.
+//! Sampling mirrors at the grid edges without flipping velocity or imposing walls.
 use crate::{BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device};
 
 pub const MAX_SPLATS: usize = 32;
@@ -13,6 +14,8 @@ pub struct FluidSettings {
     /// Retention per 1/60 second, in [0, 1].
     pub velocity_dissipation: f32,
     pub density_dissipation: f32,
+    /// Retention of the previous pressure solution per 1/60 second, in [0, 1].
+    pub pressure_dissipation: f32,
     pub pressure_iterations: u32,
 }
 impl Default for FluidSettings {
@@ -20,15 +23,20 @@ impl Default for FluidSettings {
         Self {
             velocity_dissipation: 0.985,
             density_dissipation: 0.985,
+            pressure_dissipation: 0.985,
             pressure_iterations: 20,
         }
     }
 }
 impl FluidSettings {
     pub fn validate(&self) -> Result<(), String> {
-        if ![self.velocity_dissipation, self.density_dissipation]
-            .iter()
-            .all(|x| x.is_finite() && (0.0..=1.0).contains(x))
+        if ![
+            self.velocity_dissipation,
+            self.density_dissipation,
+            self.pressure_dissipation,
+        ]
+        .iter()
+        .all(|x| x.is_finite() && (0.0..=1.0).contains(x))
             || !(1..=80).contains(&self.pressure_iterations)
         {
             return Err("Fluid retention must be 0..1 and pressure iterations 1..80".into());
@@ -68,14 +76,17 @@ pub struct FluidSimulation {
     settings: FluidSettings,
     fields: [Buffer; 2],
     pressure: [Buffer; 2],
+    pressure_read: usize,
     divergence: Buffer,
     params: Buffer,
     advect: Compute,
     divergence_pass: Compute,
+    warm_pressure: Compute,
     jacobi: Compute,
     project: Compute,
     advect_group: BindGroup,
     divergence_group: BindGroup,
+    warm_pressure_groups: [BindGroup; 2],
     jacobi_groups: [BindGroup; 2],
     project_groups: [BindGroup; 2],
 }
@@ -120,6 +131,7 @@ impl FluidSimulation {
         };
         let advect = pipeline("advect");
         let divergence_pass = pipeline("divergence_main");
+        let warm_pressure = pipeline("warm_pressure");
         let jacobi = pipeline("jacobi");
         let project = pipeline("project");
         let group = |pipeline: &Compute, buffers: &[(u32, &Buffer)]| {
@@ -153,6 +165,12 @@ impl FluidSimulation {
                 ],
             )
         });
+        let warm_pressure_groups = std::array::from_fn(|i| {
+            group(
+                &warm_pressure,
+                &[(0, &params), (3, &pressure[i]), (4, &pressure[1 - i])],
+            )
+        });
         let project_groups = std::array::from_fn(|i| {
             group(
                 &project,
@@ -170,14 +188,17 @@ impl FluidSimulation {
             settings,
             fields,
             pressure,
+            pressure_read: 0,
             divergence,
             params,
             advect,
             divergence_pass,
+            warm_pressure,
             jacobi,
             project,
             advect_group,
             divergence_group,
+            warm_pressure_groups,
             jacobi_groups,
             project_groups,
         })
@@ -221,7 +242,7 @@ impl FluidSimulation {
             self.settings.velocity_dissipation.powf(dt * 60.0),
             self.settings.density_dissipation.powf(dt * 60.0),
             splats.len() as f32,
-            0.0,
+            self.settings.pressure_dissipation.powf(dt * 60.0),
             0.0,
             0.0,
         ]);
@@ -258,18 +279,25 @@ impl FluidSimulation {
             groups,
             Some("FluidDivergence"),
         );
-        encoder.clear_buffer(self.pressure[0].gpu(), 0, None);
-        for i in 0..self.settings.pressure_iterations {
+        self.warm_pressure.run(
+            encoder,
+            Some(&self.warm_pressure_groups[self.pressure_read]),
+            groups,
+            Some("FluidPressureRetention"),
+        );
+        self.pressure_read = 1 - self.pressure_read;
+        for _ in 0..self.settings.pressure_iterations {
             self.jacobi.run(
                 encoder,
-                Some(&self.jacobi_groups[(i % 2) as usize]),
+                Some(&self.jacobi_groups[self.pressure_read]),
                 groups,
                 Some("FluidPressure"),
             );
+            self.pressure_read = 1 - self.pressure_read;
         }
         self.project.run(
             encoder,
-            Some(&self.project_groups[(self.settings.pressure_iterations % 2) as usize]),
+            Some(&self.project_groups[self.pressure_read]),
             groups,
             Some("FluidProjection"),
         );

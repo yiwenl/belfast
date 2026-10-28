@@ -3,7 +3,7 @@
 Rust/WebGPU port of `Sketches/experiments/blocks1`, started from Belfast's
 `experiments/template`. 65,536 instanced cubes follow a 128×128 GPU fluid field.
 The original background and color-map JPGs are retained under `assets/` and
-embedded into Wasm. No camera permission, hand tracker or pointer interaction.
+embedded into Wasm. No camera permission or hand tracker.
 
 ## Run
 
@@ -20,14 +20,22 @@ pnpm --dir experiments/blocks1 build     # release Wasm + TypeScript + Vite
 pnpm --dir experiments/blocks1 preview   # http://localhost:4184
 ```
 
-Tweakpane controls flow strength/radius, velocity and density retention, pressure
+Tweakpane controls flow strength/radius, velocity/density/pressure retention, pressure
 iterations, particle response, depth motion, block size, shadows, pause and reset.
 Reset restarts the particles, fluid and emitter clock while retaining settings.
 On small screens the pane starts collapsed. Pixel ratio is capped at 1.5.
 
+Move the mouse over the canvas to push the fluid; no button press is needed.
+`Mouse → Strength` controls the impulse (zero disables it), and `Mouse → Radius`
+sets the radius in fluid UV units. Movement is projected onto the z=0 particle
+plane and spread along each stroke. The fluid moves the particles through their
+existing compute shader. Hovering over the GUI does not push the fluid. Leaving
+the canvas, pausing, resizing, resetting or switching away clears pointer state.
+
 `Fluid → Debug maps` toggles the bottom-left velocity and density previews (on by
-default). Velocity hue shows direction and brightness shows speed using
-`1 - exp(-speed)`; density is grayscale from 0 to 2. Both previews read the live
+default). Velocity displays X in red, Y in green and zero blue using
+`RG = clamp(0.5 + velocity.xy * 0.5, 0, 1)`: each channel maps -1..1 UV/second
+to 0..1, with zero velocity at 0.5. Density is grayscale from 0 to 2. Both previews read the live
 GPU field directly, with no CPU readback.
 
 ## Structure
@@ -38,7 +46,9 @@ GPU field directly, with no CPU readback.
   fluid sampling and depth noise. No per-frame particle transfers to JavaScript.
 - `src/renderer.rs`, `blocks.wgsl`: flow-aligned cubes and 2048² PCF shadows.
 - `src/browser.rs`: template canvas/surface lifecycle and the small Wasm API.
-- `web/controls.ts`: Tweakpane. JS only forwards settings and frame timestamps.
+- `web/controls.ts`: Tweakpane. JS forwards settings, pointer events and frame timestamps.
+- `web/input.ts`, `src/mouse.rs`: canvas pointer events, camera-plane projection
+  and movement impulses consumed once per simulation step.
 - `../../crates/belfast/src/fluid/`: reusable compute fluid solver.
 
 ## Reuse the fluid solver
@@ -64,19 +74,26 @@ fluid.step(&device, &mut encoder, dt, &impulses)?;
 
 `field()` is a stable row-major buffer of WGSL `array<vec4<f32>>` cells containing
 `(velocity_u, velocity_v, 0, density)`. Coordinates are normalized UV with Y up;
-velocity is UV/second. Sample bilinearly for particles (see `sample_fluid`).
+velocity is UV/second. Sample bilinearly with mirrored-repeat addressing for
+particles (see `sample_fluid`), including outside the 0..1 UV range.
 Splats are impulses: multiply continuous emitter rates by dt. Up to 32 splats are
 accepted per step, with dt in `0..=1/30`. The fixed grid size is selected at creation.
 
 The solver performs semi-Lagrangian advection, injection, divergence, Jacobi
-pressure and pressure projection entirely on the GPU. Walls block normal flow.
-Retention is measured per 1/60 second. Pressure starts at zero each step; field
-and pressure reset with `fluid.reset(&mut encoder)`. Several steps can share an
+pressure and pressure projection entirely on the GPU. Field and pressure sampling
+use mirrored-repeat addressing, matching the original WebGL textures. Mirroring
+changes sample coordinates without reversing velocity components; edges do not
+block normal flow, and particles can continue past the simulation domain.
+Retention is measured per 1/60 second. Each pressure solve starts from the previous
+solution multiplied by `pressure_dissipation`, matching the original WebGL solver;
+the pressure-gradient scale also follows that source. This preserves coherent
+vortices with the original 20 pressure iterations. Field and pressure are cleared
+only by `fluid.reset(&mut encoder)`. Several steps can share an
 encoder: each step's parameter upload is ordered with its dispatches.
 
 This is an artistic stable-fluid approximation: advection is numerically
 dissipative, velocity is limited to 20 UV/second and density to 2 for stability.
-Original WebGL noise, boundary behavior and frame-based integration are adapted,
+Original WebGL noise and frame-based integration are adapted,
 so the motion is similar rather than numerically identical.
 
 Per project direction this experiment is developed without further test runs;
