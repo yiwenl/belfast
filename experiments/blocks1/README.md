@@ -60,14 +60,21 @@ iterations, particle response, depth motion, block size, shadows, pause and rese
 Reset restarts the particles, fluid and emitter clock while retaining settings.
 On small screens the pane starts collapsed. Pixel ratio is capped at 1.5.
 
+Press `F` to toggle fullscreen, or `R` to generate a random preset without opening
+the dialog. Generation errors open the dialog so you can retry. Shortcuts ignore
+text fields, editable content, held keys, IME composition and Ctrl/Cmd/Alt combinations.
+`R` is ignored while an image is generating or colors are still blending.
+
 `Generate colors…` opens a text dialog. Enter an English scene description and
 submit it to the SD-Turbo service at `http://192.168.1.201:8189`. `Random` fills in
 one of 10 preset scene prompts and immediately generates it. You can edit the
 selected prompt before generating another image. Particles keep
 moving while it generates a 512×512 PNG. Once the request completes, the image is
 decoded as an ImageBitmap and uploaded to WebGPU as the next particle palette,
-using the existing particle UVs and shading. The old and new palettes are sampled
-together during a two-second transition. A shared uniform offset advances from
+using fixed random UVs hashed from each particle's ID, spread over the full image.
+The UVs are independent of particle position and persist through movement and
+respawns, so colors do not reconstruct the image or flicker. The old and new
+palettes use the same UVs and blend during a two-second transition. A shared uniform offset advances from
 0 to 1; each particle uses `t = clamp(offset * 2 - rnd, 0, 1)` to stagger its blend.
 The fixed `rnd` lives in the unused `velocity.w` slot and survives compute updates
 and respawns, so the particle buffer stays 64 bytes per particle. Color blending

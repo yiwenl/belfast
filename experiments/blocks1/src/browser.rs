@@ -224,7 +224,7 @@ impl ExperimentApp {
             &wgpu::CopyExternalImageSourceInfo {
                 source: wgpu::ExternalImageSource::ImageBitmap(bitmap.clone()),
                 origin: wgpu::Origin2d::ZERO,
-                // The particle shader already flips the image's Y coordinate.
+                // Keep the image's top-left origin for the generated background.
                 flip_y: false,
             },
             wgpu::CopyExternalImageDestInfo {

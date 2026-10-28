@@ -28,6 +28,19 @@ export function createColorDialog(app: ExperimentApp) {
   let busy = false;
   let previewUrl: string | undefined;
 
+  function open() {
+    if (lifetime.signal.aborted || dialog.open) return;
+    app.clearPointer();
+    dialog.showModal();
+    if (!busy) prompt.focus();
+  }
+
+  function generateRandom() {
+    if (busy || lifetime.signal.aborted) return;
+    prompt.value = COLOR_PROMPTS[Math.floor(Math.random() * COLOR_PROMPTS.length)];
+    form.requestSubmit();
+  }
+
   function waitForColorTransition(): Promise<void> {
     return new Promise((resolve, reject) => {
       let frame = 0;
@@ -106,6 +119,7 @@ export function createColorDialog(app: ExperimentApp) {
       const message = error instanceof Error ? error.message : String(error);
       status.textContent = `${message}. Your previous colors are unchanged.`;
       status.dataset.error = "true";
+      open();
     } finally {
       busy = false;
       if (!lifetime.signal.aborted) {
@@ -117,23 +131,11 @@ export function createColorDialog(app: ExperimentApp) {
   }
 
   form.addEventListener("submit", generate, { signal: lifetime.signal });
-  random.addEventListener(
-    "click",
-    () => {
-      if (busy || lifetime.signal.aborted) return;
-      prompt.value = COLOR_PROMPTS[Math.floor(Math.random() * COLOR_PROMPTS.length)];
-      form.requestSubmit();
-    },
-    { signal: lifetime.signal },
-  );
+  random.addEventListener("click", generateRandom, { signal: lifetime.signal });
   close.addEventListener("click", () => dialog.close(), { signal: lifetime.signal });
   return {
-    open() {
-      if (lifetime.signal.aborted || dialog.open) return;
-      app.clearPointer();
-      dialog.showModal();
-      if (!busy) prompt.focus();
-    },
+    open,
+    generateRandom,
     dispose() {
       lifetime.abort();
       dialog.close();

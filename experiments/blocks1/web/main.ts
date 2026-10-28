@@ -27,6 +27,39 @@ function dispose() {
   app?.free();
   app = undefined;
   window.removeEventListener("pagehide", onPageHide);
+  window.removeEventListener("keydown", onKeyDown);
+}
+
+async function onKeyDown(event: KeyboardEvent) {
+  if (
+    event.defaultPrevented ||
+    event.repeat ||
+    event.isComposing ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey
+  )
+    return;
+  const target = event.target;
+  if (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.closest("input, textarea, select"))
+  )
+    return;
+
+  const key = event.key.toLowerCase();
+  if (key === "f") {
+    event.preventDefault();
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch (error) {
+      console.warn("Could not toggle fullscreen:", error);
+    }
+  } else if (key === "r") {
+    event.preventDefault();
+    colorDialog?.generateRandom();
+  }
 }
 
 function onPageHide(event: PageTransitionEvent) {
@@ -60,6 +93,7 @@ async function start() {
     colorDialog = createColorDialog(created);
     controls = createControls(created, () => colorDialog?.open());
     detachInput = bindFluidInput(canvas, created);
+    window.addEventListener("keydown", onKeyDown);
 
     function frame(timestampMs: number) {
       if (disposed) return;

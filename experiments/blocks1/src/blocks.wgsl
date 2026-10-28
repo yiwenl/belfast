@@ -8,9 +8,17 @@ struct Globals { camera:mat4x4<f32>,light:mat4x4<f32>,appearance:vec4<f32> }
 @group(2) @binding(4) var palette_to:texture_2d<f32>;
 struct VertexInput { @location(0) position:vec3<f32>,@location(1) normal:vec3<f32>,@builtin(instance_index) instance:u32 }
 struct VertexOutput {
-    @builtin(position) position:vec4<f32>,@location(0) normal:vec3<f32>,@location(1) uv:vec2<f32>,
+    @builtin(position) position:vec4<f32>,@location(0) normal:vec3<f32>,@location(1) @interpolate(flat) uv:vec2<f32>,
     @location(2) shadow_coord:vec4<f32>,@location(3) appearance:vec2<f32>,
     @location(4) @interpolate(flat) color_mix:f32,
+}
+fn color_uv(id:u32)->vec2<f32> {
+    // Stable per particle, independent of position and color-transition timing.
+    var h=vec2<u32>(id^0xa511e9b3u,id^0x63d83595u);
+    h=(h^(h>>vec2<u32>(16u)))*vec2<u32>(0x7feb352du);
+    h=(h^(h>>vec2<u32>(15u)))*vec2<u32>(0x846ca68bu);
+    h=h^(h>>vec2<u32>(16u));
+    return vec2<f32>(h>>vec2<u32>(8u))/16777216.0;
 }
 fn basis(v:vec3<f32>)->mat3x3<f32> {
     var x=vec3<f32>(1.0,0.0,0.0);
@@ -33,7 +41,7 @@ fn world_position(input:VertexInput)->vec3<f32> {
     var out:VertexOutput;
     out.position=globals.camera*vec4<f32>(world,1.0);
     out.normal=basis(p.velocity.xyz)*input.normal;
-    out.uv=(p.origin.xy/12.0+0.5)*vec2<f32>(1.0,-1.0)+vec2<f32>(0.0,1.0);
+    out.uv=color_uv(input.instance);
     out.shadow_coord=globals.light*vec4<f32>(world,1.0);
     out.appearance=vec2<f32>(p.extra.x,p.extra.w);
     out.color_mix=clamp(globals.appearance.w*2.0-p.velocity.w,0.0,1.0);
