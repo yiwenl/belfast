@@ -20,6 +20,41 @@ pnpm --dir experiments/blocks1 build     # release Wasm + TypeScript + Vite
 pnpm --dir experiments/blocks1 preview   # http://localhost:4184
 ```
 
+### Same-Wi-Fi preview
+
+```sh
+pnpm --dir experiments/blocks1 preview:lan  # build once + HTTPS preview
+pnpm --dir experiments/blocks1 watch:lan   # build + HTTPS preview + Rust/WGSL watcher
+```
+
+Run one of these commands, then open the printed Network URL on another computer
+on the same Wi-Fi, for example `https://192.168.1.102:5185`. LAN preview binds to
+all IPv4 interfaces by default and serves the compiled `dist/` directory. To bind
+only the Wi-Fi interface, set its current IP explicitly:
+
+```sh
+LAN_HOST=192.168.1.102 pnpm --dir experiments/blocks1 watch:lan
+```
+
+`watch:lan` rebuilds release Wasm, checks TypeScript and bundles the site whenever
+`.rs` or `.wgsl` changes under this experiment's `src/` or `crates/belfast/src/`.
+Rapid saves are combined and builds run one at a time. After `Build #N complete`,
+refresh the remote browser to load the new version; this static preview has no
+hot reload. Build errors are printed and the next source save retries. Restart
+the command after changing Cargo manifests, web files, assets or configuration.
+Stop `dev` / `watch:wasm` before using `watch:lan` so two watchers do not write to
+the same generated `pkg/` at once. Ctrl+C stops the watcher and preview server.
+
+WebGPU needs a secure context, so use the **HTTPS** URL. The existing Vite basic
+SSL plugin generates a self-signed development certificate in ignored
+`node_modules/`. The receiving browser may show a certificate warning; review it
+yourself after checking the address is your development computer. If WebGPU
+remains unavailable, use a certificate trusted by that computer and a browser
+that supports WebGPU. Both computers must be on a network that allows local
+device connections, and the host firewall must allow Node on port 5185.
+
+### Controls
+
 Tweakpane controls flow strength/radius, velocity/density/pressure retention, pressure
 iterations, particle response, depth motion, block size, shadows, pause and reset.
 Reset restarts the particles, fluid and emitter clock while retaining settings.

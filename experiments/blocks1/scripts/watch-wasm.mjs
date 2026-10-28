@@ -5,6 +5,8 @@ import { createBuildQueue, watchSources } from "./wasm-watch.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const withVite = process.argv.includes("--vite");
+const withLanPreview = process.argv.includes("--preview-lan");
+const label = withLanPreview ? "lan" : "wasm";
 let child;
 let server;
 let listening;
@@ -14,12 +16,14 @@ let builds = 0;
 
 async function build() {
   const number = ++builds;
-  console.log(`\n[wasm] Build #${number} (release)…`);
+  console.log(`\n[${label}] Build #${number} (release)…`);
   const result = await new Promise((resolveBuild) => {
     // A separate process group lets Ctrl+C stop Cargo/wasm-bindgen as well.
     child = spawn(
-      "wasm-pack",
-      ["build", ".", "--target", "web", "--out-dir", "pkg", "--out-name", "experiment"],
+      withLanPreview ? "pnpm" : "wasm-pack",
+      withLanPreview
+        ? ["build"]
+        : ["build", ".", "--target", "web", "--out-dir", "pkg", "--out-name", "experiment"],
       {
         cwd: root,
         stdio: "inherit",
@@ -27,7 +31,7 @@ async function build() {
       },
     );
     child.once("error", (error) => {
-      console.error(`[wasm] ${error.message}`);
+      console.error(`[${label}] ${error.message}`);
       resolveBuild(1);
     });
     child.once("close", (code) => resolveBuild(code ?? 1));
@@ -35,10 +39,31 @@ async function build() {
   child = undefined;
   if (stopped) return;
   if (result !== 0) {
-    console.error(`[wasm] Build #${number} failed. Fix the source and save to retry.`);
+    console.error(`[${label}] Build #${number} failed. Fix the source and save to retry.`);
     return;
   }
-  console.log(`[wasm] Build #${number} complete.`);
+  console.log(`[${label}] Build #${number} complete.`);
+  if (withLanPreview) {
+    if (!server) {
+      const { preview } = await import("vite");
+      if (stopped) return;
+      try {
+        listening = preview({ root, mode: "lan" });
+        server = await listening;
+        if (stopped) {
+          await server.close();
+          return;
+        }
+        server.printUrls();
+      } catch (error) {
+        console.error(error);
+        await shutdown(1);
+        return;
+      }
+    }
+    console.log("[lan] dist/ is ready. Refresh the browser to load this build.");
+    return;
+  }
   if (!withVite) return;
   if (!server) {
     const { createServer } = await import("vite");
@@ -96,7 +121,7 @@ try {
   closeWatchers = watchSources(
     [resolve(root, "src"), resolve(root, "../../crates/belfast/src")],
     (file) => {
-      console.log(`[wasm] Changed: ${file}`);
+      console.log(`[${label}] Changed: ${file}`);
       queue.request();
     },
     (error) => {
@@ -105,7 +130,7 @@ try {
     },
   );
   console.log(
-    "[wasm] Watching experiment + Belfast src/**/*.rs and src/**/*.wgsl (Ctrl+C to stop).",
+    `[${label}] Watching experiment + Belfast src/**/*.rs and src/**/*.wgsl (Ctrl+C to stop).`,
   );
   queue.request();
 } catch (error) {

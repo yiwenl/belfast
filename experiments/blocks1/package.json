@@ -11,6 +11,7 @@
     "build": "pnpm build:wasm:release && tsc --noEmit && vite build",
     "preview": "vite preview",
     "preview:lan": "pnpm build && vite preview --mode lan",
+    "watch:lan": "node scripts/watch-wasm.mjs --preview-lan",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts"
   },
