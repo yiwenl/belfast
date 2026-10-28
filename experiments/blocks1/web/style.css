@@ -77,6 +77,84 @@ canvas {
 #fluid-debug-labels span {
   width: var(--map-size);
 }
+
+#color-dialog {
+  box-sizing: border-box;
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 24px;
+  border: 1px solid #555;
+  border-radius: 10px;
+  background: #232325;
+  color: #eee;
+  box-shadow: 0 16px 64px #0008;
+}
+#color-dialog::backdrop {
+  background: #0004;
+}
+#color-title {
+  margin: 0 0 12px;
+  font-size: 19px;
+}
+#color-help,
+#color-status {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #bdbdc5;
+}
+#color-form label {
+  display: block;
+  margin: 20px 0 8px;
+  font-size: 13px;
+}
+#color-prompt {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px;
+  resize: vertical;
+  border: 1px solid #666;
+  border-radius: 5px;
+  background: #171719;
+  color: inherit;
+  font:
+    14px/1.5 system-ui,
+    sans-serif;
+}
+#color-status[data-error] {
+  color: #ffb9b9;
+}
+#color-preview {
+  border-radius: 5px;
+}
+.color-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.color-actions button {
+  padding: 8px 12px;
+  border: 1px solid #666;
+  border-radius: 5px;
+  background: #353539;
+  color: #eee;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+#color-submit {
+  background: #d8d8de;
+  color: #202024;
+}
+#color-dialog :focus-visible {
+  outline: 2px solid #c6d9bd;
+  outline-offset: 3px;
+}
+#color-dialog :disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
 @media (max-width: 600px) {
   .tp-dfwv {
     width: 230px !important;

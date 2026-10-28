@@ -1,14 +1,16 @@
 struct Globals { camera:mat4x4<f32>,light:mat4x4<f32>,appearance:vec4<f32> }
 @group(0) @binding(0) var<uniform> globals:Globals;
 @group(1) @binding(0) var<storage,read> particles:array<Particle>;
-@group(2) @binding(0) var palette:texture_2d<f32>;
+@group(2) @binding(0) var palette_from:texture_2d<f32>;
 @group(2) @binding(1) var palette_sampler:sampler;
 @group(2) @binding(2) var shadow:texture_depth_2d;
 @group(2) @binding(3) var shadow_sampler:sampler_comparison;
+@group(2) @binding(4) var palette_to:texture_2d<f32>;
 struct VertexInput { @location(0) position:vec3<f32>,@location(1) normal:vec3<f32>,@builtin(instance_index) instance:u32 }
 struct VertexOutput {
     @builtin(position) position:vec4<f32>,@location(0) normal:vec3<f32>,@location(1) uv:vec2<f32>,
     @location(2) shadow_coord:vec4<f32>,@location(3) appearance:vec2<f32>,
+    @location(4) @interpolate(flat) color_mix:f32,
 }
 fn basis(v:vec3<f32>)->mat3x3<f32> {
     var x=vec3<f32>(1.0,0.0,0.0);
@@ -34,13 +36,16 @@ fn world_position(input:VertexInput)->vec3<f32> {
     out.uv=(p.origin.xy/12.0+0.5)*vec2<f32>(1.0,-1.0)+vec2<f32>(0.0,1.0);
     out.shadow_coord=globals.light*vec4<f32>(world,1.0);
     out.appearance=vec2<f32>(p.extra.x,p.extra.w);
+    out.color_mix=clamp(globals.appearance.w*2.0-p.velocity.w,0.0,1.0);
     return out;
 }
 @vertex fn vs_shadow(input:VertexInput)->@builtin(position) vec4<f32> {
     return globals.light*vec4<f32>(world_position(input),1.0);
 }
 @fragment fn fs_main(input:VertexOutput)->@location(0) vec4<f32> {
-    var color=pow(textureSample(palette,palette_sampler,input.uv).rgb+0.2,vec3<f32>(1.5));
+    let color_from=textureSample(palette_from,palette_sampler,input.uv).rgb;
+    let color_to=textureSample(palette_to,palette_sampler,input.uv).rgb;
+    var color=pow(mix(color_from,color_to,input.color_mix)+0.2,vec3<f32>(1.5));
     if input.appearance.x>3.0 {
         color=select(vec3<f32>(1.0,1.0,0.92),vec3<f32>(1.0,0.65,0.0),input.appearance.y<0.95)*1.2;
     }

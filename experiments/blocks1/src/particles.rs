@@ -12,9 +12,9 @@ pub fn shader_source() -> String {
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Particle {
     pub position: [f32; 4], // xyz, life
-    pub velocity: [f32; 4],
-    pub origin: [f32; 4], // xyz, life decay
-    pub extra: [f32; 4],  // size, stretch, speed, brightness
+    pub velocity: [f32; 4], // xyz velocity, fixed color-transition random in [0, 1)
+    pub origin: [f32; 4],   // xyz, life decay
+    pub extra: [f32; 4],    // size, stretch, speed, brightness
 }
 
 pub fn initial_particles(count: u32) -> Vec<Particle> {
@@ -40,7 +40,7 @@ pub fn initial_particles(count: u32) -> Vec<Particle> {
             };
             Particle {
                 position: [origin[0], origin[1], origin[2], random()],
-                velocity: [0.0; 4],
+                velocity: [0.0, 0.0, 0.0, random()],
                 origin,
                 extra: [
                     size,

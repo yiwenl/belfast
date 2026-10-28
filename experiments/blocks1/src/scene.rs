@@ -25,7 +25,7 @@ impl Default for Settings {
             dissipation: 0.985,
             pressure_iterations: 20,
             response: 1.0,
-            depth_motion: 1.0,
+            depth_motion: 2.0,
             block_size: 1.0,
             shadow_strength: 0.75,
             mouse_strength: 50.0,
@@ -98,7 +98,7 @@ impl Scene {
             renderer,
             settings: Settings::default(),
             paused: false,
-            show_debug_maps: true,
+            show_debug_maps: false,
             mouse: MouseFlow::default(),
             clock: FixedClock::default(),
             time: 0.0,
@@ -151,6 +151,16 @@ impl Scene {
         self.clock = FixedClock::default();
         self.time = 0.0;
     }
+    pub fn is_color_transitioning(&self) -> bool {
+        self.renderer.is_color_transitioning()
+    }
+    pub fn set_color_map(
+        &mut self,
+        device: &Device,
+        texture: belfast::Texture,
+    ) -> Result<(), String> {
+        self.renderer.set_color_map(device, texture)
+    }
     pub fn pointer_move(&mut self, x: f32, y: f32, width: f32, height: f32) {
         if !self.paused {
             self.mouse.move_to(&self.camera, x, y, width, height);
@@ -171,6 +181,8 @@ impl Scene {
         view: &wgpu::TextureView,
         dt: f32,
     ) -> Result<(), String> {
+        // Palette transitions continue when particle motion is paused.
+        self.renderer.advance_color_transition(dt);
         let mut encoder = device.gpu().create_command_encoder(&Default::default());
         for _ in 0..self.clock.advance(dt, self.paused) {
             self.time += 1.0 / 60.0;

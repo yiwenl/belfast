@@ -17,6 +17,7 @@ pub fn shader_source() -> String {
     )
 }
 const SHADOW_SIZE: u32 = 2048;
+const COLOR_TRANSITION_SECONDS: f32 = 2.0;
 pub struct Renderer {
     mesh: Mesh,
     draw: Draw,
@@ -25,6 +26,8 @@ pub struct Renderer {
     globals_group: BindGroup,
     particle_groups: [BindGroup; 2],
     material_group: BindGroup,
+    palette: Texture,
+    color_offset: f32,
     shadow: Texture,
     depth: Texture,
     background: Draw,
@@ -65,6 +68,41 @@ fn depth_texture(device: &Device, width: u32, height: u32) -> BelfastResult<Text
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             ..Default::default()
         },
+    )
+}
+fn material_binding(
+    device: &Device,
+    layout: &wgpu::BindGroupLayout,
+    from: &Texture,
+    to: &Texture,
+    shadow: &Texture,
+) -> BindGroup {
+    BindGroup::create(
+        device,
+        layout,
+        &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(from.view()),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Sampler(from.sampler()),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(shadow.view()),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::Sampler(shadow.sampler()),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: wgpu::BindingResource::TextureView(to.view()),
+            },
+        ],
+        "BlocksMaterialBinding",
     )
 }
 impl Renderer {
@@ -163,6 +201,7 @@ impl Renderer {
                         sampler_entry(1, wgpu::SamplerBindingType::Filtering),
                         texture_entry(2, wgpu::TextureSampleType::Depth),
                         sampler_entry(3, wgpu::SamplerBindingType::Comparison),
+                        texture_entry(4, wgpu::TextureSampleType::Float { filterable: true }),
                     ],
                 });
         let layout = device
@@ -265,29 +304,8 @@ impl Renderer {
             "BlocksPalette",
             wgpu::TextureFormat::Rgba8Unorm,
         )?;
-        let material_group = BindGroup::create(
-            device,
-            &material_layout,
-            &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(palette.view()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(palette.sampler()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(shadow.view()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Sampler(shadow.sampler()),
-                },
-            ],
-            "BlocksMaterialBinding",
-        );
+        let material_group =
+            material_binding(device, &material_layout, &palette, &palette, &shadow);
         let background_mesh = Mesh::new(3).map_err(|e| e.to_string())?;
         let mut bg_options = DrawOptions::new("BlocksBackground", device.format());
         bg_options.depth_stencil = Some(wgpu::DepthStencilState {
@@ -327,6 +345,8 @@ impl Renderer {
             globals_group,
             particle_groups,
             material_group,
+            palette,
+            color_offset: 1.0,
             shadow,
             depth: depth_texture(device, 1, 1).map_err(|e| e.to_string())?,
             background,
@@ -334,6 +354,30 @@ impl Renderer {
             background_group,
             fluid_debug: FluidDebug::new(device, fluid)?,
         })
+    }
+    pub fn is_color_transitioning(&self) -> bool {
+        self.color_offset < 1.0
+    }
+    pub fn advance_color_transition(&mut self, dt: f32) {
+        if dt.is_finite() && dt > 0.0 {
+            self.color_offset = (self.color_offset + dt / COLOR_TRANSITION_SECONDS).min(1.0);
+        }
+    }
+    pub fn set_color_map(&mut self, device: &Device, palette: Texture) -> Result<(), String> {
+        if self.is_color_transitioning() {
+            return Err("Wait for the current color transition to finish".into());
+        }
+        // The bind group retains the old GPU texture until the next completed transition.
+        self.material_group = material_binding(
+            device,
+            &self.draw.get_bind_group_layout(2),
+            &self.palette,
+            &palette,
+            &self.shadow,
+        );
+        self.palette = palette;
+        self.color_offset = 0.0;
+        Ok(())
     }
     pub fn resize(
         &mut self,
@@ -363,7 +407,7 @@ impl Renderer {
             * Mat4::look_at_rh(Vec3::new(0.0, 7.0, 5.0), Vec3::ZERO, Vec3::Y);
         let mut uniforms = camera.view_projection_matrix().to_vec();
         uniforms.extend(light.to_cols_array());
-        uniforms.extend([size, shadow_strength, SHADOW_SIZE as f32, 0.0]);
+        uniforms.extend([size, shadow_strength, SHADOW_SIZE as f32, self.color_offset]);
         self.globals.write(device, &uniforms, 0);
         {
             let mut pass = self

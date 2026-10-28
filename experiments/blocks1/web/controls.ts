@@ -1,23 +1,24 @@
 import { Pane } from "tweakpane";
 import type { ExperimentApp } from "../pkg/experiment";
 
-export function createControls(app: ExperimentApp) {
+export function createControls(app: ExperimentApp, openColorDialog: () => void) {
   const values = {
     flowStrength: 14,
     flowRadius: 1,
     dissipation: 0.985,
     pressureIterations: 20,
     response: 1,
-    depthMotion: 1,
+    depthMotion: 2,
     blockSize: 1,
     shadowStrength: 0.75,
     mouseStrength: 50,
     mouseRadius: 0.08,
     paused: false,
-    debugMaps: true,
+    debugMaps: false,
   };
   const debugLabels = document.querySelector<HTMLElement>("#fluid-debug-labels")!;
   const pane = new Pane({ title: "Blocks 1", expanded: window.innerWidth > 600 });
+  pane.addButton({ title: "Generate colors…" }).on("click", openColorDialog);
   const apply = () => {
     app.setSettings(
       new Float32Array([

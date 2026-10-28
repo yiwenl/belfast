@@ -60,6 +60,32 @@ iterations, particle response, depth motion, block size, shadows, pause and rese
 Reset restarts the particles, fluid and emitter clock while retaining settings.
 On small screens the pane starts collapsed. Pixel ratio is capped at 1.5.
 
+`Generate colors…` opens a text dialog. Enter an English scene description and
+submit it to the SD-Turbo service at `http://192.168.1.201:8189`. `Random` fills in
+one of 10 preset scene prompts and immediately generates it. You can edit the
+selected prompt before generating another image. Particles keep
+moving while it generates a 512×512 PNG. Once the request completes, the image is
+decoded as an ImageBitmap and uploaded to WebGPU as the next particle palette,
+using the existing particle UVs and shading. The old and new palettes are sampled
+together during a two-second transition. A shared uniform offset advances from
+0 to 1; each particle uses `t = clamp(offset * 2 - rnd, 0, 1)` to stagger its blend.
+The fixed `rnd` lives in the unused `velocity.w` slot and survives compute updates
+and respawns, so the particle buffer stays 64 bytes per particle. Color blending
+continues even when particle motion is paused.
+
+The dialog shows the generated image. Submission stays locked until the blend
+finishes so neither active palette is replaced midway through a transition.
+There is one request at a time, with up to two minutes for initial model loading;
+errors keep the previous palette and allow a manual retry. Closing the dialog
+leaves an active request running; unloading the app cancels that client's request.
+Reset simulation keeps the current palette; reloading restores `colorMap.jpg`.
+
+Vite dev and preview proxy `/image-api/` HTTP and WebSocket requests to the image
+service so HTTPS LAN clients avoid mixed-content and CORS restrictions. Only
+the workflow, queue, prompt, interrupt and WebSocket routes are forwarded. Use
+`dev`, `preview`, `preview:lan` or `watch:lan`; a separately hosted static `dist/`
+needs the same proxy routes. The host running Vite must be able to reach port 8189. Change the target in `vite.config.ts` and restart if the service IP changes.
+
 Move the mouse over the canvas to push the fluid; no button press is needed.
 `Mouse → Strength` controls the impulse (zero disables it), and `Mouse → Radius`
 sets the radius in fluid UV units. Movement is projected onto the z=0 particle
@@ -67,7 +93,7 @@ plane and spread along each stroke. The fluid moves the particles through their
 existing compute shader. Hovering over the GUI does not push the fluid. Leaving
 the canvas, pausing, resizing, resetting or switching away clears pointer state.
 
-`Fluid → Debug maps` toggles the bottom-left velocity and density previews (on by
+`Fluid → Debug maps` toggles the bottom-left velocity and density previews (off by
 default). Velocity displays X in red, Y in green and zero blue using
 `RG = clamp(0.5 + velocity.xy * 0.5, 0, 1)`: each channel maps -1..1 UV/second
 to 0..1, with zero velocity at 0.5. Density is grayscale from 0 to 2. Both previews read the live
@@ -84,6 +110,11 @@ GPU field directly, with no CPU readback.
 - `web/controls.ts`: Tweakpane. JS forwards settings, pointer events and frame timestamps.
 - `web/input.ts`, `src/mouse.rs`: canvas pointer events, camera-plane projection
   and movement impulses consumed once per simulation step.
+- `web/color-dialog.ts`: prompt UI, PNG decoding and palette updates.
+- `web/particle-client.mjs`: client adapted from the image service's
+  `/client.mjs`, retaining its prompt-scoped WebSocket and cancellation protocol
+  with an added AbortSignal for page disposal. The workflow is fetched from the
+  service on each submission. Generation starts only when the user submits.
 - `../../crates/belfast/src/fluid/`: reusable compute fluid solver.
 
 ## Reuse the fluid solver

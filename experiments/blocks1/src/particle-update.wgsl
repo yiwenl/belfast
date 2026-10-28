@@ -33,7 +33,7 @@ fn noise(p: vec3<f32>) -> f32 {
     let force = vec3<f32>(flow.xy*15.36*sim.motion.x,z)*density*p.extra.z;
     let velocity = (p.velocity.xyz+force*dt)*pow(0.9,dt*60.0);
     p.position = vec4<f32>(p.position.xyz+velocity*dt,p.position.w-p.origin.w*dt);
-    p.velocity = vec4<f32>(velocity,0.0);
+    p.velocity = vec4<f32>(velocity,p.velocity.w);
     if p.position.w < 0.0 {
         p.position = vec4<f32>(p.origin.xyz,1.0);
     }

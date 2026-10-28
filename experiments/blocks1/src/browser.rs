@@ -9,7 +9,7 @@ fn js_error(error: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&error.to_string())
 }
 
-/// A complete Rust-owned scene. JS supplies browser events and frame timestamps only.
+/// A Rust-owned scene. JS supplies browser events, generated images and frame timestamps.
 #[wasm_bindgen]
 pub struct ExperimentApp {
     scene: Scene,
@@ -198,6 +198,56 @@ impl ExperimentApp {
     #[wasm_bindgen(js_name = setPaused)]
     pub fn set_paused(&mut self, paused: bool) {
         self.scene.set_paused(paused);
+    }
+    #[wasm_bindgen(js_name = setColorMap)]
+    pub fn set_color_map(&mut self, bitmap: &web_sys::ImageBitmap) -> Result<(), JsValue> {
+        if self.scene.is_color_transitioning() {
+            return Err(js_error("Wait for the current color transition to finish"));
+        }
+        let width = bitmap.width();
+        let height = bitmap.height();
+        let texture = belfast::Texture::create_2d(
+            &self.device,
+            width,
+            height,
+            belfast::TextureOptions {
+                label: "GeneratedBlocksPalette".into(),
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::COPY_DST
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                ..Default::default()
+            },
+        )
+        .map_err(js_error)?;
+        self.device.queue().copy_external_image_to_texture(
+            &wgpu::CopyExternalImageSourceInfo {
+                source: wgpu::ExternalImageSource::ImageBitmap(bitmap.clone()),
+                origin: wgpu::Origin2d::ZERO,
+                // The particle shader already flips the image's Y coordinate.
+                flip_y: false,
+            },
+            wgpu::CopyExternalImageDestInfo {
+                texture: texture.gpu(),
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+                color_space: wgpu::PredefinedColorSpace::Srgb,
+                premultiplied_alpha: false,
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+        self.scene
+            .set_color_map(&self.device, texture)
+            .map_err(js_error)
+    }
+    #[wasm_bindgen(js_name = isColorTransitioning)]
+    pub fn is_color_transitioning(&self) -> bool {
+        self.scene.is_color_transitioning()
     }
     #[wasm_bindgen(js_name = pointerMove)]
     pub fn pointer_move(&mut self, x: f32, y: f32, width: f32, height: f32) {

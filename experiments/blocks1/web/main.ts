@@ -2,6 +2,7 @@ import init, { ExperimentApp } from "../pkg/experiment";
 import { createFpsMeter } from "./fps";
 import { createControls } from "./controls";
 import { bindFluidInput } from "./input";
+import { createColorDialog } from "./color-dialog";
 import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
@@ -11,6 +12,7 @@ const fps = createFpsMeter(document.querySelector<HTMLElement>("#fps")!);
 let app: ExperimentApp | undefined;
 let controls: ReturnType<typeof createControls> | undefined;
 let detachInput: (() => void) | undefined;
+let colorDialog: ReturnType<typeof createColorDialog> | undefined;
 let animationFrame = 0;
 let disposed = false;
 
@@ -21,6 +23,7 @@ function dispose() {
   fps.dispose();
   controls?.dispose();
   detachInput?.();
+  colorDialog?.dispose();
   app?.free();
   app = undefined;
   window.removeEventListener("pagehide", onPageHide);
@@ -54,7 +57,8 @@ async function start() {
       return;
     }
     app = created;
-    controls = createControls(created);
+    colorDialog = createColorDialog(created);
+    controls = createControls(created, () => colorDialog?.open());
     detachInput = bindFluidInput(canvas, created);
 
     function frame(timestampMs: number) {
