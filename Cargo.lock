@@ -136,6 +136,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "belfast-experiment-blocks1"
+version = "0.1.0"
+dependencies = [
+ "belfast",
+ "bytemuck",
+ "glam",
+ "image",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+]
+
+[[package]]
 name = "belfast-experiment-firefly-forest"
 version = "0.1.0"
 dependencies = [

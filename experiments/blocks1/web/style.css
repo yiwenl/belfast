@@ -1,0 +1,84 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  color: #d8d8d8;
+  background: #2c2c2c;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+#fps {
+  position: fixed;
+  bottom: 24px;
+  right: 28px;
+  margin: 0;
+  padding: 6px 9px;
+  border-radius: 4px;
+  background: #0006;
+  color: #d8d8d8;
+  font:
+    12px/1.4 ui-monospace,
+    monospace;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+#status,
+#error {
+  position: fixed;
+  bottom: 24px;
+  left: 28px;
+  right: 28px;
+  margin: 0;
+  font-size: 13px;
+}
+
+#error {
+  padding: 16px;
+  background: #341c1c;
+  color: #ffd8d8;
+  white-space: pre-wrap;
+}
+
+.tp-dfwv {
+  width: 280px !important;
+}
+
+#fluid-debug-labels {
+  --map-size: max(1px, min(160px, calc((100vw - 44px) / 2), calc(100vh - 56px)));
+  position: fixed;
+  bottom: calc(20px + var(--map-size));
+  left: 16px;
+  display: flex;
+  gap: 12px;
+  font:
+    11px/16px ui-monospace,
+    monospace;
+  color: #eee;
+  text-shadow: 0 1px 3px #000;
+  pointer-events: none;
+}
+#fluid-debug-labels[hidden] {
+  display: none;
+}
+#fluid-debug-labels span {
+  width: var(--map-size);
+}
+@media (max-width: 600px) {
+  .tp-dfwv {
+    width: 230px !important;
+  }
+}

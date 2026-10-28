@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast — Blocks 1</title>
+  </head>
+  <body>
+    <canvas aria-label="Flowing 3D blocks driven by a GPU fluid simulation"></canvas>
+    <div id="fluid-debug-labels" hidden>
+      <span title="Hue shows direction; brightness shows speed in UV per second">Velocity</span>
+      <span title="Black = 0, white = 2">Density · 0–2</span>
+    </div>
+    <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
+    <p id="status" role="status">Loading scene…</p>
+    <pre id="error" role="alert" hidden></pre>
+    <script type="module" src="./web/main.ts"></script>
+  </body>
+</html>
