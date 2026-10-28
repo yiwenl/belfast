@@ -63,14 +63,21 @@ for loop in mesh.loops:
     uv_layer.data[loop.index].uv = uvs[loop.vertex_index]
 
 colors = mesh.color_attributes.new(name="PetalTint", type="FLOAT_COLOR", domain="POINT")
+
+
+def srgb_to_linear(value):
+    return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+
+# Brightened from the bright-half median of 215 likely flower reference splats.
+cream = tuple(srgb_to_linear(c / 255.0) for c in (238, 237, 224))
+base_green = tuple(srgb_to_linear(c / 255.0) for c in (166, 181, 138))
 for index, (_, t) in enumerate(uvs):
-    warmth = math.exp(-t * 7.0)
-    colors.data[index].color = (
-        0.98 - 0.06 * warmth,
-        0.97 - 0.13 * warmth,
-        0.93 - 0.24 * warmth,
-        1.0,
-    )
+    blend = min(1.0, t / 0.5)
+    blend = blend * blend * (3.0 - 2.0 * blend)
+    colors.data[index].color = tuple(
+        base + (tip - base) * blend for base, tip in zip(base_green, cream)
+    ) + (1.0,)
 material = bpy.data.materials.new("IvoryWhitePetal")
 material.use_nodes = True
 material.use_backface_culling = False

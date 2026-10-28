@@ -174,7 +174,11 @@ impl Petal {
             include_str!("petal-shadow.wgsl")
         );
         let shadow_draw = Draw::new(device, &depth_source, &mesh, depth_options);
-        let camera = Buffer::create(device, 80, BufferUsage::uniform(), "PetalCamera");
+        let camera = Buffer::create(device, 112, BufferUsage::uniform(), "PetalCamera");
+        let base = data.vertices.iter().min_by(|a, b| a[7].total_cmp(&b[7])).unwrap();
+        let tip = data.vertices.iter().max_by(|a, b| a[7].total_cmp(&b[7])).unwrap();
+        camera.write(device, &base[8..12], 80);
+        camera.write(device, &tip[8..12], 96);
         let flow = VortexFlow::new(device, MAX_PETALS, &camera)?;
         let bindings = std::array::from_fn(|i| {
             BindGroup::create(

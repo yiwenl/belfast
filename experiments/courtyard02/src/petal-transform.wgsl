@@ -1,6 +1,8 @@
 struct Uniforms {
     view_projection: mat4x4<f32>,
     options: vec4<f32>, // sRGB attachment, petal size, reserved
+    base_color: vec4<f32>,
+    body_color: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> scene: Uniforms;
 
