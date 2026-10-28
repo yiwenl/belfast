@@ -1,4 +1,4 @@
-use crate::{mouse::MouseFlow, particles::Particles, renderer::Renderer};
+use crate::{motion::Motion, mouse::MouseFlow, particles::Particles, renderer::Renderer};
 use belfast::{
     fluid::{FluidSettings, FluidSimulation, FluidSplat},
     Device, PerspectiveCamera,
@@ -81,6 +81,7 @@ pub struct Scene {
     pub paused: bool,
     pub show_debug_maps: bool,
     mouse: MouseFlow,
+    motion: Motion,
     clock: FixedClock,
     time: f32,
 }
@@ -100,6 +101,7 @@ impl Scene {
             paused: false,
             show_debug_maps: false,
             mouse: MouseFlow::default(),
+            motion: Motion::default(),
             clock: FixedClock::default(),
             time: 0.0,
         })
@@ -150,6 +152,13 @@ impl Scene {
         self.particles.reset(device);
         self.clock = FixedClock::default();
         self.time = 0.0;
+        self.motion.restart();
+    }
+    pub fn set_motion(&mut self, kind: &str, values: &[f32]) -> Result<bool, String> {
+        self.motion.set(kind, values)
+    }
+    pub fn set_motion_enabled(&mut self, enabled: bool) {
+        self.motion.set_enabled(enabled);
     }
     pub fn is_color_transitioning(&self) -> bool {
         self.renderer.is_color_transitioning()
@@ -186,7 +195,8 @@ impl Scene {
         let mut encoder = device.gpu().create_command_encoder(&Default::default());
         for _ in 0..self.clock.advance(dt, self.paused) {
             self.time += 1.0 / 60.0;
-            let mut splats = emitters(self.time, &self.settings).to_vec();
+            let gain = self.motion.step(1.0 / 60.0);
+            let mut splats = emitters(self.time, &self.settings, gain).to_vec();
             self.mouse.append_splats(
                 self.settings.mouse_strength,
                 self.settings.mouse_radius,
@@ -197,8 +207,8 @@ impl Scene {
                 device,
                 &mut encoder,
                 self.time,
-                self.settings.response,
-                self.settings.depth_motion,
+                self.settings.response * gain,
+                self.settings.depth_motion * gain,
                 self.fluid.size(),
             );
         }
@@ -216,7 +226,7 @@ impl Scene {
         Ok(())
     }
 }
-fn emitters(time: f32, settings: &Settings) -> [FluidSplat; 8] {
+fn emitters(time: f32, settings: &Settings, gain: f32) -> [FluidSplat; 8] {
     std::array::from_fn(|i| {
         let j = (i % 4) as f32;
         let t = time * 0.5;
@@ -228,7 +238,7 @@ fn emitters(time: f32, settings: &Settings) -> [FluidSplat; 8] {
         } else {
             [j / 4.0, (j * 1.5 + t * 1.2).cos() * 0.25 + 0.5]
         };
-        let strength = settings.flow_strength / 60.0;
+        let strength = settings.flow_strength / 60.0 * gain;
         FluidSplat {
             position,
             velocity: [
@@ -236,7 +246,7 @@ fn emitters(time: f32, settings: &Settings) -> [FluidSplat; 8] {
                 angle.sin() * direction * strength,
             ],
             radius: (0.1 + 0.04 * (time * 1.3 + phase).sin()) * settings.flow_radius,
-            density: 0.05,
+            density: 0.05 * gain,
         }
     })
 }

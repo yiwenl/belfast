@@ -60,14 +60,15 @@ iterations, particle response, depth motion, block size, shadows, pause and rese
 Reset restarts the particles, fluid and emitter clock while retaining settings.
 On small screens the pane starts collapsed. Pixel ratio is capped at 1.5.
 
-Press `F` to toggle fullscreen, or `R` to generate a random preset without opening
-the dialog. Generation errors open the dialog so you can retry. Shortcuts ignore
+Press `F` to toggle fullscreen, or `R` to generate a random scene's colors and motion
+without opening the dialog. Errors open the dialog so you can retry. Shortcuts ignore
 text fields, editable content, held keys, IME composition and Ctrl/Cmd/Alt combinations.
-`R` is ignored while an image is generating or colors are still blending.
+`R` is ignored until both services finish and the color blend completes.
 
-`Generate colors…` opens a text dialog. Enter an English scene description and
-submit it to the SD-Turbo service at `http://192.168.1.201:8189`. `Random` fills in
-one of 10 preset scene prompts and immediately generates it. You can edit the
+`Generate scene…` opens a text dialog. Enter an English scene description (up to
+500 characters) to submit the same text to SD-Turbo and the Motion API at
+`http://192.168.1.201:8189/motion/analyze` concurrently. `Random` fills in
+one of 10 preset scene prompts with calm, slow, fast or gusting movement and immediately generates it. You can edit the
 selected prompt before generating another image. Particles keep
 moving while it generates a 512×512 PNG. Once the request completes, the image is
 decoded as an ImageBitmap and uploaded to WebGPU as the next particle palette,
@@ -80,27 +81,52 @@ The fixed `rnd` lives in the unused `velocity.w` slot and survives compute updat
 and respawns, so the particle buffer stays 64 bytes per particle. Color blending
 continues even when particle motion is paused.
 
-Each generated image also becomes the background: a one-time GPU Gaussian blur
-creates a 64×64 texture, with a blur sigma of 1/8 of the source width (64 pixels
-for a 512×512 image). Clamp-to-edge sampling avoids dark borders. The blur runs
-in linear color and lowers brightness by two stops to keep particles visible.
+Each generated image also becomes the background: a one-time GPU pass averages
+each 4×4 source block into a 128×128 linear RGBA16Float texture, then applies
+dense horizontal and vertical Gaussian passes (sigma 16, equivalent to 64 pixels
+in the 512×512 source). Prefiltering avoids the stripes caused by sparse sampling;
+float intermediates preserve smooth dark gradients. Clamp-to-edge sampling avoids
+dark borders. The final blur pass lowers brightness by two stops to keep particles
+visible. A static, sub-code-value dither at display resolution reduces 8-bit output
+banding without animated grain.
 The background fades with the same two-second transition; rendering each frame
 only samples the cached blurred textures. The original background remains until
 the first image arrives, and reset keeps the current background.
 
 The dialog closes automatically once the generated image is loaded and the blend
-begins. Reopen it to view the image preview. Submission stays locked until the
-blend finishes so neither active palette is replaced midway through a transition.
+begins, unless there is a motion error to display. Reopen it to view the image
+preview and motion result. Submission stays locked until both requests and the
+blend finish so neither active palette is replaced midway through a transition.
 There is one request at a time, with up to two minutes for initial model loading;
-errors keep the previous palette and allow a manual retry. Closing the dialog
+image errors keep the previous palette and allow a manual retry. Closing the dialog
 leaves an active request running; unloading the app cancels that client's request.
 Reset simulation keeps the current palette; reloading restores `colorMap.jpg`.
 
+The Motion API's five fields are checked before reaching the simulation. `none`
+preserves the previous profile; `calm` eases the motion gain toward zero. Sustained
+motion uses `baseStrength`; timed pulses smoothly rise to `peakStrength` and return
+to base using a sine-squared envelope. A positive interval repeats start-to-start;
+zero interval runs the pulse once. Strength 0..1 maps to a 0..2 multiplier with
+0.35-second smoothing. The multiplier affects emitter velocity/density, particle
+flow response and depth force, relative to the Tweakpane values. Existing velocity
+fields decay naturally; no state reset or solver timestep change is needed.
+Motion types affect strength/timing only, not new directional wind/rain geometry.
+Pausing freezes the envelope; reset restarts its timing. Turn off `Blocks → Prompt
+motion` to smoothly return to manual settings. The latest profile is retained.
+
+Motion analysis has a 60-second client timeout and no automatic retry. Image and
+motion results apply independently: a failure keeps that service's previous result
+while the other can still succeed. Late motion errors reopen the dialog. Disposing
+the page aborts its HTTP request; the server may keep working until its own deadline.
+
 Vite dev and preview proxy `/image-api/` HTTP and WebSocket requests to the image
 service so HTTPS LAN clients avoid mixed-content and CORS restrictions. Only
-the workflow, queue, prompt, interrupt and WebSocket routes are forwarded. Use
+the workflow, queue, prompt, interrupt and WebSocket routes are forwarded. The
+separate `/motion-api/analyze` proxy forwards only the Motion analysis endpoint,
+with the upstream Origin expected by that service. Use
 `dev`, `preview`, `preview:lan` or `watch:lan`; a separately hosted static `dist/`
-needs the same proxy routes. The host running Vite must be able to reach port 8189. Change the target in `vite.config.ts` and restart if the service IP changes.
+needs the same proxy routes. The host running Vite must be able to reach port 8189.
+Change the proxy targets and Motion Origin in `vite.config.ts` and restart if the service IP changes.
 
 Move the mouse over the canvas to push the fluid; no button press is needed.
 `Mouse → Strength` controls the impulse (zero disables it), and `Mouse → Radius`
@@ -127,6 +153,8 @@ GPU field directly, with no CPU readback.
 - `web/input.ts`, `src/mouse.rs`: canvas pointer events, camera-plane projection
   and movement impulses consumed once per simulation step.
 - `web/color-dialog.ts`: prompt UI, PNG decoding and palette updates.
+- `web/motion-client.ts`, `src/motion.rs`: Motion API response validation and a
+  smoothed, fixed-step motion envelope shared by fluid emitters and particles.
 - `web/particle-client.mjs`: client adapted from the image service's
   `/client.mjs`, retaining its prompt-scoped WebSocket and cancellation protocol
   with an added AbortSignal for page disposal. The workflow is fetched from the

@@ -368,7 +368,7 @@ impl Renderer {
             device,
             include_str!("background-blur.wgsl"),
             &background_mesh,
-            DrawOptions::new("BlocksBackgroundBlur", wgpu::TextureFormat::Rgba8UnormSrgb),
+            DrawOptions::new("BlocksBackgroundBlur", wgpu::TextureFormat::Rgba16Float),
         );
         Ok(Self {
             mesh,
@@ -425,40 +425,60 @@ impl Renderer {
         Ok(())
     }
     fn blur_background(&self, device: &Device, palette: &Texture) -> wgpu::TextureView {
-        let target = RenderTarget::create(
-            device,
-            RenderTargetOptions {
-                width: 64,
-                height: 64,
-                label: "BlocksBlurredBackground".into(),
-                format: Some(wgpu::TextureFormat::Rgba8UnormSrgb),
-                ..Default::default()
-            },
-        );
-        let group = BindGroup::create(
-            device,
-            &self.background_blur.get_bind_group_layout(0),
-            &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(palette.view()),
+        let targets: [RenderTarget; 2] = std::array::from_fn(|i| {
+            RenderTarget::create(
+                device,
+                RenderTargetOptions {
+                    width: 128,
+                    height: 128,
+                    label: format!("BlocksBlurredBackground{i}"),
+                    format: Some(wgpu::TextureFormat::Rgba16Float),
+                    ..Default::default()
                 },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(palette.sampler()),
-                },
-            ],
-            "BlocksBackgroundBlurBinding",
-        );
+            )
+        });
+        // Prefilter, horizontal blur, then vertical blur and two-stop darkening.
+        let passes: [[f32; 4]; 3] = [
+            [0.0, 0.0, 1.0, 1.0],
+            [1.0 / 128.0, 0.0, 0.0, 1.0],
+            [0.0, 1.0 / 128.0, 0.0, 0.25],
+        ];
         let mut encoder = device.gpu().create_command_encoder(&Default::default());
-        {
-            let mut pass = target.begin_render_pass(&mut encoder, RenderPassOptions::default());
+        for (i, params) in passes.iter().enumerate() {
+            let source = if i == 0 {
+                palette.view()
+            } else {
+                targets[(i - 1) % 2].color_view()
+            };
+            let uniform =
+                Buffer::from_data(device, params, BufferUsage::uniform(), "BlocksBlurParams");
+            let group = BindGroup::create(
+                device,
+                &self.background_blur.get_bind_group_layout(0),
+                &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(source),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(palette.sampler()),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: uniform.gpu().as_entire_binding(),
+                    },
+                ],
+                "BlocksBackgroundBlurBinding",
+            );
+            let mut pass =
+                targets[i % 2].begin_render_pass(&mut encoder, RenderPassOptions::default());
             group.bind(&mut pass, 0);
             self.background_blur
                 .draw(&mut pass, &self.background_mesh, 1);
         }
         device.queue().submit(Some(encoder.finish()));
-        target.color_view().clone()
+        targets[0].color_view().clone()
     }
     pub fn resize(
         &mut self,

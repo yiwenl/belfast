@@ -97,7 +97,8 @@ canvas {
   font-size: 19px;
 }
 #color-help,
-#color-status {
+#color-status,
+#motion-status {
   font-size: 13px;
   line-height: 1.5;
   color: #bdbdc5;
@@ -120,7 +121,8 @@ canvas {
     14px/1.5 system-ui,
     sans-serif;
 }
-#color-status[data-error] {
+#color-status[data-error],
+#motion-status[data-error] {
   color: #ffb9b9;
 }
 #color-preview {

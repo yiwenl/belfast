@@ -199,6 +199,14 @@ impl ExperimentApp {
     pub fn set_paused(&mut self, paused: bool) {
         self.scene.set_paused(paused);
     }
+    #[wasm_bindgen(js_name = setMotion)]
+    pub fn set_motion(&mut self, kind: &str, values: &[f32]) -> Result<bool, JsValue> {
+        self.scene.set_motion(kind, values).map_err(js_error)
+    }
+    #[wasm_bindgen(js_name = setMotionEnabled)]
+    pub fn set_motion_enabled(&mut self, enabled: bool) {
+        self.scene.set_motion_enabled(enabled);
+    }
     #[wasm_bindgen(js_name = setColorMap)]
     pub fn set_color_map(&mut self, bitmap: &web_sys::ImageBitmap) -> Result<(), JsValue> {
         if self.scene.is_color_transitioning() {

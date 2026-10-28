@@ -18,21 +18,25 @@
     <pre id="error" role="alert" hidden></pre>
     <dialog id="color-dialog" aria-labelledby="color-title">
       <form id="color-form">
-        <h1 id="color-title">Generate particle colors</h1>
+        <h1 id="color-title">Generate colors &amp; motion</h1>
         <p id="color-help">
-          Describe a scene in English. Its colors will become the particles’ palette.
+          Describe a scene and its motion in English. Its image colors the particles and background,
+          while its movement sets the flow strength. Up to 500 characters.
         </p>
-        <label for="color-prompt">Image description</label>
+        <label for="color-prompt">Scene description</label>
         <textarea
           id="color-prompt"
           name="prompt"
           rows="4"
-          maxlength="2000"
+          maxlength="500"
           required
           aria-describedby="color-help"
-          placeholder="Deep blue ocean at night, cyan waves, soft moonlight"
+          placeholder="Gentle currents swirl slowly through a deep blue ocean, cyan waves, soft moonlight"
         ></textarea>
         <p id="color-status" role="status" aria-live="polite">Ready when you are.</p>
+        <p id="motion-status" role="status" aria-live="polite">
+          Motion follows your scene description.
+        </p>
         <img
           id="color-preview"
           width="112"
@@ -45,11 +49,11 @@
           <button
             id="color-random"
             type="button"
-            title="Pick one of 10 preset prompts and generate an image"
+            title="Pick one of 10 preset scenes and generate colors and motion"
           >
             Random
           </button>
-          <button id="color-submit" type="submit">Generate colors</button>
+          <button id="color-submit" type="submit">Generate scene</button>
         </div>
       </form>
     </dialog>

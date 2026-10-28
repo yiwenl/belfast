@@ -15,10 +15,11 @@ export function createControls(app: ExperimentApp, openColorDialog: () => void) 
     mouseRadius: 0.08,
     paused: false,
     debugMaps: false,
+    promptMotion: true,
   };
   const debugLabels = document.querySelector<HTMLElement>("#fluid-debug-labels")!;
   const pane = new Pane({ title: "Blocks 1", expanded: window.innerWidth > 600 });
-  pane.addButton({ title: "Generate colors…" }).on("click", openColorDialog);
+  pane.addButton({ title: "Generate scene…" }).on("click", openColorDialog);
   const apply = () => {
     app.setSettings(
       new Float32Array([
@@ -36,6 +37,7 @@ export function createControls(app: ExperimentApp, openColorDialog: () => void) 
     );
     app.setPaused(values.paused);
     app.setDebugMaps(values.debugMaps);
+    app.setMotionEnabled(values.promptMotion);
     debugLabels.hidden = !values.debugMaps;
   };
   const fluid = pane.addFolder({ title: "Fluid" });
@@ -54,6 +56,7 @@ export function createControls(app: ExperimentApp, openColorDialog: () => void) 
   blocks.addBinding(values, "depthMotion", { label: "Depth motion", min: 0, max: 3, step: 0.01 });
   blocks.addBinding(values, "blockSize", { label: "Size", min: 0.2, max: 3, step: 0.01 });
   blocks.addBinding(values, "shadowStrength", { label: "Shadows", min: 0, max: 1, step: 0.01 });
+  blocks.addBinding(values, "promptMotion", { label: "Prompt motion" });
   const interaction = pane.addFolder({ title: "Mouse" });
   interaction.addBinding(values, "mouseStrength", { label: "Strength", min: 0, max: 200, step: 1 });
   interaction.addBinding(values, "mouseRadius", {
