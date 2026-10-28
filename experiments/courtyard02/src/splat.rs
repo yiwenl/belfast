@@ -78,7 +78,7 @@ impl SplatRenderer {
         cloud.attributes = Vec::new();
         let camera = device.gpu().create_buffer(&wgpu::BufferDescriptor {
             label: Some("GaussianCamera"),
-            size: 144,
+            size: 160,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -233,6 +233,14 @@ impl SplatRenderer {
         device
             .queue()
             .write_buffer(&self.camera, 0, bytemuck::cast_slice(&data));
+    }
+
+    pub fn set_flower_splats_hidden(&self, device: &Device, hidden: bool) {
+        device.queue().write_buffer(
+            &self.camera,
+            144,
+            bytemuck::cast_slice(&[u32::from(hidden) as f32, 0.0, 0.0, 0.0]),
+        );
     }
 
     pub fn draw<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {

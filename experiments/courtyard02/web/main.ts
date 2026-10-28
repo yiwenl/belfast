@@ -9,6 +9,7 @@ const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
 const settings = {
   fixedResolution: true,
   splatHideDistance: 3.5,
+  hideFlowerSplats: true,
   showPetal: true,
   petalSize: 0.02,
   petalCount: 50_000,
@@ -38,6 +39,9 @@ pane
     step: 0.01,
   })
   .on("change", ({ value }) => app?.setSplatHideDistance(value));
+pane
+  .addBinding(settings, "hideFlowerSplats", { label: "Hide flower splats" })
+  .on("change", ({ value }) => app?.setFlowerSplatsHidden(value));
 pane
   .addBinding(settings, "showFlowerMarkers", { label: "Flower debug" })
   .on("change", ({ value }) => app?.setFlowerMarkersVisible(value));
@@ -190,6 +194,7 @@ async function start() {
     }
     app = created;
     created.setSplatHideDistance(settings.splatHideDistance);
+    created.setFlowerSplatsHidden(settings.hideFlowerSplats);
     created.setPetalCount(settings.petalCount);
     created.setFlowerMarkersVisible(settings.showFlowerMarkers);
     created.setFilamentDebugVisible(settings.showFilamentDebug);
@@ -256,8 +261,8 @@ async function start() {
       ),
     ]);
     if (disposed) return;
-    created.loadPly(bytes);
     created.loadFlowerEmitters(emitters);
+    created.loadPly(bytes);
     created.loadPetal(petal);
     const positions = created.takeSortPositions();
     const message: SortRequest = { type: "init", positions };

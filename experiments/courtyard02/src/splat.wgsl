@@ -3,6 +3,8 @@ struct Camera {
     projection: mat4x4<f32>,
     // Width, height, sRGB render attachment, squared hide distance.
     viewport: vec4<f32>,
+    // Hide the original white/cream flower splats, padding.
+    flowers: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var positions: texture_2d<f32>;
@@ -20,6 +22,7 @@ struct Vertex {
     let size = textureDimensions(positions);
     let uv = vec2<i32>(i32(index % size.x), i32(index / size.x));
     let p = textureLoad(positions, uv, 0);
+    if (camera.flowers.x > 0.5 && p.w < 0.0) { return out; }
     let center = camera.view * vec4<f32>(p.xyz, 1.0);
     // Collapse all six vertices to the same clipped point before expanding the splat.
     if (dot(center.xyz, center.xyz) < camera.viewport.w) { return out; }
@@ -34,7 +37,7 @@ struct Vertex {
         vec3<f32>(xy.x, xy.y, zw.x),
         vec3<f32>(xy.y, zw.y, uv_cov.x),
         vec3<f32>(zw.x, uv_cov.x, uv_cov.y)
-    ) * p.w;
+    ) * abs(p.w);
     let focal = vec2<f32>(camera.projection[0][0], camera.projection[1][1]) * camera.viewport.xy * 0.5;
     let depth = -center.z;
     // Limit the off-axis Jacobian for Gaussians intersecting the viewport edges.

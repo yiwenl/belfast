@@ -1,7 +1,10 @@
 use std::collections::HashSet;
 
 use belfast::{BallHelper, BallHelperOptions, BindGroup, Buffer, BufferUsage, Device};
+use glam::Vec3;
 use serde::Deserialize;
+
+use crate::ply::GaussianCloud;
 
 #[derive(Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -45,6 +48,43 @@ pub fn parse_emitters(bytes: &[u8]) -> Result<EmitterFile, String> {
         }
     }
     Ok(file)
+}
+
+pub fn mark_flower_splats(cloud: &mut GaussianCloud, emitters: &[FlowerEmitter]) {
+    if emitters.is_empty() {
+        return;
+    }
+    let radius = 0.035;
+    let mut min = Vec3::splat(f32::INFINITY);
+    let mut max = Vec3::splat(f32::NEG_INFINITY);
+    for emitter in emitters {
+        let point = Vec3::from_array(emitter.position);
+        min = min.min(point);
+        max = max.max(point);
+    }
+    min -= Vec3::splat(radius);
+    max += Vec3::splat(radius);
+    for (position, attributes) in cloud.positions.iter_mut().zip(&cloud.attributes) {
+        position[3] = position[3].abs();
+        let point = Vec3::new(position[0], position[1], position[2]);
+        if point.cmplt(min).any() || point.cmpgt(max).any() {
+            continue;
+        }
+        let [r, g, b, _] = attributes[3].to_le_bytes().map(|v| f32::from(v) / 255.0);
+        let darkest = r.min(g).min(b);
+        let brightest = r.max(g).max(b);
+        // shortcut: color + marker proximity is heuristic; use an authored mask for mixed splats.
+        if g - r > 0.025 || b < g * 0.78 || darkest < 0.30 || brightest - darkest > brightest * 0.28
+        {
+            continue;
+        }
+        if emitters.iter().any(|emitter| {
+            point.distance_squared(Vec3::from_array(emitter.position)) <= radius * radius
+        }) {
+            // Covariance magnitude is unchanged; its sign carries the immutable flower mask.
+            position[3] = -position[3];
+        }
+    }
 }
 
 pub struct FlowerMarkers {

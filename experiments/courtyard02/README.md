@@ -9,6 +9,10 @@ The Tweakpane `1920 × 1080` switch defaults to enabled: the canvas drawing buff
 
 `Hide distance` defaults to 3.5 and ranges from 2 to 4 scene units. Splats whose centers are closer than this distance to the camera collapse to zero-area geometry in the vertex shader, before attribute loading and covariance projection. The cutoff uses Euclidean distance, takes effect without re-sorting, and avoids rasterizing those splats. Flower markers are unaffected.
 
+`Hide flower splats` defaults to enabled. It hides white/cream splats within 0.035 scene units of any imported flower marker, while excluding green-tinted bases and foliage. Classification uses the unlit sRGB DC colors: all channels must be at least 0.30, channel spread must not exceed 28% of the largest channel, green minus red must be at most 0.025, and blue must be at least 78% of green. This is a heuristic mask, so mixed-color or unmarked flower splats can remain. The original PLY is untouched; disabling the switch restores the original splats, independently of the animated petals and debug spheres.
+
+The browser loads flower markers before the PLY. Classification runs once before GPU upload and stores the mask in the sign of the covariance scale; the vertex shader uses its absolute magnitude for projection and collapses masked splats before attribute loading or rasterization. The 160-byte splat camera uniform reserves its final vec4 for the toggle. No extra texture, per-frame classification, or re-sorting is required. Reload the PLY after changing emitter positions to rebuild the mask.
+
 The read-only `FPS` display averages animation-frame intervals and refreshes every half second. Sampling resets when the page visibility changes so background pauses are excluded.
 
 ## Petal model

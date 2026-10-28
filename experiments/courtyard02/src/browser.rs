@@ -268,6 +268,11 @@ impl ExperimentApp {
         self.scene.show_flower_markers = visible;
     }
 
+    #[wasm_bindgen(js_name = setFlowerSplatsHidden)]
+    pub fn set_flower_splats_hidden(&mut self, hidden: bool) {
+        self.scene.set_flower_splats_hidden(&self.device, hidden);
+    }
+
     #[wasm_bindgen(js_name = setFilamentDebugVisible)]
     pub fn set_filament_debug_visible(&mut self, visible: bool) {
         self.scene.show_filament_debug = visible;

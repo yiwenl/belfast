@@ -10,7 +10,7 @@ pub const ALPHA_CUTOFF: f32 = 1.0 / 255.0;
 #[derive(Debug)]
 pub struct GaussianCloud {
     pub source_count: u32,
-    /// XYZ and covariance normalization (largest scale squared).
+    /// XYZ and covariance normalization (largest scale squared; negative when marked as a flower).
     pub positions: Vec<[f32; 4]>,
     /// Six normalized covariance half-floats, then RGBA8.
     pub attributes: Vec<[u32; 4]>,

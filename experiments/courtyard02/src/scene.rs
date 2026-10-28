@@ -1,5 +1,5 @@
 use crate::{
-    markers::FlowerMarkers,
+    markers::{mark_flower_splats, FlowerMarkers},
     petal::{depth_view, Petal, DEPTH_FORMAT, MAX_PETALS, MIN_PETALS},
     ply::GaussianCloud,
     shadow::{ShadowMap, MAP_SIZE, STRENGTH},
@@ -34,6 +34,7 @@ pub struct Scene {
     pub flowers: Option<FlowerMarkers>,
     pub show_flower_markers: bool,
     pub splat_hide_distance: f32,
+    hide_flower_splats: bool,
     sort_positions: Vec<[f32; 4]>,
     sort_gate: SortGate,
     pending_sort: Option<SortCamera>,
@@ -82,6 +83,7 @@ impl Scene {
             flowers: None,
             show_flower_markers: false,
             splat_hide_distance: 3.5,
+            hide_flower_splats: true,
             sort_positions: Vec::new(),
             sort_gate: SortGate::default(),
             pending_sort: None,
@@ -102,8 +104,13 @@ impl Scene {
 
     pub fn load_ply(&mut self, device: &Device, bytes: &[u8]) -> Result<u32, String> {
         let mut cloud = GaussianCloud::parse(bytes)?;
+        // Bake the mask before GPU upload; load emitters first, and reload the PLY after edits.
+        if let Some(flowers) = &self.flowers {
+            mark_flower_splats(&mut cloud, &flowers.emitters);
+        }
         let renderer =
             SplatRenderer::new_shadowed(device, &mut cloud, Some(DEPTH_FORMAT), &self.shadow)?;
+        renderer.set_flower_splats_hidden(device, self.hide_flower_splats);
         let count = renderer.count();
         self.source_count = cloud.source_count;
         self.sort_positions = cloud.sort_positions;
@@ -112,6 +119,13 @@ impl Scene {
         self.pending_sort = None;
         self.sort_count = 0;
         Ok(count)
+    }
+
+    pub fn set_flower_splats_hidden(&mut self, device: &Device, hidden: bool) {
+        self.hide_flower_splats = hidden;
+        if let Some(splats) = &self.splats {
+            splats.set_flower_splats_hidden(device, hidden);
+        }
     }
 
     pub fn take_sort_positions(&mut self) -> Vec<f32> {
