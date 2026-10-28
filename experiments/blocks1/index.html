@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast — Blocks 1</title>
+  </head>
+  <body>
+    <canvas aria-label="Flowing 3D blocks driven by a GPU fluid simulation"></canvas>
+    <img
+      id="color-map-preview"
+      width="192"
+      height="192"
+      alt="Latest generated source image"
+      hidden
+    />
+    <div id="fluid-debug-labels" hidden>
+      <span title="R = X, G = Y, B = 0; -1 to +1 UV/s maps to 0 to 1, zero = 0.5"
+        >Velocity · RG</span
+      >
+      <span title="Black = 0, white = 2">Density · 0–2</span>
+    </div>
+    <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
+    <p id="status" role="status">Loading scene…</p>
+    <pre id="error" role="alert" hidden></pre>
+    <dialog id="color-dialog" aria-labelledby="color-title">
+      <form id="color-form">
+        <h1 id="color-title">Generate colors &amp; motion</h1>
+        <p id="color-help">
+          Describe a scene and its motion in English. Its image colors the particles and background,
+          while its movement sets the flow strength. Up to 500 characters.
+        </p>
+        <label for="color-prompt">Scene description</label>
+        <textarea
+          id="color-prompt"
+          name="prompt"
+          rows="4"
+          maxlength="500"
+          required
+          aria-describedby="color-help"
+          placeholder="Gentle currents swirl slowly through a deep blue ocean, cyan waves, soft moonlight"
+        ></textarea>
+        <p id="color-status" role="status" aria-live="polite">Ready when you are.</p>
+        <p id="motion-status" role="status" aria-live="polite">
+          Motion follows your scene description.
+        </p>
+        <img
+          id="color-preview"
+          width="112"
+          height="112"
+          alt="Generated particle color map"
+          hidden
+        />
+        <div class="color-actions">
+          <button id="color-close" type="button">Close</button>
+          <button
+            id="color-random"
+            type="button"
+            title="Pick one of 10 preset scenes and generate colors and motion"
+          >
+            Random
+          </button>
+          <button id="color-submit" type="submit">Generate scene</button>
+        </div>
+      </form>
+    </dialog>
+    <script type="module" src="./web/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,266 @@
+# Blocks 1
+
+Rust/WebGPU port of `Sketches/experiments/blocks1`, started from Belfast's
+`experiments/template`. Up to 500,000 instanced cubes follow a 128×128 GPU fluid field
+(65,536 by default).
+The original background and color-map JPGs are retained under `assets/` and
+embedded into Wasm. No camera permission or hand tracker.
+
+## Run
+
+```sh
+pnpm install
+pnpm --dir experiments/blocks1 dev
+```
+
+Open <http://localhost:5184>. Use a WebGPU-capable browser on localhost or HTTPS.
+The template watcher rebuilds Rust/WGSL changes in this experiment and Belfast.
+
+```sh
+pnpm --dir experiments/blocks1 build     # release Wasm + TypeScript + Vite
+pnpm --dir experiments/blocks1 preview   # http://localhost:4184
+```
+
+### Same-Wi-Fi preview
+
+```sh
+pnpm --dir experiments/blocks1 preview:lan  # build once + HTTPS preview
+pnpm --dir experiments/blocks1 watch:lan   # build + HTTPS preview + Rust/WGSL watcher
+```
+
+Run one of these commands, then open the printed Network URL on another computer
+on the same Wi-Fi, for example `https://192.168.1.102:5185`. LAN preview binds to
+all IPv4 interfaces by default and serves the compiled `dist/` directory. To bind
+only the Wi-Fi interface, set its current IP explicitly:
+
+```sh
+LAN_HOST=192.168.1.102 pnpm --dir experiments/blocks1 watch:lan
+```
+
+`watch:lan` rebuilds release Wasm, checks TypeScript and bundles the site whenever
+`.rs` or `.wgsl` changes under this experiment's `src/` or `crates/belfast/src/`.
+Rapid saves are combined and builds run one at a time. After `Build #N complete`,
+refresh the remote browser to load the new version; this static preview has no
+hot reload. Build errors are printed and the next source save retries. Restart
+the command after changing Cargo manifests, web files, assets or configuration.
+Stop `dev` / `watch:wasm` before using `watch:lan` so two watchers do not write to
+the same generated `pkg/` at once. Ctrl+C stops the watcher and preview server.
+
+WebGPU needs a secure context, so use the **HTTPS** URL. The existing Vite basic
+SSL plugin generates a self-signed development certificate in ignored
+`node_modules/`. The receiving browser may show a certificate warning; review it
+yourself after checking the address is your development computer. If WebGPU
+remains unavailable, use a certificate trusted by that computer and a browser
+that supports WebGPU. Both computers must be on a network that allows local
+device connections, and the host firewall must allow Node on port 5185.
+
+### Controls
+
+Tweakpane controls flow strength/radius, velocity/density/pressure retention, pressure
+iterations, particle response, depth motion, block size, shadows, pause and reset.
+Reset restarts the particles, fluid and emitter clock while retaining settings.
+On small screens the pane starts collapsed. Pixel ratio is capped at 1.5.
+
+`Blocks → Particle count` adjusts the active count from 1 to 500,000, including
+compute updates, visible geometry and shadows. Both particle buffers reserve the
+maximum capacity once (64 MB total); only active particles are simulated and drawn.
+Changing the count keeps the scene running, and reset retains the selected count.
+Higher counts increase GPU load.
+
+Press `F` to toggle fullscreen, or `R` to generate a random scene's colors and motion
+without opening the dialog. Errors open the dialog so you can retry. Shortcuts ignore
+text fields, editable content, held keys, IME composition and Ctrl/Cmd/Alt combinations.
+`R` is ignored until both services finish and the color blend completes.
+Press `D` or toggle `Image preview (D)` to show the latest generated source image
+in the upper-left corner. The preview starts hidden and updates when an image
+arrives; it shares the dialog's image without making another API request.
+
+`Generate scene…` opens a text dialog. Enter an English scene description (up to
+500 characters) to submit the same text to SD-Turbo and the Motion API at
+`http://192.168.1.201:8189/motion/analyze` concurrently. `Random` fills in
+one of 10 preset scene prompts with calm, slow, fast or gusting movement and immediately generates it. You can edit the
+selected prompt before generating another image. Particles keep
+moving while it generates a 512×512 PNG. Once the request completes, the image is
+decoded as an ImageBitmap and uploaded to WebGPU as the next particle palette,
+using fixed random UVs hashed from each particle's ID, spread over the full image.
+The UVs are independent of particle position and persist through movement and
+respawns, so colors do not reconstruct the image or flicker. The old and new
+palettes use the same UVs and blend during a two-second transition. A shared uniform offset advances from
+0 to 1; each particle uses `t = clamp(offset * 2 - rnd, 0, 1)` to stagger its blend.
+The fixed `rnd` lives in the unused `velocity.w` slot and survives compute updates
+and respawns, so the particle buffer stays 64 bytes per particle. Color blending
+continues even when particle motion is paused.
+
+Each generated image also becomes the background: a one-time GPU pass averages
+each 4×4 source block into a 128×128 linear RGBA16Float texture, then applies
+dense horizontal and vertical Gaussian passes (sigma 16, equivalent to 64 pixels
+in the 512×512 source). Prefiltering avoids the stripes caused by sparse sampling;
+float intermediates preserve smooth dark gradients. Clamp-to-edge sampling avoids
+dark borders. The final blur pass lowers brightness by two stops to keep particles
+visible. A static, sub-code-value dither at display resolution reduces 8-bit output
+banding without animated grain.
+The background fades with the same two-second transition; rendering each frame
+only samples the cached blurred textures. The original background remains until
+the first image arrives, and reset keeps the current background.
+
+The dialog closes automatically once the generated image is loaded and the blend
+begins, unless there is a motion error to display. Reopen it to view the image
+preview and motion result. Submission stays locked until both requests and the
+blend finish so neither active palette is replaced midway through a transition.
+There is one request at a time, with up to two minutes for initial model loading;
+image errors keep the previous palette and allow a manual retry. Closing the dialog
+leaves an active request running; unloading the app cancels that client's request.
+Reset simulation keeps the current palette; reloading restores `colorMap.jpg`.
+
+The Motion API's five fields are checked before reaching the simulation. `none`
+preserves the previous profile; `calm` eases the motion gain toward a gentle 0.2. Sustained
+motion uses `baseStrength`; timed pulses smoothly rise to `peakStrength` and return
+to base using a sine-squared envelope. A positive interval repeats start-to-start;
+zero interval runs the pulse once. Strength 0..1 is doubled and floored at a 0.2
+multiplier with 0.35-second smoothing, so calm scenes and gaps between gusts retain
+a little motion. The lavender preset describes a very light steady breeze.
+The multiplier affects emitter velocity/density, particle
+flow response and depth force, relative to the Tweakpane values. Existing velocity
+fields decay naturally; no state reset or solver timestep change is needed.
+Motion types affect strength/timing only, not new directional wind/rain geometry.
+Pausing freezes the envelope; reset restarts its timing. Turn off `Blocks → Prompt
+motion` to smoothly return to manual settings. The latest profile is retained.
+
+After a motion profile is applied, the `Motion API` folder shows its five returned
+parameters as read-only values. It also displays the live smoothed multiplier and
+effective flow strength, particle response and depth motion, refreshed every 100 ms
+from the simulation's current multiplier. The original sliders remain the manual
+base values; the monitors never write multiplied values back into them. Pausing,
+resetting, changing the base sliders or disabling prompt motion is reflected in
+the live values. A `none` response or API error keeps the previous applied profile
+in the panel.
+
+Motion analysis has a 60-second client timeout and no automatic retry. Image and
+motion results apply independently: a failure keeps that service's previous result
+while the other can still succeed. Late motion errors reopen the dialog. Disposing
+the page aborts its HTTP request; the server may keep working until its own deadline.
+
+Vite dev and preview proxy `/image-api/` HTTP and WebSocket requests to the image
+service so HTTPS LAN clients avoid mixed-content and CORS restrictions. Only
+the workflow, queue, prompt, interrupt and WebSocket routes are forwarded. The
+separate `/motion-api/analyze` proxy forwards only the Motion analysis endpoint,
+with the upstream Origin expected by that service. Use
+`dev`, `preview`, `preview:lan` or `watch:lan`; a separately hosted static `dist/`
+needs the same proxy routes. The host running Vite must be able to reach port 8189.
+Change the proxy targets and Motion Origin in `vite.config.ts` and restart if the service IP changes.
+
+Move the mouse over the canvas to push the fluid; no button press is needed.
+`Mouse → Strength` controls the impulse (zero disables it), and `Mouse → Radius`
+sets the radius in fluid UV units. Movement is projected onto the z=0 particle
+plane and spread along each stroke. The fluid moves the particles through their
+existing compute shader. Hovering over the GUI does not push the fluid. Leaving
+the canvas, pausing, resizing, resetting or switching away clears pointer state.
+
+### Kinetic Station hands
+
+With Kinetic Station running on this computer's port 8787, the experiment connects
+automatically. `Kinetic hands` controls tracking, hand strength (default 70) and
+radius (default 0.2), and displays the connection status and tracked hand count.
+Mouse and both hands can interact at the same time. Each moving hand pushes the
+fluid at its projected position; the existing particle compute pass follows that
+flow. Holding a hand still stops adding force, while the fluid keeps flowing.
+
+The client uses Station's `skeleton` WebSocket frames. A palm position is estimated
+from the wrist, index and pinky image landmarks, normalized by the video size and
+mapped across the canvas onto the particle plane. Station already applies its
+`mirror` flag, so the client does not flip X again. This is body-pose hand tracking,
+not a dedicated hand-landmark model; world-space Z is not used.
+
+All three landmarks must be inside the video and have visibility of at least 0.5
+when scores are present. Positions are smoothed over roughly 60 ms. Missing hands,
+invalid frames, gaps over 500 ms, coordinate-system changes and large jumps clear
+the previous position, preventing a sudden stroke when tracking returns. The
+connection retries after disconnecting and is suspended while the page is hidden.
+Mouse and hands share the solver's per-step splat budget.
+
+The browser connects to the same-origin `/kinetic-ws` proxy, so HTTPS LAN clients
+use WSS without connecting directly to an insecure WS address. The default upstream
+is `ws://127.0.0.1:8787` on the **Belfast host**, including for other Wi-Fi computers.
+If Station moves to another computer, restart the server with its actual address:
+
+```sh
+KINETIC_WS_URL=ws://192.168.1.42:8787 pnpm --dir experiments/blocks1 watch:lan
+```
+
+The example IP must be replaced by the address shown in Station. The proxy also
+works in `dev`, `preview` and `preview:lan`; a separately hosted build needs the
+same WebSocket proxy route.
+
+`Fluid → Debug maps` toggles the bottom-left velocity and density previews (off by
+default). Velocity displays X in red, Y in green and zero blue using
+`RG = clamp(0.5 + velocity.xy * 0.5, 0, 1)`: each channel maps -1..1 UV/second
+to 0..1, with zero velocity at 0.5. Density is grayscale from 0 to 2. Both previews read the live
+GPU field directly, with no CPU readback.
+
+## Structure
+
+- `src/scene.rs`: fixed 60 Hz simulation (at most four catch-up steps), autonomous
+  emitters, parameters and camera. Edit `emitters` to change the flow pattern.
+- `src/particles.rs`, `particle-update.wgsl`: GPU storage ping-pong, life/respawn,
+  fluid sampling and depth noise. No per-frame particle transfers to JavaScript.
+- `src/renderer.rs`, `blocks.wgsl`: flow-aligned cubes and 2048² PCF shadows.
+- `src/browser.rs`: template canvas/surface lifecycle and the small Wasm API.
+- `web/controls.ts`: Tweakpane. JS forwards settings, pointer events and frame timestamps.
+- `web/input.ts`, `src/mouse.rs`: canvas pointer events, camera-plane projection
+  and movement impulses consumed once per simulation step.
+- `web/color-dialog.ts`: prompt UI, PNG decoding and palette updates.
+- `web/motion-client.ts`, `src/motion.rs`: Motion API response validation and a
+  smoothed, fixed-step motion envelope shared by fluid emitters and particles.
+- `web/particle-client.mjs`: client adapted from the image service's
+  `/client.mjs`, retaining its prompt-scoped WebSocket and cancellation protocol
+  with an added AbortSignal for page disposal. The workflow is fetched from the
+  service on each submission. Generation starts only when the user submits.
+- `../../crates/belfast/src/fluid/`: reusable compute fluid solver.
+
+## Reuse the fluid solver
+
+The shared module has no blocks-specific emitters, camera or rendering. Create it
+once, bind `fluid.field()` as a read-only storage buffer in your particle shader,
+and encode simulation before the consumer:
+
+```rust
+use belfast::fluid::{FluidSettings, FluidSimulation, FluidSplat};
+
+let mut fluid = FluidSimulation::new(&device, 128, FluidSettings::default())?;
+let dt = 1.0 / 60.0;
+let impulses = [FluidSplat {
+    position: [0.5, 0.5],
+    velocity: [10.0 * dt, 0.0],
+    radius: 0.1,
+    density: 3.0 * dt,
+}];
+fluid.step(&device, &mut encoder, dt, &impulses)?;
+// Encode your particle compute/render pass here, then submit the encoder.
+```
+
+`field()` is a stable row-major buffer of WGSL `array<vec4<f32>>` cells containing
+`(velocity_u, velocity_v, 0, density)`. Coordinates are normalized UV with Y up;
+velocity is UV/second. Sample bilinearly with mirrored-repeat addressing for
+particles (see `sample_fluid`), including outside the 0..1 UV range.
+Splats are impulses: multiply continuous emitter rates by dt. Up to 32 splats are
+accepted per step, with dt in `0..=1/30`. The fixed grid size is selected at creation.
+
+The solver performs semi-Lagrangian advection, injection, divergence, Jacobi
+pressure and pressure projection entirely on the GPU. Field and pressure sampling
+use mirrored-repeat addressing, matching the original WebGL textures. Mirroring
+changes sample coordinates without reversing velocity components; edges do not
+block normal flow, and particles can continue past the simulation domain.
+Retention is measured per 1/60 second. Each pressure solve starts from the previous
+solution multiplied by `pressure_dissipation`, matching the original WebGL solver;
+the pressure-gradient scale also follows that source. This preserves coherent
+vortices with the original 20 pressure iterations. Field and pressure are cleared
+only by `fluid.reset(&mut encoder)`. Several steps can share an
+encoder: each step's parameter upload is ordered with its dispatches.
+
+This is an artistic stable-fluid approximation: advection is numerically
+dissipative, velocity is limited to 20 UV/second and density to 2 for stability.
+Original WebGL noise and frame-based integration are adapted,
+so the motion is similar rather than numerically identical.
+
+Per project direction this experiment is developed without further test runs;
+verification is compilation and browser inspection.

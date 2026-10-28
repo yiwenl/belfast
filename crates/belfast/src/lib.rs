@@ -8,6 +8,7 @@ mod controls;
 mod device;
 mod draw;
 mod error;
+pub mod fluid;
 mod geom;
 mod helpers;
 mod mesh;
