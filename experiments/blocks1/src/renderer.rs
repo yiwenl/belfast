@@ -18,6 +18,12 @@ pub fn shader_source() -> String {
 }
 const SHADOW_SIZE: u32 = 2048;
 const COLOR_TRANSITION_SECONDS: f32 = 2.0;
+pub struct RenderOptions {
+    pub size: f32,
+    pub shadow_strength: f32,
+    pub show_debug_maps: bool,
+}
+
 pub struct Renderer {
     mesh: Mesh,
     draw: Draw,
@@ -500,15 +506,18 @@ impl Renderer {
         view: &wgpu::TextureView,
         particles: &Particles,
         camera: &PerspectiveCamera,
-        size: f32,
-        shadow_strength: f32,
-        show_debug_maps: bool,
+        options: RenderOptions,
     ) {
         let light = Mat4::orthographic_rh(-9.0, 9.0, -7.0, 7.0, 0.1, 24.0)
             * Mat4::look_at_rh(Vec3::new(0.0, 7.0, 5.0), Vec3::ZERO, Vec3::Y);
         let mut uniforms = camera.view_projection_matrix().to_vec();
         uniforms.extend(light.to_cols_array());
-        uniforms.extend([size, shadow_strength, SHADOW_SIZE as f32, self.color_offset]);
+        uniforms.extend([
+            options.size,
+            options.shadow_strength,
+            SHADOW_SIZE as f32,
+            self.color_offset,
+        ]);
         self.globals.write(device, &uniforms, 0);
         {
             let mut pass = self
@@ -550,7 +559,7 @@ impl Renderer {
         self.material_group.bind(&mut pass, 2);
         self.draw.draw(&mut pass, &self.mesh, particles.count());
         drop(pass);
-        if show_debug_maps {
+        if options.show_debug_maps {
             self.fluid_debug.render(encoder, view);
         }
     }

@@ -99,7 +99,7 @@ impl FluidSimulation {
             .and_then(|n| n.checked_mul(16))
             .ok_or("Fluid grid size overflows buffer addressing")?;
         if size < 4
-            || bytes > u64::from(limits.max_storage_buffer_binding_size)
+            || bytes > limits.max_storage_buffer_binding_size
             || bytes > limits.max_buffer_size
             || size.div_ceil(8) > limits.max_compute_workgroups_per_dimension
         {

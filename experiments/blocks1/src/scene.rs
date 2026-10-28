@@ -1,4 +1,9 @@
-use crate::{motion::Motion, mouse::MouseFlow, particles::Particles, renderer::Renderer};
+use crate::{
+    motion::Motion,
+    mouse::MouseFlow,
+    particles::Particles,
+    renderer::{RenderOptions, Renderer},
+};
 use belfast::{
     fluid::{FluidSettings, FluidSimulation, FluidSplat, MAX_SPLATS},
     Device, PerspectiveCamera,
@@ -265,9 +270,11 @@ impl Scene {
             view,
             &self.particles,
             &self.camera,
-            self.settings.block_size,
-            self.settings.shadow_strength,
-            self.show_debug_maps,
+            RenderOptions {
+                size: self.settings.block_size,
+                shadow_strength: self.settings.shadow_strength,
+                show_debug_maps: self.show_debug_maps,
+            },
         );
         device.queue().submit([encoder.finish()]);
         Ok(())
