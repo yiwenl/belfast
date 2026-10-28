@@ -2,7 +2,8 @@ use belfast::{
     fluid::FluidSimulation, BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device,
 };
 
-pub const COUNT: u32 = 256 * 256;
+pub const DEFAULT_COUNT: u32 = 256 * 256;
+pub const MAX_COUNT: u32 = 500_000;
 pub const STATE: &str = include_str!("particle-state.wgsl");
 pub fn shader_source() -> String {
     format!("{STATE}\n{}", include_str!("particle-update.wgsl"))
@@ -56,13 +57,15 @@ pub fn initial_particles(count: u32) -> Vec<Particle> {
 pub struct Particles {
     pub buffers: [Buffer; 2],
     pub current: usize,
+    count: u32,
     compute: Compute,
     groups: [BindGroup; 2],
     params: Buffer,
 }
 impl Particles {
     pub fn new(device: &Device, fluid: &FluidSimulation) -> Self {
-        let initial = initial_particles(COUNT);
+        // Keep bindings stable while the active count changes.
+        let initial = initial_particles(MAX_COUNT);
         let buffers = std::array::from_fn(|_| {
             Buffer::from_data(device, &initial, BufferUsage::storage(), "BlocksParticles")
         });
@@ -100,10 +103,21 @@ impl Particles {
         Self {
             buffers,
             current: 0,
+            count: DEFAULT_COUNT,
             compute,
             groups,
             params,
         }
+    }
+    pub fn count(&self) -> u32 {
+        self.count
+    }
+    pub fn set_count(&mut self, count: u32) -> Result<(), String> {
+        if !(1..=MAX_COUNT).contains(&count) {
+            return Err(format!("Particle count must be in 1..={MAX_COUNT}"));
+        }
+        self.count = count;
+        Ok(())
     }
     pub fn step(
         &mut self,
@@ -117,7 +131,7 @@ impl Particles {
         let data = [
             1.0 / 60.0,
             time,
-            COUNT as f32,
+            self.count as f32,
             fluid_size as f32,
             response,
             depth,
@@ -134,13 +148,13 @@ impl Particles {
         self.compute.run(
             encoder,
             Some(&self.groups[self.current]),
-            [COUNT.div_ceil(64), 1, 1],
+            [self.count.div_ceil(64), 1, 1],
             Some("BlocksSimulation"),
         );
         self.current = 1 - self.current;
     }
     pub fn reset(&mut self, device: &Device) {
-        let initial = initial_particles(COUNT);
+        let initial = initial_particles(MAX_COUNT);
         for buffer in &self.buffers {
             buffer.write(device, &initial, 0);
         }

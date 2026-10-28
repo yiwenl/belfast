@@ -1,3 +1,5 @@
+const MIN_MOTION_GAIN: f32 = 0.2;
+
 struct Profile {
     base: f32,
     peak: f32,
@@ -66,6 +68,10 @@ impl Motion {
         self.elapsed = 0.0;
     }
 
+    pub fn gain(&self) -> f32 {
+        self.gain
+    }
+
     pub fn step(&mut self, dt: f32) -> f32 {
         let mut target = 1.0;
         if self.enabled {
@@ -77,7 +83,9 @@ impl Motion {
                 } else {
                     0.0
                 };
-                target = 2.0 * (profile.base + (profile.peak - profile.base) * pulse);
+                // Keep calm scenes and gaps between pulses gently moving.
+                target = (2.0 * (profile.base + (profile.peak - profile.base) * pulse))
+                    .max(MIN_MOTION_GAIN);
                 if profile.interval > 0.0 {
                     self.elapsed = (self.elapsed + dt) % profile.interval;
                 } else {

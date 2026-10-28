@@ -1,7 +1,8 @@
 # Blocks 1
 
 Rust/WebGPU port of `Sketches/experiments/blocks1`, started from Belfast's
-`experiments/template`. 65,536 instanced cubes follow a 128×128 GPU fluid field.
+`experiments/template`. Up to 500,000 instanced cubes follow a 128×128 GPU fluid field
+(65,536 by default).
 The original background and color-map JPGs are retained under `assets/` and
 embedded into Wasm. No camera permission or hand tracker.
 
@@ -60,10 +61,19 @@ iterations, particle response, depth motion, block size, shadows, pause and rese
 Reset restarts the particles, fluid and emitter clock while retaining settings.
 On small screens the pane starts collapsed. Pixel ratio is capped at 1.5.
 
+`Blocks → Particle count` adjusts the active count from 1 to 500,000, including
+compute updates, visible geometry and shadows. Both particle buffers reserve the
+maximum capacity once (64 MB total); only active particles are simulated and drawn.
+Changing the count keeps the scene running, and reset retains the selected count.
+Higher counts increase GPU load.
+
 Press `F` to toggle fullscreen, or `R` to generate a random scene's colors and motion
 without opening the dialog. Errors open the dialog so you can retry. Shortcuts ignore
 text fields, editable content, held keys, IME composition and Ctrl/Cmd/Alt combinations.
 `R` is ignored until both services finish and the color blend completes.
+Press `D` or toggle `Image preview (D)` to show the latest generated source image
+in the upper-left corner. The preview starts hidden and updates when an image
+arrives; it shares the dialog's image without making another API request.
 
 `Generate scene…` opens a text dialog. Enter an English scene description (up to
 500 characters) to submit the same text to SD-Turbo and the Motion API at
@@ -103,16 +113,27 @@ leaves an active request running; unloading the app cancels that client's reques
 Reset simulation keeps the current palette; reloading restores `colorMap.jpg`.
 
 The Motion API's five fields are checked before reaching the simulation. `none`
-preserves the previous profile; `calm` eases the motion gain toward zero. Sustained
+preserves the previous profile; `calm` eases the motion gain toward a gentle 0.2. Sustained
 motion uses `baseStrength`; timed pulses smoothly rise to `peakStrength` and return
 to base using a sine-squared envelope. A positive interval repeats start-to-start;
-zero interval runs the pulse once. Strength 0..1 maps to a 0..2 multiplier with
-0.35-second smoothing. The multiplier affects emitter velocity/density, particle
+zero interval runs the pulse once. Strength 0..1 is doubled and floored at a 0.2
+multiplier with 0.35-second smoothing, so calm scenes and gaps between gusts retain
+a little motion. The lavender preset describes a very light steady breeze.
+The multiplier affects emitter velocity/density, particle
 flow response and depth force, relative to the Tweakpane values. Existing velocity
 fields decay naturally; no state reset or solver timestep change is needed.
 Motion types affect strength/timing only, not new directional wind/rain geometry.
 Pausing freezes the envelope; reset restarts its timing. Turn off `Blocks → Prompt
 motion` to smoothly return to manual settings. The latest profile is retained.
+
+After a motion profile is applied, the `Motion API` folder shows its five returned
+parameters as read-only values. It also displays the live smoothed multiplier and
+effective flow strength, particle response and depth motion, refreshed every 100 ms
+from the simulation's current multiplier. The original sliders remain the manual
+base values; the monitors never write multiplied values back into them. Pausing,
+resetting, changing the base sliders or disabling prompt motion is reflected in
+the live values. A `none` response or API error keeps the previous applied profile
+in the panel.
 
 Motion analysis has a 60-second client timeout and no automatic retry. Image and
 motion results apply independently: a failure keeps that service's previous result

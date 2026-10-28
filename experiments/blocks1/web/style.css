@@ -20,6 +20,17 @@ canvas {
   touch-action: none;
 }
 
+#color-map-preview {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: min(192px, calc(100vw - 32px), calc(100dvh - 32px));
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px #0006;
+  pointer-events: none;
+}
+
 #fps {
   position: fixed;
   bottom: 24px;
@@ -55,6 +66,8 @@ canvas {
 
 .tp-dfwv {
   width: 280px !important;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
 }
 
 #fluid-debug-labels {

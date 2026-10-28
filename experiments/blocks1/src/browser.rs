@@ -3,7 +3,10 @@ use std::sync::{Arc, Mutex};
 use belfast::Device;
 use wasm_bindgen::prelude::*;
 
-use crate::scene::{Scene, Settings};
+use crate::{
+    particles::MAX_COUNT,
+    scene::{Scene, Settings},
+};
 
 fn js_error(error: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&error.to_string())
@@ -199,6 +202,20 @@ impl ExperimentApp {
     pub fn set_paused(&mut self, paused: bool) {
         self.scene.set_paused(paused);
     }
+    #[wasm_bindgen(js_name = setParticleCount)]
+    pub fn set_particle_count(&mut self, count: f64) -> Result<(), JsValue> {
+        if !count.is_finite()
+            || count.fract() != 0.0
+            || !(1.0..=f64::from(MAX_COUNT)).contains(&count)
+        {
+            return Err(js_error(format!(
+                "Particle count must be an integer in 1..={MAX_COUNT}"
+            )));
+        }
+        self.scene
+            .set_particle_count(count as u32)
+            .map_err(js_error)
+    }
     #[wasm_bindgen(js_name = setMotion)]
     pub fn set_motion(&mut self, kind: &str, values: &[f32]) -> Result<bool, JsValue> {
         self.scene.set_motion(kind, values).map_err(js_error)
@@ -206,6 +223,10 @@ impl ExperimentApp {
     #[wasm_bindgen(js_name = setMotionEnabled)]
     pub fn set_motion_enabled(&mut self, enabled: bool) {
         self.scene.set_motion_enabled(enabled);
+    }
+    #[wasm_bindgen(js_name = motionGain)]
+    pub fn motion_gain(&self) -> f32 {
+        self.scene.motion_gain()
     }
     #[wasm_bindgen(js_name = setColorMap)]
     pub fn set_color_map(&mut self, bitmap: &web_sys::ImageBitmap) -> Result<(), JsValue> {

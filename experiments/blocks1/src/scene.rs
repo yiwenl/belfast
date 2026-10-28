@@ -117,6 +117,9 @@ impl Scene {
         self.settings = settings;
         Ok(())
     }
+    pub fn set_particle_count(&mut self, count: u32) -> Result<(), String> {
+        self.particles.set_count(count)
+    }
     pub fn resize(
         &mut self,
         device: &Device,
@@ -159,6 +162,9 @@ impl Scene {
     }
     pub fn set_motion_enabled(&mut self, enabled: bool) {
         self.motion.set_enabled(enabled);
+    }
+    pub fn motion_gain(&self) -> f32 {
+        self.motion.gain()
     }
     pub fn is_color_transitioning(&self) -> bool {
         self.renderer.is_color_transitioning()

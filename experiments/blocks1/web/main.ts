@@ -59,6 +59,9 @@ async function onKeyDown(event: KeyboardEvent) {
   } else if (key === "r") {
     event.preventDefault();
     colorDialog?.generateRandom();
+  } else if (key === "d") {
+    event.preventDefault();
+    controls?.toggleImagePreview();
   }
 }
 
@@ -90,8 +93,12 @@ async function start() {
       return;
     }
     app = created;
-    colorDialog = createColorDialog(created);
-    controls = createControls(created, () => colorDialog?.open());
+    colorDialog = createColorDialog(created, (motion) => controls?.syncMotion(motion));
+    controls = createControls(
+      created,
+      () => colorDialog?.open(),
+      (visible) => colorDialog?.setImagePreviewVisible(visible),
+    );
     detachInput = bindFluidInput(canvas, created);
     window.addEventListener("keydown", onKeyDown);
 

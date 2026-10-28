@@ -1,6 +1,6 @@
 use crate::{
     fluid_debug::FluidDebug,
-    particles::{Particles, COUNT, STATE},
+    particles::{Particles, STATE},
 };
 use belfast::{
     fluid::FluidSimulation, BelfastResult, BindGroup, Buffer, BufferUsage, Device, Draw,
@@ -518,7 +518,7 @@ impl Renderer {
             self.globals_group.bind(&mut pass, 0);
             self.particle_groups[particles.current].bind(&mut pass, 1);
             self.mesh.bind(&mut pass);
-            pass.draw_indexed(0..self.mesh.index_count(), 0, 0..COUNT);
+            pass.draw_indexed(0..self.mesh.index_count(), 0, 0..particles.count());
         }
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("BlocksColor"),
@@ -548,7 +548,7 @@ impl Renderer {
         self.globals_group.bind(&mut pass, 0);
         self.particle_groups[particles.current].bind(&mut pass, 1);
         self.material_group.bind(&mut pass, 2);
-        self.draw.draw(&mut pass, &self.mesh, COUNT);
+        self.draw.draw(&mut pass, &self.mesh, particles.count());
         drop(pass);
         if show_debug_maps {
             self.fluid_debug.render(encoder, view);

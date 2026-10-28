@@ -1,13 +1,13 @@
 import type { ExperimentApp } from "../pkg/experiment";
 import { ParticleClient } from "./particle-client.mjs";
-import { analyzeMotion } from "./motion-client";
+import { analyzeMotion, type MotionProfile } from "./motion-client";
 
 const COLOR_PROMPTS = [
   "Gentle currents swirl slowly around a tropical coral reef, turquoise water, vivid orange and pink coral, deep cobalt blue channels, sunlit underwater photography",
   "Strong steady wind sweeps snow rapidly across Arctic mountains beneath northern lights, luminous emerald green and violet ribbons, deep indigo sky, soft pink snow",
   "Repeated strong gusts of wind send sand racing over desert dunes at sunset, burnt orange sand, golden ridges, deep plum shadows, a rose pink sky, cinematic landscape",
   "A gentle steady breeze carries autumn leaves slowly over a lake, crimson maple leaves, golden yellow birches, dark evergreen trees, warm afternoon sunlight",
-  "A perfectly calm lavender field with no wind, flowers completely still at dawn, soft lilac flowers, rich purple rows, peach sunlight, pale mint green hills",
+  "A very light steady breeze makes a lavender field sway slowly at dawn, subtle continuous movement, soft lilac flowers, rich purple rows, peach sunlight, pale mint green hills",
   "One sudden strong gust of wind blows snow quickly through a glacial ice cave, translucent electric blue ice, luminous cyan walls, deep navy crevices, bright white frost",
   "Heavy rain falls rapidly through a neon city street at night, hot pink and electric cyan lights reflected in wet pavement, violet shadows, warm amber windows",
   "Repeated gentle gusts of wind make wildflowers sway slowly, scarlet poppies, golden buttercups, cornflower blue petals, fresh lime green grass, bright summer sunlight",
@@ -15,7 +15,10 @@ const COLOR_PROMPTS = [
   "Strong steady wind carries glowing embers rapidly over a volcanic landscape at dusk, fiery red and brilliant orange lava, golden sparks, charcoal rock, deep purple sky",
 ] as const;
 
-export function createColorDialog(app: ExperimentApp) {
+export function createColorDialog(
+  app: ExperimentApp,
+  onMotionApplied: (motion: MotionProfile) => void,
+) {
   const dialog = document.querySelector<HTMLDialogElement>("#color-dialog")!;
   const form = document.querySelector<HTMLFormElement>("#color-form")!;
   const prompt = document.querySelector<HTMLTextAreaElement>("#color-prompt")!;
@@ -25,10 +28,17 @@ export function createColorDialog(app: ExperimentApp) {
   const status = document.querySelector<HTMLElement>("#color-status")!;
   const motionStatus = document.querySelector<HTMLElement>("#motion-status")!;
   const preview = document.querySelector<HTMLImageElement>("#color-preview")!;
+  const imagePreview = document.querySelector<HTMLImageElement>("#color-map-preview")!;
   const lifetime = new AbortController();
   const client = new ParticleClient({ baseUrl: new URL("/image-api", location.origin).href });
   let busy = false;
   let previewUrl: string | undefined;
+  let imagePreviewVisible = false;
+
+  function setImagePreviewVisible(visible: boolean) {
+    imagePreviewVisible = visible;
+    imagePreview.hidden = !visible || !previewUrl;
+  }
 
   function open() {
     if (lifetime.signal.aborted || dialog.open) return;
@@ -101,6 +111,8 @@ export function createColorDialog(app: ExperimentApp) {
       previewUrl = URL.createObjectURL(result.blob);
       preview.src = previewUrl;
       preview.hidden = false;
+      imagePreview.src = previewUrl;
+      setImagePreviewVisible(imagePreviewVisible);
       status.textContent = "Blending colors…";
       if (!motionStatus.dataset.error) dialog.close();
       // Both palettes are in use until the fade ends; keep the next submission locked.
@@ -129,6 +141,7 @@ export function createColorDialog(app: ExperimentApp) {
           motion.durationSeconds,
         ]),
       );
+      if (applied) onMotionApplied(motion);
       const timing =
         motion.durationSeconds === 0
           ? "steady"
@@ -183,12 +196,15 @@ export function createColorDialog(app: ExperimentApp) {
   return {
     open,
     generateRandom,
+    setImagePreviewVisible,
     dispose() {
       lifetime.abort();
       dialog.close();
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       preview.removeAttribute("src");
       preview.hidden = true;
+      imagePreview.removeAttribute("src");
+      imagePreview.hidden = true;
     },
   };
 }

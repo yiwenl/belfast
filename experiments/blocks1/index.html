@@ -7,6 +7,13 @@
   </head>
   <body>
     <canvas aria-label="Flowing 3D blocks driven by a GPU fluid simulation"></canvas>
+    <img
+      id="color-map-preview"
+      width="192"
+      height="192"
+      alt="Latest generated source image"
+      hidden
+    />
     <div id="fluid-debug-labels" hidden>
       <span title="R = X, G = Y, B = 0; -1 to +1 UV/s maps to 0 to 1, zero = 0.5"
         >Velocity · RG</span
