@@ -154,8 +154,10 @@ impl Renderer {
         let cube = Geom::cube(0.05);
         let vertices: Vec<[f32; 6]> = cube
             .positions
-            .chunks_exact(3)
-            .zip(cube.normals.chunks_exact(3))
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .zip(cube.normals.as_chunks::<3>().0)
             .map(|(p, n)| [p[0], p[1], p[2], n[0], n[1], n[2]])
             .collect();
         let mut mesh = Mesh::new(vertices.len() as u32)
