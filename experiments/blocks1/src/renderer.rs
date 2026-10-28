@@ -4,8 +4,8 @@ use crate::{
 };
 use belfast::{
     fluid::FluidSimulation, BelfastResult, BindGroup, Buffer, BufferUsage, Device, Draw,
-    DrawOptions, Geom, Mesh, MeshIndexFormat, PerspectiveCamera, Texture, TextureOptions,
-    VertexAttributeDescriptor, VertexBufferBinding,
+    DrawOptions, Geom, Mesh, MeshIndexFormat, PerspectiveCamera, RenderPassOptions, RenderTarget,
+    RenderTargetOptions, Texture, TextureOptions, VertexAttributeDescriptor, VertexBufferBinding,
 };
 use glam::{Mat4, Vec3};
 pub const BACKGROUND: &str = include_str!("background.wgsl");
@@ -33,6 +33,8 @@ pub struct Renderer {
     background: Draw,
     background_mesh: Mesh,
     background_group: BindGroup,
+    background_image: wgpu::TextureView,
+    background_blur: Draw,
     fluid_debug: FluidDebug,
 }
 fn load_texture(
@@ -103,6 +105,38 @@ fn material_binding(
             },
         ],
         "BlocksMaterialBinding",
+    )
+}
+fn background_binding(
+    device: &Device,
+    draw: &Draw,
+    from: &wgpu::TextureView,
+    to: &wgpu::TextureView,
+    sampler: &wgpu::Sampler,
+    globals: &Buffer,
+) -> BindGroup {
+    BindGroup::create(
+        device,
+        &draw.get_bind_group_layout(0),
+        &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(from),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(to),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: globals.gpu().as_entire_binding(),
+            },
+        ],
+        "BlocksBackgroundBinding",
     )
 }
 impl Renderer {
@@ -322,20 +356,19 @@ impl Renderer {
             "BlocksBackground",
             wgpu::TextureFormat::Rgba8UnormSrgb,
         )?;
-        let background_group = BindGroup::create(
+        let background_group = background_binding(
             device,
-            &background.get_bind_group_layout(0),
-            &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(bg.view()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(bg.sampler()),
-                },
-            ],
-            "BlocksBackgroundBinding",
+            &background,
+            bg.view(),
+            bg.view(),
+            bg.sampler(),
+            &globals,
+        );
+        let background_blur = Draw::new(
+            device,
+            include_str!("background-blur.wgsl"),
+            &background_mesh,
+            DrawOptions::new("BlocksBackgroundBlur", wgpu::TextureFormat::Rgba8UnormSrgb),
         );
         Ok(Self {
             mesh,
@@ -352,6 +385,8 @@ impl Renderer {
             background,
             background_mesh,
             background_group,
+            background_image: bg.view().clone(),
+            background_blur,
             fluid_debug: FluidDebug::new(device, fluid)?,
         })
     }
@@ -367,6 +402,16 @@ impl Renderer {
         if self.is_color_transitioning() {
             return Err("Wait for the current color transition to finish".into());
         }
+        let background_image = self.blur_background(device, &palette);
+        self.background_group = background_binding(
+            device,
+            &self.background,
+            &self.background_image,
+            &background_image,
+            palette.sampler(),
+            &self.globals,
+        );
+        self.background_image = background_image;
         // The bind group retains the old GPU texture until the next completed transition.
         self.material_group = material_binding(
             device,
@@ -378,6 +423,42 @@ impl Renderer {
         self.palette = palette;
         self.color_offset = 0.0;
         Ok(())
+    }
+    fn blur_background(&self, device: &Device, palette: &Texture) -> wgpu::TextureView {
+        let target = RenderTarget::create(
+            device,
+            RenderTargetOptions {
+                width: 64,
+                height: 64,
+                label: "BlocksBlurredBackground".into(),
+                format: Some(wgpu::TextureFormat::Rgba8UnormSrgb),
+                ..Default::default()
+            },
+        );
+        let group = BindGroup::create(
+            device,
+            &self.background_blur.get_bind_group_layout(0),
+            &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(palette.view()),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(palette.sampler()),
+                },
+            ],
+            "BlocksBackgroundBlurBinding",
+        );
+        let mut encoder = device.gpu().create_command_encoder(&Default::default());
+        {
+            let mut pass = target.begin_render_pass(&mut encoder, RenderPassOptions::default());
+            group.bind(&mut pass, 0);
+            self.background_blur
+                .draw(&mut pass, &self.background_mesh, 1);
+        }
+        device.queue().submit(Some(encoder.finish()));
+        target.color_view().clone()
     }
     pub fn resize(
         &mut self,

@@ -73,8 +73,17 @@ The fixed `rnd` lives in the unused `velocity.w` slot and survives compute updat
 and respawns, so the particle buffer stays 64 bytes per particle. Color blending
 continues even when particle motion is paused.
 
-The dialog shows the generated image. Submission stays locked until the blend
-finishes so neither active palette is replaced midway through a transition.
+Each generated image also becomes the background: a one-time GPU Gaussian blur
+creates a 64×64 texture, with a blur sigma of 1/8 of the source width (64 pixels
+for a 512×512 image). Clamp-to-edge sampling avoids dark borders. The blur runs
+in linear color and lowers brightness by two stops to keep particles visible.
+The background fades with the same two-second transition; rendering each frame
+only samples the cached blurred textures. The original background remains until
+the first image arrives, and reset keeps the current background.
+
+The dialog closes automatically once the generated image is loaded and the blend
+begins. Reopen it to view the image preview. Submission stays locked until the
+blend finishes so neither active palette is replaced midway through a transition.
 There is one request at a time, with up to two minutes for initial model loading;
 errors keep the previous palette and allow a manual retry. Closing the dialog
 leaves an active request running; unloading the app cancels that client's request.

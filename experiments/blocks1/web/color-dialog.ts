@@ -95,11 +95,12 @@ export function createColorDialog(app: ExperimentApp) {
       previewUrl = URL.createObjectURL(result.blob);
       preview.src = previewUrl;
       preview.hidden = false;
-      status.textContent = "Blending colors… Close this dialog to watch.";
+      status.textContent = "Blending colors…";
+      dialog.close();
       // Both palettes are in use until the fade ends; keep the next submission locked.
       await waitForColorTransition();
       if (lifetime.signal.aborted) return;
-      status.textContent = "Colors updated. Close this dialog to see the particles.";
+      status.textContent = "Colors updated.";
     } catch (error) {
       if (lifetime.signal.aborted) return;
       const message = error instanceof Error ? error.message : String(error);
