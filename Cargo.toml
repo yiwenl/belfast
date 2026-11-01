@@ -3,6 +3,7 @@ members = [
   "crates/belfast",
   "crates/belfast-wasm",
   "experiments/template",
+  "experiments/infinite_walk",
   "experiments/blocks1",
   "experiments/forest_walk",
   "experiments/particles",

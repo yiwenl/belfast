@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belfast — Infinite Walk</title>
+  </head>
+  <body>
+    <canvas
+      aria-label="Infinite forest point cloud; scroll down to walk forward, up to walk backward"
+    ></canvas>
+    <aside>
+      <strong>Infinite walk</strong>
+      <span>Scroll down to walk forward · Scroll up to walk backward</span>
+      <span id="point-count"></span>
+    </aside>
+    <p id="fps" aria-label="Frames per second" aria-live="off">— FPS</p>
+    <p id="status" role="status">Loading scene…</p>
+    <pre id="error" role="alert" hidden></pre>
+    <script type="module" src="./web/main.ts"></script>
+  </body>
+</html>
