@@ -262,7 +262,7 @@ impl Scene {
         Ok(())
     }
 
-    pub fn update(&mut self, device: &Device, delta_seconds: f32) -> BelfastResult<()> {
+    pub fn update(&mut self, device: &Device, delta_seconds: f32) -> Result<(), String> {
         self.control.update(delta_seconds, &mut self.camera);
         if let Some(splats) = &self.splats {
             splats.update_camera(device, &self.sort_camera(), self.splat_hide_distance);
@@ -272,7 +272,8 @@ impl Scene {
         }
         if let Some(petal) = &mut self.petal {
             self.shadow
-                .fit(device, petal.shadow_bounds(self.petal_size))?;
+                .fit(device, petal.shadow_bounds(self.petal_size))
+                .map_err(|error| error.to_string())?;
             petal.update(
                 device,
                 &self.camera.view_projection_matrix(),
@@ -284,21 +285,21 @@ impl Scene {
                 self.petal_count,
                 self.petal_motion,
                 self.shadow.view_projection(),
-            );
+            )?;
         }
         self.shadow
             .update_viewer(device, &self.camera.view_projection_matrix());
         Ok(())
     }
 
-    pub fn render(&mut self, device: &Device, view: &wgpu::TextureView) {
+    pub fn render(&mut self, device: &Device, view: &wgpu::TextureView) -> Result<(), String> {
         let mut encoder = device
             .gpu()
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("CourtyardEncoder"),
             });
         if let Some(petal) = &mut self.petal {
-            petal.simulate(&mut encoder);
+            petal.simulate(device, &mut encoder)?;
         }
         {
             // Clear even when petals are hidden so the scene cannot retain stale shadows.
@@ -388,5 +389,6 @@ impl Scene {
             self.shadow_debug.render(&mut encoder, view, self.viewport);
         }
         device.queue().submit([encoder.finish()]);
+        Ok(())
     }
 }

@@ -165,7 +165,7 @@ impl ExperimentApp {
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        self.scene.render(&self.device, &view);
+        self.scene.render(&self.device, &view).map_err(js_error)?;
         self.device.queue().present(frame);
         if reconfigure {
             self.surface.configure(self.device.gpu(), &self.config);

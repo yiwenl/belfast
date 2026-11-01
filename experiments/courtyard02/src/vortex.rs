@@ -1,9 +1,11 @@
 use crate::vortex_debug::VortexDebug;
-use belfast::{BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device};
+use belfast::{
+    filament::{FilamentSettings, FilamentSimulation, WGSL_FILAMENT},
+    BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device,
+};
 use glam::Vec3;
 
 pub const STATE_SHADER: &str = include_str!("petal-state.wgsl");
-const COMMON_SHADER: &str = include_str!("vortex-common.wgsl");
 const RINGS: u32 = 6;
 const VERTICES_PER_RING: u32 = 12;
 
@@ -46,23 +48,20 @@ impl Default for MotionSettings {
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct FlowParams {
     shadow_view_projection: [f32; 16],
-    origin_radius: [f32; 4],
     step: [f32; 4],
-    filament: [f32; 4], // Core radius, upward drift speed, XZ drift speed, reserved.
     counts: [u32; 4],
 }
 
 pub struct VortexFlow {
     pub states: [Buffer; 2],
     pub current: usize,
-    filaments: [Buffer; 2],
+    filaments: FilamentSimulation,
     debug: VortexDebug,
-    filament_step: Compute,
     particle_step: Compute,
-    filament_bindings: [BindGroup; 2],
     particle_bindings: [BindGroup; 2],
     params: Buffer,
-    origin_radius: [f32; 4],
+    origin: [f32; 3],
+    pending_reset: bool,
     time: f32,
     pending_dt: f32,
     count: u32,
@@ -80,54 +79,26 @@ impl VortexFlow {
         let states = std::array::from_fn(|_| {
             Buffer::create(device, bytes, BufferUsage::storage(), "PetalState")
         });
-        let filaments = std::array::from_fn(|_| {
-            Buffer::create(
-                device,
-                u64::from(RINGS * VERTICES_PER_RING) * 16,
-                BufferUsage::storage(),
-                "VortexFilaments",
-            )
-        });
+        let filaments = FilamentSimulation::new(
+            device,
+            RINGS,
+            VERTICES_PER_RING,
+            FilamentSettings::default(),
+        )?;
         let params = Buffer::create(
             device,
             std::mem::size_of::<FlowParams>() as u64,
             BufferUsage::uniform(),
             "VortexParams",
         );
-        let filament_step = Compute::new(
-            device,
-            &format!("{COMMON_SHADER}\n{}", include_str!("vortex-filaments.wgsl")),
-            ComputeOptions::new("VortexFilamentUpdate"),
-        );
         let particle_step = Compute::new(
             device,
             &format!(
-                "{STATE_SHADER}\n{COMMON_SHADER}\n{}",
+                "{STATE_SHADER}\n{WGSL_FILAMENT}\n{}",
                 include_str!("petal-update.wgsl")
             ),
             ComputeOptions::new("VortexPetalUpdate"),
         );
-        let filament_bindings = std::array::from_fn(|i| {
-            BindGroup::create(
-                device,
-                &filament_step.get_bind_group_layout(0),
-                &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: params.gpu().as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: filaments[i].gpu().as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: filaments[1 - i].gpu().as_entire_binding(),
-                    },
-                ],
-                "VortexFilamentBinding",
-            )
-        });
         let particle_bindings = std::array::from_fn(|i| {
             BindGroup::create(
                 device,
@@ -140,7 +111,7 @@ impl VortexFlow {
                     // Petals follow the filament positions just written by the first pass.
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: filaments[1 - i].gpu().as_entire_binding(),
+                        resource: filaments.field().gpu().as_entire_binding(),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
@@ -150,56 +121,38 @@ impl VortexFlow {
                         binding: 3,
                         resource: states[1 - i].gpu().as_entire_binding(),
                     },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: filaments.params().gpu().as_entire_binding(),
+                    },
                 ],
                 "VortexPetalBinding",
             )
         });
-        let debug = VortexDebug::new(device, camera, &filaments, VERTICES_PER_RING)?;
+        let debug = VortexDebug::new(device, camera, &filaments)?;
         Ok(Self {
             states,
             current: 0,
             filaments,
             debug,
-            filament_step,
             particle_step,
-            filament_bindings,
             particle_bindings,
             params,
-            origin_radius: [0.0; 4],
+            origin: [0.0; 3],
+            pending_reset: false,
             time: 0.0,
             pending_dt: 0.0,
             count: 0,
         })
     }
 
-    pub fn reset(&mut self, device: &Device, bounds: (Vec3, Vec3)) {
+    pub fn reset(&mut self, bounds: (Vec3, Vec3)) {
         let center = (bounds.0 + bounds.1) * 0.5;
-        let origin = Vec3::new(center.x, bounds.0.y - 0.12, center.z);
-        self.origin_radius = origin.extend(MotionSettings::default().ring_radius).to_array();
-        self.seed_filaments(device);
+        self.origin = [center.x, bounds.0.y - 0.12, center.z];
+        self.pending_reset = true;
         self.current = 0;
         self.time = 0.0;
         self.pending_dt = 0.0;
-    }
-
-    fn seed_filaments(&self, device: &Device) {
-        let [x, y, z, radius] = self.origin_radius;
-        let origin = Vec3::new(x, y, z);
-        let vertices: Vec<[f32; 4]> = (0..RINGS * VERTICES_PER_RING)
-            .map(|index| {
-                let ring = index / VERTICES_PER_RING;
-                let angle = (index % VERTICES_PER_RING) as f32 * std::f32::consts::TAU
-                    / VERTICES_PER_RING as f32;
-                let age = ring as f32;
-                let offset = Vec3::new((ring as f32 * 2.4).sin() * radius * 0.5, age * 0.12, 0.0);
-                let position =
-                    origin + offset + Vec3::new(angle.cos() * radius, 0.0, angle.sin() * radius);
-                position.extend(age).to_array()
-            })
-            .collect();
-        for buffer in &self.filaments {
-            buffer.write(device, &vertices, 0);
-        }
     }
 
     pub fn prepare(
@@ -209,12 +162,16 @@ impl VortexFlow {
         count: u32,
         settings: MotionSettings,
         shadow_view_projection: [f32; 16],
-    ) {
-        if self.origin_radius[3] != settings.ring_radius {
-            self.origin_radius[3] = settings.ring_radius;
-            // Resize rings immediately without rewinding the current petal buffer.
-            self.seed_filaments(device);
-        }
+    ) -> Result<(), String> {
+        self.filaments.set_settings(FilamentSettings {
+            origin: self.origin,
+            ring_radius: settings.ring_radius,
+            core_radius: settings.core_radius,
+            updraft: settings.filament_updraft,
+            xz_drift: settings.filament_drift,
+            strength: settings.strength,
+            ..Default::default()
+        })?;
         // Avoid a large jump after a suspended tab; rendering and shadows use the same step.
         self.pending_dt = if settings.enabled && dt.is_finite() {
             dt.clamp(0.0, 1.0 / 30.0)
@@ -226,35 +183,28 @@ impl VortexFlow {
             device,
             &[FlowParams {
                 shadow_view_projection,
-                origin_radius: self.origin_radius,
-                step: [
-                    self.pending_dt,
-                    self.time,
-                    settings.petal_updraft,
-                    settings.strength,
-                ],
-                filament: [
-                    settings.core_radius,
-                    settings.filament_updraft,
-                    settings.filament_drift,
-                    0.0,
-                ],
-                counts: [count, RINGS, VERTICES_PER_RING, 0],
+                step: [self.pending_dt, self.time, settings.petal_updraft, 0.0],
+                counts: [count, 0, 0, 0],
             }],
             0,
         );
+        Ok(())
     }
 
-    pub fn simulate(&mut self, encoder: &mut wgpu::CommandEncoder) {
-        if self.pending_dt <= 0.0 {
-            return;
+    pub fn simulate(
+        &mut self,
+        device: &Device,
+        encoder: &mut wgpu::CommandEncoder,
+    ) -> Result<(), String> {
+        if self.pending_reset {
+            self.filaments.reset(encoder);
+            self.pending_reset = false;
         }
-        self.filament_step.run(
-            encoder,
-            Some(&self.filament_bindings[self.current]),
-            [(RINGS * VERTICES_PER_RING).div_ceil(64), 1, 1],
-            Some("VortexFilaments"),
-        );
+        // Flush radius/settings changes even while particle animation is paused.
+        self.filaments.step(device, encoder, self.pending_dt)?;
+        if self.pending_dt <= 0.0 {
+            return Ok(());
+        }
         self.particle_step.run(
             encoder,
             Some(&self.particle_bindings[self.current]),
@@ -264,9 +214,10 @@ impl VortexFlow {
         self.current = 1 - self.current;
         self.time += self.pending_dt;
         self.pending_dt = 0.0;
+        Ok(())
     }
 
     pub fn draw_debug<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
-        self.debug.draw(pass, self.current, RINGS);
+        self.debug.draw(pass, self.filaments.rings());
     }
 }

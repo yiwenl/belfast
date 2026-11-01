@@ -175,8 +175,16 @@ impl Petal {
         );
         let shadow_draw = Draw::new(device, &depth_source, &mesh, depth_options);
         let camera = Buffer::create(device, 112, BufferUsage::uniform(), "PetalCamera");
-        let base = data.vertices.iter().min_by(|a, b| a[7].total_cmp(&b[7])).unwrap();
-        let tip = data.vertices.iter().max_by(|a, b| a[7].total_cmp(&b[7])).unwrap();
+        let base = data
+            .vertices
+            .iter()
+            .min_by(|a, b| a[7].total_cmp(&b[7]))
+            .unwrap();
+        let tip = data
+            .vertices
+            .iter()
+            .max_by(|a, b| a[7].total_cmp(&b[7]))
+            .unwrap();
         camera.write(device, &base[8..12], 80);
         camera.write(device, &tip[8..12], 96);
         let flow = VortexFlow::new(device, MAX_PETALS, &camera)?;
@@ -248,7 +256,7 @@ impl Petal {
                     (min.min(p), max.max(p))
                 },
             );
-            self.flow.reset(device, self.source_bounds);
+            self.flow.reset(self.source_bounds);
         }
         // Continue the seeded stream so changing the visible count never reshuffles existing petals.
         let mut random = || {
@@ -336,13 +344,17 @@ impl Petal {
         count: u32,
         settings: MotionSettings,
         shadow_matrix: [f32; 16],
-    ) {
+    ) -> Result<(), String> {
         self.flow
-            .prepare(device, dt, count, settings, shadow_matrix);
+            .prepare(device, dt, count, settings, shadow_matrix)
     }
 
-    pub fn simulate(&mut self, encoder: &mut wgpu::CommandEncoder) {
-        self.flow.simulate(encoder);
+    pub fn simulate(
+        &mut self,
+        device: &Device,
+        encoder: &mut wgpu::CommandEncoder,
+    ) -> Result<(), String> {
+        self.flow.simulate(device, encoder)
     }
 
     pub fn draw_filament_debug<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {

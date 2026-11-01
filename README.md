@@ -47,6 +47,8 @@ The independent particle experiment starts in [`experiments/particles`](experime
 
 The minimal courtyard experiment lives in [`experiments/courtyard02`](experiments/courtyard02/README.md): `pnpm --dir experiments/courtyard02 dev`, <http://localhost:5184>.
 
+Reusable GPU vortex rings are available through [`belfast::filament`](crates/belfast/src/filament/README.md), with settings, a stable field buffer and WGSL velocity sampling, alongside `belfast::fluid`.
+
 ```
 crates/belfast          Native wgpu engine
 crates/belfast-wasm     wasm-bindgen facade
