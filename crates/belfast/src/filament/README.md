@@ -64,4 +64,4 @@ Radii and lifetime must be finite and positive; motion/strength/circulation must
 
 Induced speed is capped at 0.6 world units/second; ring advection is capped at 0.8. Sampling sums every segment, and self-advection is quadratic in total segment count. Keep ring counts/resolution small for large particle systems; no spatial acceleration is built in.
 
-The regularized segment formula is adapted from David Li's `vortexspheres`. Its MIT notice travels with this module in [LICENSE-vortexspheres.txt](LICENSE-vortexspheres.txt).
+The regularized segment formula is adapted from David Li's `vortexspheres`. Its MIT notice is included in [sampling.wgsl](sampling.wgsl).
