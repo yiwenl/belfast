@@ -1,4 +1,5 @@
 pub mod input;
+pub mod particles;
 pub mod point_cloud;
 pub mod scene;
 pub mod walk;

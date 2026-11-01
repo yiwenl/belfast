@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use belfast::Device;
 use wasm_bindgen::prelude::*;
 
+use crate::particles::ParticleSettings;
 use crate::scene::Scene;
 
 fn js_error(error: impl std::fmt::Display) -> JsValue {
@@ -49,7 +50,11 @@ impl ExperimentApp {
         let gpu_error = Arc::new(Mutex::new(None));
         let pending = gpu_error.clone();
         gpu.on_uncaptured_error(Arc::new(move |error| {
-            *pending.lock().unwrap() = Some(error.to_string());
+            // Preserve the cause instead of replacing it with cascading invalid-command errors.
+            pending
+                .lock()
+                .unwrap()
+                .get_or_insert_with(|| error.to_string());
         }));
         let pending = gpu_error.clone();
         gpu.set_device_lost_callback(move |reason, message| {
@@ -136,6 +141,9 @@ impl ExperimentApp {
         if !self.drawable {
             return Ok(());
         }
+        self.scene
+            .simulate(&self.device, delta_seconds)
+            .map_err(js_error)?;
         let (frame, reconfigure) = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame) => (frame, false),
             wgpu::CurrentSurfaceTexture::Suboptimal(frame) => (frame, true),
@@ -200,6 +208,16 @@ impl ExperimentApp {
         self.scene.set_white_particles(enabled);
     }
 
+    #[wasm_bindgen(js_name = setShadowStrength)]
+    pub fn set_shadow_strength(&mut self, strength: f32) -> Result<(), JsValue> {
+        self.scene.set_shadow_strength(strength).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setShowShadowMap)]
+    pub fn set_show_shadow_map(&mut self, enabled: bool) {
+        self.scene.set_show_shadow_map(enabled);
+    }
+
     #[wasm_bindgen(js_name = setLight)]
     pub fn set_light(
         &mut self,
@@ -207,10 +225,82 @@ impl ExperimentApp {
         height: f32,
         intensity: f32,
         range: f32,
+        fov: f32,
     ) -> Result<(), JsValue> {
         self.scene
-            .set_light(forward, height, intensity, range)
+            .set_light(forward, height, intensity, range, fov)
             .map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setParticles)]
+    pub fn set_particles(
+        &mut self,
+        visible: bool,
+        animate: bool,
+        size: f32,
+        lifetime: f32,
+        life_variation: f32,
+        lift: f32,
+        drag: f32,
+        ground_y: f32,
+    ) -> Result<(), JsValue> {
+        let settings = ParticleSettings {
+            visible,
+            animate,
+            size,
+            lifetime,
+            life_variation,
+            lift,
+            drag,
+            ground_y,
+        };
+        settings.validate().map_err(js_error)?;
+        self.scene.particle_settings = settings;
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = setFilament)]
+    pub fn set_filament(
+        &mut self,
+        updraft: f32,
+        drift: f32,
+        radius: f32,
+        core: f32,
+        strength: f32,
+        circulation: f32,
+        lifetime: f32,
+    ) -> Result<(), JsValue> {
+        for (value, min, max) in [
+            (updraft, 0.0, 1.5),
+            (drift, 0.0, 0.5),
+            (radius, 0.05, 2.0),
+            (core, 0.005, 0.3),
+            (strength, 0.0, 5.0),
+            (circulation, 0.0, 0.05),
+            (lifetime, 1.0, 20.0),
+        ] {
+            if !(min..=max).contains(&value) {
+                return Err(js_error("Invalid filament settings"));
+            }
+        }
+        let settings = belfast::filament::FilamentSettings {
+            origin: [0.0; 3],
+            ring_radius: radius,
+            core_radius: core,
+            updraft,
+            xz_drift: drift,
+            strength,
+            circulation,
+            lifetime,
+        };
+        settings.validate().map_err(js_error)?;
+        self.scene.filament_settings = settings;
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = setFilamentDebugVisible)]
+    pub fn set_filament_debug_visible(&mut self, visible: bool) {
+        self.scene.show_filament_debug = visible;
     }
 
     #[wasm_bindgen(js_name = loadPointCloud)]

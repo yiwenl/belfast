@@ -13,11 +13,21 @@ body {
   overflow: hidden;
 }
 
+body {
+  display: grid;
+  place-items: center;
+}
+
 canvas {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100dvh;
   touch-action: none;
+}
+
+canvas.fixed-resolution {
+  width: min(100vw, calc(100dvh * 16 / 9));
+  height: min(100dvh, calc(100vw * 9 / 16));
 }
 
 aside {
@@ -43,6 +53,8 @@ body > .tp-dfwv {
   right: 28px;
   width: 300px;
   max-width: calc(100vw - 56px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
 }
 
 #status,

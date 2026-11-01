@@ -219,6 +219,7 @@ version = "0.1.0"
 dependencies = [
  "belfast",
  "bytemuck",
+ "glam",
  "naga",
  "pollster",
  "wasm-bindgen",

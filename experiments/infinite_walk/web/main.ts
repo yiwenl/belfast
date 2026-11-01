@@ -13,10 +13,24 @@ let detachInput: (() => void) | undefined;
 let animationFrame = 0;
 let disposed = false;
 const loading = new AbortController();
-const settings = { fps: "—", pointSize: 0.01, cameraY: 0.3, whiteParticles: false, fov: 45 };
+const settings = {
+  fps: "—",
+  resolution: "hd",
+  pointSize: 0.01,
+  cameraY: 0.3,
+  whiteParticles: false,
+  fov: 45,
+};
 const pane = new Pane({ title: "Infinite walk" });
 pane.disabled = true;
 pane.addBinding(settings, "fps", { label: "FPS", readonly: true, interval: 500 });
+pane
+  .addBinding(settings, "resolution", {
+    label: "Resolution",
+    options: { "HD · 1920 × 1080": "hd", "Full browser": "full" },
+  })
+  .on("change", ({ value }) => canvas.classList.toggle("fixed-resolution", value === "hd"));
+canvas.classList.toggle("fixed-resolution", settings.resolution === "hd");
 pane
   .addBinding(settings, "pointSize", {
     label: "Particle size",
@@ -39,14 +53,135 @@ pane
 pane
   .addBinding(settings, "fov", { label: "FOV (°)", min: 10, max: 120, step: 1 })
   .on("change", ({ value }) => app?.setFov(value));
-const light = { forward: 3.5, height: 2, intensity: 12, range: 3.3 };
+const light = { forward: 3.5, height: 2, intensity: 12, range: 4.1, fov: 65 };
 const lighting = pane.addFolder({ title: "Spotlight" });
 lighting.addBinding(light, "forward", { label: "Forward", min: 0, max: 10, step: 0.1 });
 lighting.addBinding(light, "height", { label: "Height", min: 0.1, max: 5, step: 0.1 });
 lighting.addBinding(light, "intensity", { label: "Intensity", min: 0, max: 30, step: 0.1 });
 lighting.addBinding(light, "range", { label: "Range", min: 0.2, max: 10, step: 0.1 });
+lighting.addBinding(light, "fov", { label: "FOV (°)", min: 10, max: 150, step: 1 });
 lighting.on("change", () =>
-  app?.setLight(light.forward, light.height, light.intensity, light.range),
+  app?.setLight(light.forward, light.height, light.intensity, light.range, light.fov),
+);
+const shadows = { strength: 0.85, showMap: true };
+pane
+  .addBinding(shadows, "strength", { label: "Shadows", min: 0, max: 1, step: 0.01 })
+  .on("change", ({ value }) => app?.setShadowStrength(value));
+pane
+  .addBinding(shadows, "showMap", { label: "Show shadow map" })
+  .on("change", ({ value }) => app?.setShowShadowMap(value));
+const particles = {
+  count: 20_000,
+  visible: true,
+  animate: true,
+  size: 0.014,
+  lifetime: 5,
+  lifeVariation: 0.4,
+  lift: 0.18,
+  drag: 1.6,
+  groundY: -0.11,
+};
+function updateParticles() {
+  app?.setParticles(
+    particles.visible,
+    particles.animate,
+    particles.size,
+    particles.lifetime,
+    particles.lifeVariation,
+    particles.lift,
+    particles.drag,
+    particles.groundY,
+  );
+}
+const particleControls = pane.addFolder({ title: "Drifting particles", expanded: false });
+particleControls.addBinding(particles, "count", { label: "Count", readonly: true });
+particleControls.addBinding(particles, "visible", { label: "Visible" });
+particleControls.addBinding(particles, "animate", { label: "Animate" });
+particleControls.addBinding(particles, "size", {
+  label: "Size",
+  min: 0.001,
+  max: 0.05,
+  step: 0.001,
+});
+particleControls.addBinding(particles, "lifetime", {
+  label: "Life (s)",
+  min: 0.5,
+  max: 20,
+  step: 0.1,
+});
+particleControls.addBinding(particles, "lifeVariation", {
+  label: "Life variation",
+  min: 0,
+  max: 0.9,
+  step: 0.05,
+});
+particleControls.addBinding(particles, "lift", {
+  label: "Particle updraft",
+  min: 0,
+  max: 1,
+  step: 0.01,
+});
+particleControls.addBinding(particles, "drag", { label: "Drag", min: 0.1, max: 8, step: 0.1 });
+particleControls.on("change", updateParticles);
+const filament = {
+  debug: false,
+  updraft: 0.35,
+  drift: 0.08,
+  radius: 0.65,
+  core: 0.08,
+  strength: 1.61,
+  circulation: 0.012,
+  lifetime: 6,
+};
+const filamentControls = pane.addFolder({ title: "Filament" });
+filamentControls
+  .addBinding(filament, "debug", { label: "Debug view" })
+  .on("change", ({ value }) => app?.setFilamentDebugVisible(value));
+filamentControls
+  .addBinding(particles, "groundY", { label: "Ground Y", min: -2, max: 3, step: 0.01 })
+  .on("change", updateParticles);
+filamentControls.addBinding(filament, "updraft", {
+  label: "Updraft",
+  min: 0,
+  max: 1.5,
+  step: 0.01,
+});
+filamentControls.addBinding(filament, "drift", { label: "XZ drift", min: 0, max: 0.5, step: 0.01 });
+filamentControls.addBinding(filament, "radius", {
+  label: "Ring radius",
+  min: 0.05,
+  max: 2,
+  step: 0.01,
+});
+filamentControls.addBinding(filament, "core", {
+  label: "Core radius",
+  min: 0.005,
+  max: 0.3,
+  step: 0.001,
+});
+filamentControls.addBinding(filament, "strength", { label: "Vortex", min: 0, max: 5, step: 0.01 });
+filamentControls.addBinding(filament, "circulation", {
+  label: "Circulation",
+  min: 0,
+  max: 0.05,
+  step: 0.001,
+});
+filamentControls.addBinding(filament, "lifetime", {
+  label: "Ring life (s)",
+  min: 1,
+  max: 20,
+  step: 0.1,
+});
+filamentControls.on("change", () =>
+  app?.setFilament(
+    filament.updraft,
+    filament.drift,
+    filament.radius,
+    filament.core,
+    filament.strength,
+    filament.circulation,
+    filament.lifetime,
+  ),
 );
 const fps = createFpsMeter((value) => {
   settings.fps = value === null ? "—" : String(value);
@@ -113,7 +248,12 @@ async function start() {
     function frame(timestampMs: number) {
       if (disposed) return;
       try {
-        created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
+        if (settings.resolution === "hd") {
+          // Keep the drawing buffer exact while CSS fits the 16:9 image to the window.
+          created.resize(1920, 1080, 1);
+        } else {
+          created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
+        }
         // Use the current clock so input received earlier in this RAF is not dated in the future.
         created.frame(performance.now());
         fps.tick(timestampMs);

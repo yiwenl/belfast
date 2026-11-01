@@ -10,13 +10,27 @@ pnpm --dir experiments/infinite_walk dev
 
 Open <http://localhost:5186>. Scroll down to walk forward; scroll up to walk backward. Movement eases to a stop and loops in both directions. The camera follows the original birdsong path at an adjustable height and fixed heading. A mouse wheel or trackpad is required; pinch gestures retain browser zoom.
 
+**Resolution** defaults to **HD · 1920 × 1080**, with an exact 1920 × 1080 drawing buffer regardless of device pixel ratio. CSS centers and fits the image inside the browser at 16:9. Select **Full browser** to fill the viewport and render at its size multiplied by device pixel ratio.
+
 The Tweakpane panel shows FPS, a live **Particle size** slider (0.001–0.05 world units, default 0.01), and **Camera Y** (−2–3 world units, default 0.3). Height changes move the eye and look-at target together, preserving the camera's heading.
 
 Enable **White particles** to use a white base color; disable it to restore the original point-cloud colors (the default). Both modes respond to the spotlight.
 
 **FOV (°)** adjusts the vertical field of view from 10° to 120° (default 45°).
 
-The **Spotlight** follows the camera, defaulting to 3.5 units ahead and 2 units above it with a range of 3.3 units, and shines straight down along world −Y. Its folder controls **Forward**, **Height** (relative to the camera), **Intensity** and **Range**. Point brightness uses a soft cone (30° inner / 45° outer half-angle), distance falloff and dim ambient illumination, in linear color space. Lighting uses each point's wrapped position so it stays aligned across walking loops, and applies to both original and white colors. This first lighting pass has no shadows or bloom.
+The **Spotlight** follows the camera, defaulting to 3.5 units ahead and 2 units above it, intensity 12, range 4.1 and FOV 65°, and shines straight down along world −Y. Its folder controls **Forward**, **Height** (relative to the camera), **Intensity**, **Range** and **FOV (°)**. Spotlight FOV is the full cone angle (10°–150°), with a soft edge starting at two-thirds of the outer half-angle. Point brightness uses this cone, distance falloff and dim ambient illumination, in linear color space. Lighting uses each point's wrapped position so it stays aligned across walking loops, and applies to both original and white colors.
+
+Particles cast circular silhouettes into a 2048² perspective shadow map aligned with the spotlight's position, FOV and range. A fixed 5×5 tent-weighted PCF kernel with bilinear comparison sampling softens the shadows and reduces moving-light shimmer. **Shadows** controls their strength (0–1, default 0.85); zero disables shadowing. Shadows reduce direct light while preserving ambient illumination. Particle silhouettes face the light in the depth pass and receive shadows at their centers; this approximates solid particles without adding surface geometry. Spatial filtering does not provide temporal antialiasing, so very fine silhouettes can still shimmer in motion. Bloom is not included.
+
+**Show shadow map** toggles a live square preview in the bottom-left corner (enabled by default). It displays the actual shadow texture as linearized depth: near is dark, far or empty is white. The map continues updating while the preview is visible, even if shadow strength or light intensity is zero.
+
+## Drifting particles
+
+20,000 independent billboard particles use ping-pong GPU storage buffers. Each frame, a compute pass compacts the current spotlight's point-cloud positions into a spawn list. New particles and particles whose life has ended choose a random entry, inheriting its color. The background cloud is read-only. Empty light volumes leave expired particles hidden until a valid source enters the light; existing particles finish their lives. Lifetime defaults to 5 seconds with ±40% variation, and particle size fades in and out with age.
+
+`belfast::filament::FilamentSimulation` drives six twelve-vertex vortex rings, following the courtyard pattern. Rings simulate in local coordinates; their world origin follows the spotlight's XZ center at **Ground Y** (default −0.11, based on this cloud's floor). This avoids reseeding on every camera movement. A compute pass advects the particles with filament velocity, air drag and upward drift. Camera loop rebasing preserves particle ages. The same updated particle buffer feeds both the shadow and visible passes: particles cast shadows onto the forest and each other, and receive the shared 5×5 PCF shadows.
+
+**Drifting particles** provides visibility, animation, size, lifetime, lifetime variation, particle updraft and drag. **Filament** provides ground height, ring updraft, XZ drift, ring/core radius, vortex strength, circulation and ring lifetime. **Debug view** draws colored filament rings over the scene. Ground height is an adjustable plane rather than terrain collision; no collision solver is included.
 
 ## Assets
 
@@ -30,9 +44,10 @@ The camera uses birdsong's start `[-0.3, 0.3, 4.3]`, end `[0.1, 0.3, -9]`, 45° 
 - `src/points.wgsl`: point-cloud wrapping and billboard rendering.
 - `src/scene.rs`: GPU buffers, camera and render pass.
 - `src/point_cloud.rs`: binary PLY loader reused from `forest_walk`.
+- `src/particles.rs` and `src/particle-*.wgsl`: GPU spawn selection, independent particle state and filament-driven motion.
 - `web/main.ts`: asset loading and the template's Wasm lifecycle.
 
-The template's optional skeleton input remains available for later particle interaction. This experiment contains the static point cloud, walking camera and following spotlight; particle simulation and spray textures are not added yet.
+The template's optional skeleton input remains available for later particle interaction. Spray textures are not included.
 
 ## Verify
 

@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"]
 belfast.workspace = true
 wgpu.workspace = true
 bytemuck.workspace = true
+glam.workspace = true
 
 [dev-dependencies]
 naga.workspace = true
