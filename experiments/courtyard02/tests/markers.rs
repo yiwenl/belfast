@@ -79,8 +79,10 @@ fn calibration_matches_original_ply_coordinates() {
     for sample in json["calibration"]["samples"].as_array().unwrap() {
         let index = sample["ply_index"].as_u64().unwrap() as usize;
         let raw: Vec<f32> = bytes[header_end + index * 56..][..12]
-            .chunks_exact(4)
-            .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f32::from_le_bytes(*b))
             .collect();
         let b = sample["blender_position"].as_array().unwrap();
         let transformed = [
