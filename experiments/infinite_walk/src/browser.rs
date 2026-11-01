@@ -173,6 +173,46 @@ impl ExperimentApp {
         self.scene.walk.scroll(delta);
     }
 
+    #[wasm_bindgen(js_name = setPointSize)]
+    pub fn set_point_size(&mut self, size: f32) -> Result<(), JsValue> {
+        self.scene.set_point_size(size).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setCameraY)]
+    pub fn set_camera_y(&mut self, y: f32) -> Result<(), JsValue> {
+        self.scene.set_camera_y(y).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setFov)]
+    pub fn set_fov(&mut self, degrees: f32) -> Result<(), JsValue> {
+        if !degrees.is_finite() || !(10.0..=120.0).contains(&degrees) {
+            return Err(js_error("FOV must be between 10 and 120 degrees"));
+        }
+        self.scene
+            .camera
+            .set_fovy_radians(degrees.to_radians())
+            .map(|_| ())
+            .map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setWhiteParticles)]
+    pub fn set_white_particles(&mut self, enabled: bool) {
+        self.scene.set_white_particles(enabled);
+    }
+
+    #[wasm_bindgen(js_name = setLight)]
+    pub fn set_light(
+        &mut self,
+        forward: f32,
+        height: f32,
+        intensity: f32,
+        range: f32,
+    ) -> Result<(), JsValue> {
+        self.scene
+            .set_light(forward, height, intensity, range)
+            .map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = loadPointCloud)]
     pub fn load_point_cloud(&mut self, bytes: &[u8]) -> Result<u32, JsValue> {
         self.scene

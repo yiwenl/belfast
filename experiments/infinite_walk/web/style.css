@@ -37,20 +37,12 @@ aside span {
   font-size: 12px;
   color: #aaa;
 }
-#fps {
+body > .tp-dfwv {
   position: fixed;
   top: 24px;
   right: 28px;
-  margin: 0;
-  padding: 6px 9px;
-  border-radius: 4px;
-  background: #0006;
-  color: #d8d8d8;
-  font:
-    12px/1.4 ui-monospace,
-    monospace;
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
+  width: 300px;
+  max-width: calc(100vw - 56px);
 }
 
 #status,

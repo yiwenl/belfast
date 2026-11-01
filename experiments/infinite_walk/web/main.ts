@@ -1,3 +1,4 @@
+import { Pane } from "tweakpane";
 import init, { ExperimentApp } from "../pkg/experiment";
 import { createFpsMeter } from "./fps";
 import { bindWalkInput } from "./input";
@@ -7,12 +8,49 @@ import "./style.css";
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
 const status = document.querySelector<HTMLElement>("#status")!;
 const errorOutput = document.querySelector<HTMLElement>("#error")!;
-const fps = createFpsMeter(document.querySelector<HTMLElement>("#fps")!);
 let app: ExperimentApp | undefined;
 let detachInput: (() => void) | undefined;
 let animationFrame = 0;
 let disposed = false;
 const loading = new AbortController();
+const settings = { fps: "—", pointSize: 0.01, cameraY: 0.3, whiteParticles: false, fov: 45 };
+const pane = new Pane({ title: "Infinite walk" });
+pane.disabled = true;
+pane.addBinding(settings, "fps", { label: "FPS", readonly: true, interval: 500 });
+pane
+  .addBinding(settings, "pointSize", {
+    label: "Particle size",
+    min: 0.001,
+    max: 0.05,
+    step: 0.001,
+  })
+  .on("change", ({ value }) => app?.setPointSize(value));
+pane
+  .addBinding(settings, "whiteParticles", { label: "White particles" })
+  .on("change", ({ value }) => app?.setWhiteParticles(value));
+pane
+  .addBinding(settings, "cameraY", {
+    label: "Camera Y",
+    min: -2,
+    max: 3,
+    step: 0.01,
+  })
+  .on("change", ({ value }) => app?.setCameraY(value));
+pane
+  .addBinding(settings, "fov", { label: "FOV (°)", min: 10, max: 120, step: 1 })
+  .on("change", ({ value }) => app?.setFov(value));
+const light = { forward: 3.5, height: 2, intensity: 12, range: 3.3 };
+const lighting = pane.addFolder({ title: "Spotlight" });
+lighting.addBinding(light, "forward", { label: "Forward", min: 0, max: 10, step: 0.1 });
+lighting.addBinding(light, "height", { label: "Height", min: 0.1, max: 5, step: 0.1 });
+lighting.addBinding(light, "intensity", { label: "Intensity", min: 0, max: 30, step: 0.1 });
+lighting.addBinding(light, "range", { label: "Range", min: 0.2, max: 10, step: 0.1 });
+lighting.on("change", () =>
+  app?.setLight(light.forward, light.height, light.intensity, light.range),
+);
+const fps = createFpsMeter((value) => {
+  settings.fps = value === null ? "—" : String(value);
+});
 
 function dispose() {
   if (disposed) return;
@@ -20,6 +58,7 @@ function dispose() {
   loading.abort();
   cancelAnimationFrame(animationFrame);
   fps.dispose();
+  pane.dispose();
   detachInput?.();
   app?.free();
   app = undefined;
@@ -65,6 +104,7 @@ async function start() {
     document.querySelector<HTMLElement>("#point-count")!.textContent =
       `${count.toLocaleString()} points`;
     detachInput = bindWalkInput(canvas, created);
+    pane.disabled = false;
 
     // Retain the template's optional skeleton input for later particle interaction.
     const skeleton = createSkeletonAdapter(created);

@@ -1,12 +1,12 @@
 /** Average animation-frame rate, refreshed twice per second. */
-export function createFpsMeter(element: HTMLElement) {
+export function createFpsMeter(update: (fps: number | null) => void) {
   let sampleStart: number | undefined;
   let frames = 0;
 
   function reset() {
     sampleStart = undefined;
     frames = 0;
-    element.textContent = "— FPS";
+    update(null);
   }
 
   document.addEventListener("visibilitychange", reset);
@@ -21,7 +21,7 @@ export function createFpsMeter(element: HTMLElement) {
       frames += 1;
       const elapsed = timestampMs - sampleStart;
       if (elapsed >= 500) {
-        element.textContent = `${Math.round((frames * 1000) / elapsed)} FPS`;
+        update(Math.round((frames * 1000) / elapsed));
         sampleStart = timestampMs;
         frames = 0;
       }
