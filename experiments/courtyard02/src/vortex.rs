@@ -71,9 +71,7 @@ impl VortexFlow {
     pub fn new(device: &Device, capacity: u32, camera: &Buffer) -> Result<Self, String> {
         let bytes = u64::from(capacity) * std::mem::size_of::<Particle>() as u64;
         let limits = device.gpu().limits();
-        if bytes > limits.max_buffer_size
-            || bytes > u64::from(limits.max_storage_buffer_binding_size)
-        {
+        if bytes > limits.max_buffer_size || bytes > limits.max_storage_buffer_binding_size {
             return Err("Petal simulation exceeds GPU storage limits".into());
         }
         let states = std::array::from_fn(|_| {

@@ -48,7 +48,7 @@ impl Scene {
         let aspect = 1920.0 / 1080.0;
         let mut camera = PerspectiveCamera::new(blender_fovy(aspect), aspect, 0.1, 100.0);
         // Same Blender-to-scene transform as flower-emitters.json; directions omit the offset.
-        let eye = Vec3::new(-2.2536968, 0.15622632, 1.7343298);
+        let eye = Vec3::new(-2.253_697, 0.15622632, 1.7343298);
         let forward = Vec3::new(0.5391256, 0.0976027, -0.8365508).normalize();
         // Put the orbit pivot at the flower cloud's depth along the camera's viewing ray.
         let radius = 4.1207833;
@@ -228,16 +228,16 @@ impl Scene {
         self.shadow.set_strength(device, strength)
     }
 
-    pub fn set_petal_motion(
-        &mut self,
-        enabled: bool,
-        petal_updraft: f32,
-        filament_updraft: f32,
-        ring_radius: f32,
-        core_radius: f32,
-        strength: f32,
-        filament_drift: f32,
-    ) -> Result<(), String> {
+    pub fn set_petal_motion(&mut self, settings: MotionSettings) -> Result<(), String> {
+        let MotionSettings {
+            petal_updraft,
+            filament_updraft,
+            filament_drift,
+            ring_radius,
+            core_radius,
+            strength,
+            ..
+        } = settings;
         for (value, min, max, name) in [
             (petal_updraft, 0.0, 0.6, "Petal updraft"),
             (filament_updraft, 0.0, 0.3, "Filament updraft"),
@@ -250,15 +250,7 @@ impl Scene {
                 return Err(format!("{name} must be between {min} and {max}"));
             }
         }
-        self.petal_motion = MotionSettings {
-            enabled,
-            petal_updraft,
-            filament_updraft,
-            filament_drift,
-            ring_radius,
-            core_radius,
-            strength,
-        };
+        self.petal_motion = settings;
         Ok(())
     }
 

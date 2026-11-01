@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::scene::Scene;
 use crate::sorting::{SortCamera, SplatSorter};
+use crate::vortex::MotionSettings;
 
 fn js_error(error: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&error.to_string())
@@ -251,15 +252,15 @@ impl ExperimentApp {
         filament_drift: f32,
     ) -> Result<(), JsValue> {
         self.scene
-            .set_petal_motion(
+            .set_petal_motion(MotionSettings {
                 enabled,
                 petal_updraft,
                 filament_updraft,
                 ring_radius,
                 core_radius,
-                vortex_strength,
+                strength: vortex_strength,
                 filament_drift,
-            )
+            })
             .map_err(js_error)
     }
 
