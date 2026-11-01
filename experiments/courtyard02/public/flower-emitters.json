@@ -1,0 +1,3174 @@
+{
+  "schema_version": 1,
+  "coordinate_system": "belfast-world-y-up",
+  "source": {
+    "blend": "/Users/yi-wenlin/Desktop/projects/courtyard02/court.blend",
+    "collection": "WhiteFlower_Markers",
+    "live_unsaved_state": true,
+    "ply": "courtyard1.ply",
+    "ply_sha256": "cc91643e15caa7e133ccdca0b30f26a4536fe74012d5e7d8f270672d94ab8060",
+    "note": "Live marker world positions, not the potentially stale Flower_Emission_Points mesh. Heuristic flower candidates."
+  },
+  "blender_to_scene": {
+    "formula": "[x + offset.x, z + offset.y, -y + offset.z]",
+    "offset": [0.2199016809463501, -0.9984829043969512, -1.806712567806244]
+  },
+  "calibration": {
+    "matched_splats": 1311,
+    "max_error": 2.5979595029086307e-6,
+    "samples": [
+      {
+        "blender_index": 0,
+        "ply_index": 0,
+        "blender_position": [1.06452214717865, -0.9312242865562439, -0.003958501853048801],
+        "ply_position": [1.284423828125, 1.00244140625, 0.87548828125],
+        "error": 0.0
+      },
+      {
+        "blender_index": 1,
+        "ply_index": 2,
+        "blender_position": [20.42682647705078, 6.385182857513428, 19.93817901611328],
+        "ply_position": [20.646728515625, -18.939697265625, 8.19189453125],
+        "error": 1.5029183240447323e-6
+      },
+      {
+        "blender_index": 2,
+        "ply_index": 4,
+        "blender_position": [0.9763873815536499, 0.9950453042984009, 0.8764125108718872],
+        "ply_position": [1.1962890625, 0.1220703125, 2.8017578125],
+        "error": 1.0058714964464759e-7
+      },
+      {
+        "blender_index": 100,
+        "ply_index": 179,
+        "blender_position": [0.7190631628036499, -0.7620348334312439, 0.0014125844463706017],
+        "ply_position": [0.93896484375, 0.9970703125, 1.044677734375],
+        "error": 7.450580596923828e-9
+      }
+    ]
+  },
+  "marker_radius": 0.0045,
+  "count": 312,
+  "emitters": [
+    {
+      "id": 1,
+      "name": "Flower_001_review",
+      "quality": "review",
+      "position": [0.15794269740581512, 0.4905331516638398, -1.6961417496204376],
+      "blender_position": [-0.06195898354053497, -0.11057081818580627, 1.489016056060791],
+      "blender_splat_index": 137095,
+      "ply_splat_index": 258471,
+      "support_splats": 6
+    },
+    {
+      "id": 2,
+      "name": "Flower_002_review",
+      "quality": "review",
+      "position": [0.22589944023638964, 0.4628827953711152, -1.7054875567555428],
+      "blender_position": [0.005997759290039539, -0.10122501105070114, 1.4613656997680664],
+      "blender_splat_index": 226311,
+      "ply_splat_index": 426998,
+      "support_splats": 5
+    },
+    {
+      "id": 3,
+      "name": "Flower_003_review",
+      "quality": "review",
+      "position": [0.29907742142677307, 0.46015326026827097, -1.708745539188385],
+      "blender_position": [0.07917574048042297, -0.09796702861785889, 1.4586361646652222],
+      "blender_splat_index": 156679,
+      "ply_splat_index": 295366,
+      "support_splats": 7
+    },
+    {
+      "id": 4,
+      "name": "Flower_004_review",
+      "quality": "review",
+      "position": [0.1191093847155571, 0.452709355391562, -1.671922892332077],
+      "blender_position": [-0.100792296230793, -0.13478967547416687, 1.4511922597885132],
+      "blender_splat_index": 292065,
+      "ply_splat_index": 550683,
+      "support_splats": 7
+    },
+    {
+      "id": 5,
+      "name": "Flower_005_review",
+      "quality": "review",
+      "position": [0.23015516716986895, 0.4503548527136445, -1.6133013367652893],
+      "blender_position": [0.010253486223518848, -0.1934112310409546, 1.4488377571105957],
+      "blender_splat_index": 318948,
+      "ply_splat_index": 601401,
+      "support_splats": 5
+    },
+    {
+      "id": 6,
+      "name": "Flower_006_review",
+      "quality": "review",
+      "position": [0.14926265180110931, 0.4482273245230317, -1.6923355236649513],
+      "blender_position": [-0.07063902914524078, -0.11437704414129257, 1.446710228919983],
+      "blender_splat_index": 848039,
+      "ply_splat_index": 1598945,
+      "support_splats": 6
+    },
+    {
+      "id": 7,
+      "name": "Flower_007_likely",
+      "quality": "likely",
+      "position": [0.07660792768001556, 0.44740489963442087, -1.6583464592695236],
+      "blender_position": [-0.14329375326633453, -0.14836610853672028, 1.445887804031372],
+      "blender_splat_index": 128189,
+      "ply_splat_index": 241744,
+      "support_splats": 21
+    },
+    {
+      "id": 8,
+      "name": "Flower_008_review",
+      "quality": "review",
+      "position": [0.0933542549610138, 0.4432773971930146, -1.6760694533586502],
+      "blender_position": [-0.1265474259853363, -0.1306431144475937, 1.4417603015899658],
+      "blender_splat_index": 723681,
+      "ply_splat_index": 1364100,
+      "support_splats": 11
+    },
+    {
+      "id": 9,
+      "name": "Flower_009_review",
+      "quality": "review",
+      "position": [0.048928216099739075, 0.4412216329947114, -1.6255374103784561],
+      "blender_position": [-0.17097346484661102, -0.18117515742778778, 1.4397045373916626],
+      "blender_splat_index": 281441,
+      "ply_splat_index": 530541,
+      "support_splats": 5
+    },
+    {
+      "id": 10,
+      "name": "Flower_010_likely",
+      "quality": "likely",
+      "position": [0.31123096495866776, 0.4403185034170747, -1.6192046105861664],
+      "blender_position": [0.09132928401231766, -0.18750795722007751, 1.4388014078140259],
+      "blender_splat_index": 564443,
+      "ply_splat_index": 1063765,
+      "support_splats": 15
+    },
+    {
+      "id": 11,
+      "name": "Flower_011_review",
+      "quality": "review",
+      "position": [0.37779538333415985, 0.4397154236212373, -1.6369273513555527],
+      "blender_position": [0.15789370238780975, -0.16978521645069122, 1.4381983280181885],
+      "blender_splat_index": 322311,
+      "ply_splat_index": 607697,
+      "support_splats": 9
+    },
+    {
+      "id": 12,
+      "name": "Flower_012_likely",
+      "quality": "likely",
+      "position": [0.18318253383040428, 0.4389577293768525, -1.6294671148061752],
+      "blender_position": [-0.036719147115945816, -0.17724545300006866, 1.4374406337738037],
+      "blender_splat_index": 12894,
+      "ply_splat_index": 24322,
+      "support_splats": 15
+    },
+    {
+      "id": 13,
+      "name": "Flower_013_likely",
+      "quality": "likely",
+      "position": [0.37723906338214874, 0.4376694345846772, -1.6101310700178146],
+      "blender_position": [0.15733738243579865, -0.19658149778842926, 1.4361523389816284],
+      "blender_splat_index": 807675,
+      "ply_splat_index": 1522830,
+      "support_splats": 14
+    },
+    {
+      "id": 14,
+      "name": "Flower_014_likely",
+      "quality": "likely",
+      "position": [0.280183095484972, 0.43517271522432566, -1.6239915788173676],
+      "blender_position": [0.0602814145386219, -0.18272098898887634, 1.4336556196212769],
+      "blender_splat_index": 322398,
+      "ply_splat_index": 607861,
+      "support_splats": 22
+    },
+    {
+      "id": 15,
+      "name": "Flower_015_likely",
+      "quality": "likely",
+      "position": [0.3538786470890045, 0.43205920699983835, -1.6235463172197342],
+      "blender_position": [0.13397696614265442, -0.1831662505865097, 1.4305421113967896],
+      "blender_splat_index": 432390,
+      "ply_splat_index": 814545,
+      "support_splats": 29
+    },
+    {
+      "id": 16,
+      "name": "Flower_016_likely",
+      "quality": "likely",
+      "position": [0.12417154759168625, 0.4316895389929414, -1.6542405039072037],
+      "blender_position": [-0.09573013335466385, -0.15247206389904022, 1.4301724433898926],
+      "blender_splat_index": 545934,
+      "ply_splat_index": 1028689,
+      "support_splats": 11
+    },
+    {
+      "id": 17,
+      "name": "Flower_017_likely",
+      "quality": "likely",
+      "position": [0.2060193894430995, 0.4304956579580903, -1.6223964095115662],
+      "blender_position": [-0.013882291503250599, -0.18431615829467773, 1.4289785623550415],
+      "blender_splat_index": 419435,
+      "ply_splat_index": 790145,
+      "support_splats": 14
+    },
+    {
+      "id": 18,
+      "name": "Flower_018_review",
+      "quality": "review",
+      "position": [0.2526605650782585, 0.4302481794729829, -1.6189933568239212],
+      "blender_position": [0.03275888413190842, -0.1877192109823227, 1.428731083869934],
+      "blender_splat_index": 271315,
+      "ply_splat_index": 511469,
+      "support_splats": 10
+    },
+    {
+      "id": 19,
+      "name": "Flower_019_likely",
+      "quality": "likely",
+      "position": [0.2275885264389217, 0.42831520084291697, -1.6038810312747955],
+      "blender_position": [0.007686845492571592, -0.20283153653144836, 1.4267981052398682],
+      "blender_splat_index": 656167,
+      "ply_splat_index": 1236541,
+      "support_splats": 30
+    },
+    {
+      "id": 20,
+      "name": "Flower_020_review",
+      "quality": "review",
+      "position": [0.06347373127937317, 0.42687992099672556, -1.6635106056928635],
+      "blender_position": [-0.15642794966697693, -0.14320196211338043, 1.4253628253936768],
+      "blender_splat_index": 818842,
+      "ply_splat_index": 1543792,
+      "support_splats": 8
+    },
+    {
+      "id": 21,
+      "name": "Flower_021_likely",
+      "quality": "likely",
+      "position": [0.3291827365756035, 0.42604068759828806, -1.623035043478012],
+      "blender_position": [0.10928105562925339, -0.1836775243282318, 1.4245235919952393],
+      "blender_splat_index": 963187,
+      "ply_splat_index": 1817381,
+      "support_splats": 22
+    },
+    {
+      "id": 22,
+      "name": "Flower_022_review",
+      "quality": "review",
+      "position": [0.3290400207042694, 0.42575994972139597, -1.6656166315078735],
+      "blender_position": [0.10913833975791931, -0.14109593629837036, 1.4242428541183472],
+      "blender_splat_index": 812775,
+      "ply_splat_index": 1532432,
+      "support_splats": 5
+    },
+    {
+      "id": 23,
+      "name": "Flower_023_likely",
+      "quality": "likely",
+      "position": [0.14939187467098236, 0.42528716567903757, -1.618914544582367],
+      "blender_position": [-0.07050980627536774, -0.18779802322387695, 1.4237700700759888],
+      "blender_splat_index": 762450,
+      "ply_splat_index": 1436995,
+      "support_splats": 33
+    },
+    {
+      "id": 24,
+      "name": "Flower_024_likely",
+      "quality": "likely",
+      "position": [0.09741340577602386, 0.4213436031714082, -1.640361338853836],
+      "blender_position": [-0.12248827517032623, -0.16635122895240784, 1.4198265075683594],
+      "blender_splat_index": 752374,
+      "ply_splat_index": 1418014,
+      "support_splats": 24
+    },
+    {
+      "id": 25,
+      "name": "Flower_025_likely",
+      "quality": "likely",
+      "position": [-0.047459423542022705, 0.4182254457846284, -1.6421804130077362],
+      "blender_position": [-0.2673611044883728, -0.1645321547985077, 1.4167083501815796],
+      "blender_splat_index": 974988,
+      "ply_splat_index": 1839671,
+      "support_splats": 16
+    },
+    {
+      "id": 26,
+      "name": "Flower_026_review",
+      "quality": "review",
+      "position": [0.03649185597896576, 0.4170943880453706, -1.7007483094930649],
+      "blender_position": [-0.18340982496738434, -0.10596425831317902, 1.4155772924423218],
+      "blender_splat_index": 785841,
+      "ply_splat_index": 1481282,
+      "support_splats": 7
+    },
+    {
+      "id": 27,
+      "name": "Flower_027_likely",
+      "quality": "likely",
+      "position": [0.12992142140865326, 0.41690389160066843, -1.6368881464004517],
+      "blender_position": [-0.08998025953769684, -0.16982442140579224, 1.4153867959976196],
+      "blender_splat_index": 760490,
+      "ply_splat_index": 1433340,
+      "support_splats": 30
+    },
+    {
+      "id": 28,
+      "name": "Flower_028_review",
+      "quality": "review",
+      "position": [0.2180715047288686, 0.4168829107657075, -1.6549403816461563],
+      "blender_position": [-0.001830176217481494, -0.15177218616008759, 1.4153658151626587],
+      "blender_splat_index": 733366,
+      "ply_splat_index": 1382478,
+      "support_splats": 8
+    },
+    {
+      "id": 29,
+      "name": "Flower_029_likely",
+      "quality": "likely",
+      "position": [0.2076572496443987, 0.41490153316408396, -1.6009973287582397],
+      "blender_position": [-0.012244431301951408, -0.20571523904800415, 1.4133844375610352],
+      "blender_splat_index": 149010,
+      "ply_splat_index": 280899,
+      "support_splats": 22
+    },
+    {
+      "id": 30,
+      "name": "Flower_030_likely",
+      "quality": "likely",
+      "position": [0.367135152220726, 0.4136243248358369, -1.634134903550148],
+      "blender_position": [0.14723347127437592, -0.1725776642560959, 1.412107229232788],
+      "blender_splat_index": 661185,
+      "ply_splat_index": 1245936,
+      "support_splats": 20
+    },
+    {
+      "id": 31,
+      "name": "Flower_031_likely",
+      "quality": "likely",
+      "position": [0.12027838081121445, 0.40771881584078074, -1.6568318009376526],
+      "blender_position": [-0.09962330013513565, -0.1498807668685913, 1.406201720237732],
+      "blender_splat_index": 8962,
+      "ply_splat_index": 16973,
+      "support_splats": 12
+    },
+    {
+      "id": 32,
+      "name": "Flower_032_likely",
+      "quality": "likely",
+      "position": [0.25144221633672714, 0.40724579337984324, -1.614228531718254],
+      "blender_position": [0.031540535390377045, -0.1924840360879898, 1.4057286977767944],
+      "blender_splat_index": 410107,
+      "ply_splat_index": 772568,
+      "support_splats": 25
+    },
+    {
+      "id": 33,
+      "name": "Flower_033_likely",
+      "quality": "likely",
+      "position": [0.1481083333492279, 0.4030450964346528, -1.624273344874382],
+      "blender_position": [-0.07179334759712219, -0.18243922293186188, 1.401528000831604],
+      "blender_splat_index": 756385,
+      "ply_splat_index": 1425557,
+      "support_splats": 18
+    },
+    {
+      "id": 34,
+      "name": "Flower_034_likely",
+      "quality": "likely",
+      "position": [0.18820272013545036, 0.4028646135702729, -1.624401867389679],
+      "blender_position": [-0.031698960810899734, -0.18231070041656494, 1.4013475179672241],
+      "blender_splat_index": 241084,
+      "ply_splat_index": 454799,
+      "support_splats": 13
+    },
+    {
+      "id": 35,
+      "name": "Flower_035_review",
+      "quality": "review",
+      "position": [0.1588633954524994, 0.4018760109320283, -1.6612358838319778],
+      "blender_position": [-0.06103828549385071, -0.14547668397426605, 1.4003589153289795],
+      "blender_splat_index": 763454,
+      "ply_splat_index": 1438847,
+      "support_splats": 11
+    },
+    {
+      "id": 36,
+      "name": "Flower_036_likely",
+      "quality": "likely",
+      "position": [0.17356880754232407, 0.4012210750952363, -1.6051713526248932],
+      "blender_position": [-0.04633287340402603, -0.2015412151813507, 1.3997039794921875],
+      "blender_splat_index": 743180,
+      "ply_splat_index": 1400879,
+      "support_splats": 28
+    },
+    {
+      "id": 37,
+      "name": "Flower_037_likely",
+      "quality": "likely",
+      "position": [0.22990559414029121, 0.4004692221060395, -1.6167194247245789],
+      "blender_position": [0.010003913193941116, -0.18999314308166504, 1.3989521265029907],
+      "blender_splat_index": 205282,
+      "ply_splat_index": 387232,
+      "support_splats": 17
+    },
+    {
+      "id": 38,
+      "name": "Flower_038_review",
+      "quality": "review",
+      "position": [0.277406957000494, 0.39890305045992136, -1.619781032204628],
+      "blender_position": [0.057505276054143906, -0.1869315356016159, 1.3973859548568726],
+      "blender_splat_index": 570106,
+      "ply_splat_index": 1074310,
+      "support_splats": 9
+    },
+    {
+      "id": 39,
+      "name": "Flower_039_review",
+      "quality": "review",
+      "position": [-0.03727144002914429, 0.3946886444464326, -1.6286582052707672],
+      "blender_position": [-0.2571731209754944, -0.17805436253547668, 1.3931715488433838],
+      "blender_splat_index": 500222,
+      "ply_splat_index": 942428,
+      "support_splats": 6
+    },
+    {
+      "id": 40,
+      "name": "Flower_040_review",
+      "quality": "review",
+      "position": [-0.02678598463535309, 0.3927404070273042, -1.6967415139079094],
+      "blender_position": [-0.24668766558170319, -0.1099710538983345, 1.3912233114242554],
+      "blender_splat_index": 369974,
+      "ply_splat_index": 696868,
+      "support_splats": 7
+    },
+    {
+      "id": 41,
+      "name": "Flower_041_review",
+      "quality": "review",
+      "position": [0.10722072422504425, 0.3922300720587373, -1.624683827161789],
+      "blender_position": [-0.11268095672130585, -0.18202874064445496, 1.3907129764556885],
+      "blender_splat_index": 549688,
+      "ply_splat_index": 1035826,
+      "support_splats": 7
+    },
+    {
+      "id": 42,
+      "name": "Flower_042_likely",
+      "quality": "likely",
+      "position": [0.04092077910900116, 0.38834253791719675, -1.6340140402317047],
+      "blender_position": [-0.17898090183734894, -0.17269852757453918, 1.386825442314148],
+      "blender_splat_index": 127578,
+      "ply_splat_index": 240526,
+      "support_splats": 22
+    },
+    {
+      "id": 43,
+      "name": "Flower_043_likely",
+      "quality": "likely",
+      "position": [0.09661924093961716, 0.38763967994600534, -1.6577636152505875],
+      "blender_position": [-0.12328244000673294, -0.14894895255565643, 1.3861225843429565],
+      "blender_splat_index": 234564,
+      "ply_splat_index": 442498,
+      "support_splats": 14
+    },
+    {
+      "id": 44,
+      "name": "Flower_044_review",
+      "quality": "review",
+      "position": [0.34901000559329987, 0.38703516963869333, -1.6553292870521545],
+      "blender_position": [0.12910832464694977, -0.15138328075408936, 1.3855180740356445],
+      "blender_splat_index": 878856,
+      "ply_splat_index": 1657441,
+      "support_splats": 9
+    },
+    {
+      "id": 45,
+      "name": "Flower_045_review",
+      "quality": "review",
+      "position": [0.14364341646432877, 0.38576988223940134, -1.659219667315483],
+      "blender_position": [-0.07625826448202133, -0.1474929004907608, 1.3842527866363525],
+      "blender_splat_index": 1016972,
+      "ply_splat_index": 1918684,
+      "support_splats": 6
+    },
+    {
+      "id": 46,
+      "name": "Flower_046_likely",
+      "quality": "likely",
+      "position": [0.14932143688201904, 0.38550511840730906, -1.5907700806856155],
+      "blender_position": [-0.07058024406433105, -0.21594248712062836, 1.3839880228042603],
+      "blender_splat_index": 659789,
+      "ply_splat_index": 1243357,
+      "support_splats": 26
+    },
+    {
+      "id": 47,
+      "name": "Flower_047_review",
+      "quality": "review",
+      "position": [0.3244817778468132, 0.38438252452760935, -1.6207314878702164],
+      "blender_position": [0.1045800969004631, -0.18598107993602753, 1.3828654289245605],
+      "blender_splat_index": 811549,
+      "ply_splat_index": 1530139,
+      "support_splats": 10
+    },
+    {
+      "id": 48,
+      "name": "Flower_048_likely",
+      "quality": "likely",
+      "position": [0.07509957253932953, 0.3843704843893647, -1.6289456486701965],
+      "blender_position": [-0.14480210840702057, -0.17776691913604736, 1.382853388786316],
+      "blender_splat_index": 358692,
+      "ply_splat_index": 675870,
+      "support_splats": 23
+    },
+    {
+      "id": 49,
+      "name": "Flower_049_review",
+      "quality": "review",
+      "position": [0.2625657431781292, 0.3839668417349458, -1.6514391154050827],
+      "blender_position": [0.0426640622317791, -0.1552734524011612, 1.382449746131897],
+      "blender_splat_index": 672798,
+      "ply_splat_index": 1267830,
+      "support_splats": 7
+    },
+    {
+      "id": 50,
+      "name": "Flower_050_likely",
+      "quality": "likely",
+      "position": [0.17581090703606606, 0.38391260150820017, -1.6239324808120728],
+      "blender_position": [-0.04409077391028404, -0.18278008699417114, 1.3823955059051514],
+      "blender_splat_index": 529033,
+      "ply_splat_index": 996906,
+      "support_splats": 22
+    },
+    {
+      "id": 51,
+      "name": "Flower_051_likely",
+      "quality": "likely",
+      "position": [0.2603667974472046, 0.38038734439760447, -1.609473705291748],
+      "blender_position": [0.04046511650085449, -0.19723886251449585, 1.3788702487945557],
+      "blender_splat_index": 13849,
+      "ply_splat_index": 26119,
+      "support_splats": 16
+    },
+    {
+      "id": 52,
+      "name": "Flower_052_review",
+      "quality": "review",
+      "position": [0.06085452437400818, 0.37896446231752634, -1.6683064997196198],
+      "blender_position": [-0.15904715657234192, -0.13840606808662415, 1.3774473667144775],
+      "blender_splat_index": 397024,
+      "ply_splat_index": 747813,
+      "support_splats": 7
+    },
+    {
+      "id": 53,
+      "name": "Flower_053_likely",
+      "quality": "likely",
+      "position": [0.13127582520246506, 0.3787584686651826, -1.6245795637369156],
+      "blender_position": [-0.08862585574388504, -0.1821330040693283, 1.3772413730621338],
+      "blender_splat_index": 287450,
+      "ply_splat_index": 541891,
+      "support_splats": 21
+    },
+    {
+      "id": 54,
+      "name": "Flower_054_likely",
+      "quality": "likely",
+      "position": [-0.04375311732292175, 0.37819258216768503, -1.6084844321012497],
+      "blender_position": [-0.26365479826927185, -0.1982281357049942, 1.3766754865646362],
+      "blender_splat_index": 114611,
+      "ply_splat_index": 216081,
+      "support_splats": 21
+    },
+    {
+      "id": 55,
+      "name": "Flower_055_review",
+      "quality": "review",
+      "position": [0.4356098771095276, 0.37571648601442575, -1.6322157979011536],
+      "blender_position": [0.2157081961631775, -0.17449676990509033, 1.374199390411377],
+      "blender_splat_index": 679509,
+      "ply_splat_index": 1280481,
+      "support_splats": 8
+    },
+    {
+      "id": 56,
+      "name": "Flower_056_review",
+      "quality": "review",
+      "position": [0.40319444239139557, 0.37550047878175974, -1.6344022154808044],
+      "blender_position": [0.18329276144504547, -0.17231035232543945, 1.373983383178711],
+      "blender_splat_index": 538592,
+      "ply_splat_index": 1014868,
+      "support_splats": 7
+    },
+    {
+      "id": 57,
+      "name": "Flower_057_review",
+      "quality": "review",
+      "position": [-0.02753424644470215, 0.3751489305868745, -1.638385221362114],
+      "blender_position": [-0.24743592739105225, -0.16832734644412994, 1.3736318349838257],
+      "blender_splat_index": 750030,
+      "ply_splat_index": 1413603,
+      "support_splats": 6
+    },
+    {
+      "id": 58,
+      "name": "Flower_058_likely",
+      "quality": "likely",
+      "position": [0.1078602522611618, 0.37340930942445993, -1.6451860517263412],
+      "blender_position": [-0.1120414286851883, -0.16152651607990265, 1.3718922138214111],
+      "blender_splat_index": 260478,
+      "ply_splat_index": 491157,
+      "support_splats": 13
+    },
+    {
+      "id": 59,
+      "name": "Flower_059_likely",
+      "quality": "likely",
+      "position": [0.09538715332746506, 0.37271658424288034, -1.6163619458675385],
+      "blender_position": [-0.12451452761888504, -0.19035062193870544, 1.3711994886398315],
+      "blender_splat_index": 617039,
+      "ply_splat_index": 1162821,
+      "support_splats": 17
+    },
+    {
+      "id": 60,
+      "name": "Flower_060_likely",
+      "quality": "likely",
+      "position": [0.016641870141029358, 0.37242690566927195, -1.6348011791706085],
+      "blender_position": [-0.20325981080532074, -0.17191138863563538, 1.3709098100662231],
+      "blender_splat_index": 480806,
+      "ply_splat_index": 905822,
+      "support_splats": 20
+    },
+    {
+      "id": 61,
+      "name": "Flower_061_likely",
+      "quality": "likely",
+      "position": [0.28182126209139824, 0.3691207552328706, -1.603013128042221],
+      "blender_position": [0.06191958114504814, -0.20369943976402283, 1.3676036596298218],
+      "blender_splat_index": 755866,
+      "ply_splat_index": 1424584,
+      "support_splats": 28
+    },
+    {
+      "id": 62,
+      "name": "Flower_062_likely",
+      "quality": "likely",
+      "position": [-0.020598948001861572, 0.3690543556585908, -1.6044590473175049],
+      "blender_position": [-0.24050062894821167, -0.202253520488739, 1.367537260055542],
+      "blender_splat_index": 454956,
+      "ply_splat_index": 857142,
+      "support_splats": 46
+    },
+    {
+      "id": 63,
+      "name": "Flower_063_likely",
+      "quality": "likely",
+      "position": [0.1923234537243843, 0.3642058754339814, -1.6200567781925201],
+      "blender_position": [-0.02757822722196579, -0.18665578961372375, 1.3626887798309326],
+      "blender_splat_index": 250029,
+      "ply_splat_index": 471567,
+      "support_splats": 21
+    },
+    {
+      "id": 64,
+      "name": "Flower_064_likely",
+      "quality": "likely",
+      "position": [0.14562232047319412, 0.3635025406256318, -1.597140908241272],
+      "blender_position": [-0.07427936047315598, -0.20957165956497192, 1.361985445022583],
+      "blender_splat_index": 519774,
+      "ply_splat_index": 979485,
+      "support_splats": 19
+    },
+    {
+      "id": 65,
+      "name": "Flower_065_review",
+      "quality": "review",
+      "position": [0.12873471528291702, 0.3579277181997895, -1.6451818943023682],
+      "blender_position": [-0.09116696566343307, -0.16153067350387573, 1.3564106225967407],
+      "blender_splat_index": 132238,
+      "ply_splat_index": 249389,
+      "support_splats": 8
+    },
+    {
+      "id": 66,
+      "name": "Flower_066_likely",
+      "quality": "likely",
+      "position": [0.2590506412088871, 0.35761157516390085, -1.597816288471222],
+      "blender_position": [0.039148960262537, -0.20889627933502197, 1.356094479560852],
+      "blender_splat_index": 232719,
+      "ply_splat_index": 438925,
+      "support_splats": 10
+    },
+    {
+      "id": 67,
+      "name": "Flower_067_review",
+      "quality": "review",
+      "position": [0.0423569530248642, 0.3568218136206269, -1.6108351349830627],
+      "blender_position": [-0.1775447279214859, -0.19587743282318115, 1.3553047180175781],
+      "blender_splat_index": 361077,
+      "ply_splat_index": 680268,
+      "support_splats": 9
+    },
+    {
+      "id": 68,
+      "name": "Flower_068_likely",
+      "quality": "likely",
+      "position": [-0.0020268410444259644, 0.35587255004793406, -1.6079631298780441],
+      "blender_position": [-0.22192852199077606, -0.19874943792819977, 1.3543554544448853],
+      "blender_splat_index": 502609,
+      "ply_splat_index": 946987,
+      "support_splats": 29
+    },
+    {
+      "id": 69,
+      "name": "Flower_069_likely",
+      "quality": "likely",
+      "position": [0.23328032437711954, 0.3541590357199311, -1.6116669923067093],
+      "blender_position": [0.013378643430769444, -0.1950455754995346, 1.3526419401168823],
+      "blender_splat_index": 602395,
+      "ply_splat_index": 1135336,
+      "support_splats": 12
+    },
+    {
+      "id": 70,
+      "name": "Flower_070_review",
+      "quality": "review",
+      "position": [0.37217409908771515, 0.35332576278597116, -1.666553720831871],
+      "blender_position": [0.15227241814136505, -0.14015884697437286, 1.3518086671829224],
+      "blender_splat_index": 7135,
+      "ply_splat_index": 13549,
+      "support_splats": 4
+    },
+    {
+      "id": 71,
+      "name": "Flower_071_review",
+      "quality": "review",
+      "position": [0.3871361315250397, 0.35311285499483347, -1.6324177384376526],
+      "blender_position": [0.16723445057868958, -0.1742948293685913, 1.3515957593917847],
+      "blender_splat_index": 774414,
+      "ply_splat_index": 1459692,
+      "support_splats": 10
+    },
+    {
+      "id": 72,
+      "name": "Flower_072_likely",
+      "quality": "likely",
+      "position": [0.1256481260061264, 0.3513512993231416, -1.6106306910514832],
+      "blender_position": [-0.0942535549402237, -0.19608187675476074, 1.3498342037200928],
+      "blender_splat_index": 244919,
+      "ply_splat_index": 462106,
+      "support_splats": 24
+    },
+    {
+      "id": 73,
+      "name": "Flower_073_likely",
+      "quality": "likely",
+      "position": [0.097447969019413, 0.3503059530630708, -1.6059631407260895],
+      "blender_position": [-0.1224537119269371, -0.20074942708015442, 1.348788857460022],
+      "blender_splat_index": 785310,
+      "ply_splat_index": 1480285,
+      "support_splats": 24
+    },
+    {
+      "id": 74,
+      "name": "Flower_074_review",
+      "quality": "review",
+      "position": [0.09402652084827423, 0.3502165460959077, -1.6295472383499146],
+      "blender_position": [-0.12587516009807587, -0.17716532945632935, 1.3486994504928589],
+      "blender_splat_index": 71129,
+      "ply_splat_index": 133824,
+      "support_splats": 9
+    },
+    {
+      "id": 75,
+      "name": "Flower_075_likely",
+      "quality": "likely",
+      "position": [-0.01610828936100006, 0.3493571663275361, -1.6654887050390244],
+      "blender_position": [-0.23600997030735016, -0.14122386276721954, 1.3478400707244873],
+      "blender_splat_index": 397534,
+      "ply_splat_index": 748768,
+      "support_splats": 10
+    },
+    {
+      "id": 76,
+      "name": "Flower_076_likely",
+      "quality": "likely",
+      "position": [-0.031241804361343384, 0.3491771603003144, -1.6099811494350433],
+      "blender_position": [-0.2511434853076935, -0.19673141837120056, 1.3476600646972656],
+      "blender_splat_index": 354892,
+      "ply_splat_index": 668751,
+      "support_splats": 28
+    },
+    {
+      "id": 77,
+      "name": "Flower_077_review",
+      "quality": "review",
+      "position": [0.36426199972629547, 0.3484334135428071, -1.6367962509393692],
+      "blender_position": [0.14436031877994537, -0.1699163168668747, 1.3469163179397583],
+      "blender_splat_index": 943004,
+      "ply_splat_index": 1779316,
+      "support_splats": 6
+    },
+    {
+      "id": 78,
+      "name": "Flower_078_likely",
+      "quality": "likely",
+      "position": [0.19421515055000782, 0.34834221843630075, -1.5703847259283066],
+      "blender_position": [-0.025686530396342278, -0.23632784187793732, 1.346825122833252],
+      "blender_splat_index": 674244,
+      "ply_splat_index": 1270536,
+      "support_splats": 39
+    },
+    {
+      "id": 79,
+      "name": "Flower_079_likely",
+      "quality": "likely",
+      "position": [0.15893934667110443, 0.3480003261938691, -1.6111801862716675],
+      "blender_position": [-0.060962334275245667, -0.19553238153457642, 1.3464832305908203],
+      "blender_splat_index": 880593,
+      "ply_splat_index": 1660722,
+      "support_splats": 12
+    },
+    {
+      "id": 80,
+      "name": "Flower_080_likely",
+      "quality": "likely",
+      "position": [0.3898804783821106, 0.345941343344748, -1.578537493944168],
+      "blender_position": [0.1699787974357605, -0.2281750738620758, 1.3444242477416992],
+      "blender_splat_index": 9264,
+      "ply_splat_index": 17529,
+      "support_splats": 30
+    },
+    {
+      "id": 81,
+      "name": "Flower_081_review",
+      "quality": "review",
+      "position": [-0.0782257616519928, 0.3455689335241914, -1.6798911392688751],
+      "blender_position": [-0.2981274425983429, -0.12682142853736877, 1.3440518379211426],
+      "blender_splat_index": 700968,
+      "ply_splat_index": 1321087,
+      "support_splats": 9
+    },
+    {
+      "id": 82,
+      "name": "Flower_082_review",
+      "quality": "review",
+      "position": [0.0246543288230896, 0.34535519126802683, -1.636091947555542],
+      "blender_position": [-0.1952473521232605, -0.1706206202507019, 1.343838095664978],
+      "blender_splat_index": 367639,
+      "ply_splat_index": 692504,
+      "support_splats": 9
+    },
+    {
+      "id": 83,
+      "name": "Flower_083_review",
+      "quality": "review",
+      "position": [0.4088374525308609, 0.3449114942923188, -1.629953771829605],
+      "blender_position": [0.1889357715845108, -0.1767587959766388, 1.34339439868927],
+      "blender_splat_index": 910545,
+      "ply_splat_index": 1717540,
+      "support_splats": 6
+    },
+    {
+      "id": 84,
+      "name": "Flower_084_likely",
+      "quality": "likely",
+      "position": [-0.05604654550552368, 0.3442922020331025, -1.6767642796039581],
+      "blender_position": [-0.2759482264518738, -0.12994828820228577, 1.3427751064300537],
+      "blender_splat_index": 66505,
+      "ply_splat_index": 125129,
+      "support_splats": 12
+    },
+    {
+      "id": 85,
+      "name": "Flower_085_review",
+      "quality": "review",
+      "position": [-0.10180491209030151, 0.34273640159517527, -1.710886962711811],
+      "blender_position": [-0.3217065930366516, -0.09582560509443283, 1.3412193059921265],
+      "blender_splat_index": 900773,
+      "ply_splat_index": 1698804,
+      "support_splats": 9
+    },
+    {
+      "id": 86,
+      "name": "Flower_086_likely",
+      "quality": "likely",
+      "position": [0.06725418567657471, 0.34225515369325876, -1.6158471405506134],
+      "blender_position": [-0.1526474952697754, -0.1908654272556305, 1.34073805809021],
+      "blender_splat_index": 498447,
+      "ply_splat_index": 939199,
+      "support_splats": 25
+    },
+    {
+      "id": 87,
+      "name": "Flower_087_likely",
+      "quality": "likely",
+      "position": [0.3699927031993866, 0.341988124884665, -1.5985168367624283],
+      "blender_position": [0.1500910222530365, -0.2081957310438156, 1.3404710292816162],
+      "blender_splat_index": 685190,
+      "ply_splat_index": 1291193,
+      "support_splats": 24
+    },
+    {
+      "id": 88,
+      "name": "Flower_088_review",
+      "quality": "review",
+      "position": [0.4600876569747925, 0.3408291721716523, -1.6348392963409424],
+      "blender_position": [0.24018597602844238, -0.1718732714653015, 1.3393120765686035],
+      "blender_splat_index": 50232,
+      "ply_splat_index": 94436,
+      "support_splats": 4
+    },
+    {
+      "id": 89,
+      "name": "Flower_089_review",
+      "quality": "review",
+      "position": [0.2891072630882263, 0.3405247116461396, -1.5944129079580307],
+      "blender_position": [0.06920558214187622, -0.2122996598482132, 1.3390076160430908],
+      "blender_splat_index": 42584,
+      "ply_splat_index": 80180,
+      "support_splats": 10
+    },
+    {
+      "id": 90,
+      "name": "Flower_090_likely",
+      "quality": "likely",
+      "position": [0.026194557547569275, 0.3399987602606416, -1.6108511239290237],
+      "blender_position": [-0.19370712339878082, -0.19586144387722015, 1.3384816646575928],
+      "blender_splat_index": 403093,
+      "ply_splat_index": 759229,
+      "support_splats": 33
+    },
+    {
+      "id": 91,
+      "name": "Flower_091_likely",
+      "quality": "likely",
+      "position": [0.22108292463235557, 0.33926514629274607, -1.5719569027423859],
+      "blender_position": [0.0011812436860054731, -0.23475566506385803, 1.3377480506896973],
+      "blender_splat_index": 888580,
+      "ply_splat_index": 1675687,
+      "support_splats": 28
+    },
+    {
+      "id": 92,
+      "name": "Flower_092_review",
+      "quality": "review",
+      "position": [-0.051027148962020874, 0.338534870184958, -1.7108941078186035],
+      "blender_position": [-0.27092882990837097, -0.09581845998764038, 1.3370177745819092],
+      "blender_splat_index": 494570,
+      "ply_splat_index": 931872,
+      "support_splats": 5
+    },
+    {
+      "id": 93,
+      "name": "Flower_093_likely",
+      "quality": "likely",
+      "position": [0.15792550519108772, 0.33191219810396433, -1.5956798195838928],
+      "blender_position": [-0.061976175755262375, -0.21103274822235107, 1.3303951025009155],
+      "blender_splat_index": 772078,
+      "ply_splat_index": 1455235,
+      "support_splats": 12
+    },
+    {
+      "id": 94,
+      "name": "Flower_094_likely",
+      "quality": "likely",
+      "position": [0.11400008201599121, 0.3297242308035493, -1.6143979728221893],
+      "blender_position": [-0.10590159893035889, -0.19231459498405457, 1.3282071352005005],
+      "blender_splat_index": 898484,
+      "ply_splat_index": 1694461,
+      "support_splats": 18
+    },
+    {
+      "id": 95,
+      "name": "Flower_095_review",
+      "quality": "review",
+      "position": [0.3135622516274452, 0.32919684890657663, -1.609890416264534],
+      "blender_position": [0.09366057068109512, -0.1968221515417099, 1.3276797533035278],
+      "blender_splat_index": 317376,
+      "ply_splat_index": 598490,
+      "support_splats": 6
+    },
+    {
+      "id": 96,
+      "name": "Flower_096_review",
+      "quality": "review",
+      "position": [0.0892561823129654, 0.32822922710329294, -1.6119863986968994],
+      "blender_position": [-0.1306454986333847, -0.19472616910934448, 1.3267121315002441],
+      "blender_splat_index": 230564,
+      "ply_splat_index": 434984,
+      "support_splats": 12
+    },
+    {
+      "id": 97,
+      "name": "Flower_097_likely",
+      "quality": "likely",
+      "position": [-0.011717289686203003, 0.3262883806601167, -1.62217478454113],
+      "blender_position": [-0.2316189706325531, -0.18453778326511383, 1.3247712850570679],
+      "blender_splat_index": 152550,
+      "ply_splat_index": 287520,
+      "support_splats": 18
+    },
+    {
+      "id": 98,
+      "name": "Flower_098_likely",
+      "quality": "likely",
+      "position": [0.049280792474746704, 0.3254079008474946, -1.6113045513629913],
+      "blender_position": [-0.1706208884716034, -0.19540801644325256, 1.3238908052444458],
+      "blender_splat_index": 305817,
+      "ply_splat_index": 576794,
+      "support_splats": 34
+    },
+    {
+      "id": 99,
+      "name": "Flower_099_review",
+      "quality": "review",
+      "position": [0.2521657273173332, 0.3251136923208833, -1.6081032007932663],
+      "blender_position": [0.032264046370983124, -0.1986093670129776, 1.3235965967178345],
+      "blender_splat_index": 479965,
+      "ply_splat_index": 904340,
+      "support_splats": 7
+    },
+    {
+      "id": 100,
+      "name": "Flower_100_likely",
+      "quality": "likely",
+      "position": [0.39563873410224915, 0.324037947691977, -1.5719780623912811],
+      "blender_position": [0.17573705315589905, -0.23473450541496277, 1.3225208520889282],
+      "blender_splat_index": 405782,
+      "ply_splat_index": 764316,
+      "support_splats": 32
+    },
+    {
+      "id": 101,
+      "name": "Flower_101_likely",
+      "quality": "likely",
+      "position": [0.06881588697433472, 0.32380346301943064, -1.5998311191797256],
+      "blender_position": [-0.15108579397201538, -0.20688144862651825, 1.3222863674163818],
+      "blender_splat_index": 458104,
+      "ply_splat_index": 863008,
+      "support_splats": 18
+    },
+    {
+      "id": 102,
+      "name": "Flower_102_likely",
+      "quality": "likely",
+      "position": [0.2502376399934292, 0.32266048435121775, -1.5848060101270676],
+      "blender_position": [0.030335959047079086, -0.22190655767917633, 1.321143388748169],
+      "blender_splat_index": 20586,
+      "ply_splat_index": 38896,
+      "support_splats": 24
+    },
+    {
+      "id": 103,
+      "name": "Flower_103_review",
+      "quality": "review",
+      "position": [0.34011100232601166, 0.3217094326391816, -1.6446141600608826],
+      "blender_position": [0.12020932137966156, -0.16209840774536133, 1.3201923370361328],
+      "blender_splat_index": 978027,
+      "ply_splat_index": 1845360,
+      "support_splats": 6
+    },
+    {
+      "id": 104,
+      "name": "Flower_104_likely",
+      "quality": "likely",
+      "position": [0.20664158556610346, 0.32160810474306345, -1.5717327445745468],
+      "blender_position": [-0.01326009538024664, -0.23497982323169708, 1.3200910091400146],
+      "blender_splat_index": 25259,
+      "ply_splat_index": 47840,
+      "support_splats": 47
+    },
+    {
+      "id": 105,
+      "name": "Flower_105_likely",
+      "quality": "likely",
+      "position": [0.16853803396224976, 0.3202237272635102, -1.571792408823967],
+      "blender_position": [-0.05136364698410034, -0.23492015898227692, 1.3187066316604614],
+      "blender_splat_index": 416661,
+      "ply_splat_index": 784993,
+      "support_splats": 40
+    },
+    {
+      "id": 106,
+      "name": "Flower_106_likely",
+      "quality": "likely",
+      "position": [0.2708364278078079, 0.31940022949129343, -1.5976374596357346],
+      "blender_position": [0.050934746861457825, -0.20907510817050934, 1.3178831338882446],
+      "blender_splat_index": 950510,
+      "ply_splat_index": 1793436,
+      "support_splats": 15
+    },
+    {
+      "id": 107,
+      "name": "Flower_107_likely",
+      "quality": "likely",
+      "position": [-0.047496289014816284, 0.31682578567415476, -1.6128960847854614],
+      "blender_position": [-0.2673979699611664, -0.19381648302078247, 1.315308690071106],
+      "blender_splat_index": 10672,
+      "ply_splat_index": 20204,
+      "support_splats": 22
+    },
+    {
+      "id": 108,
+      "name": "Flower_108_likely",
+      "quality": "likely",
+      "position": [-0.21150022745132446, 0.31651095394045115, -1.6451832950115204],
+      "blender_position": [-0.43140190839767456, -0.1615292727947235, 1.3149938583374023],
+      "blender_splat_index": 31184,
+      "ply_splat_index": 58670,
+      "support_splats": 12
+    },
+    {
+      "id": 109,
+      "name": "Flower_109_likely",
+      "quality": "likely",
+      "position": [0.42408548295497894, 0.31621841434389353, -1.573743760585785],
+      "blender_position": [0.20418380200862885, -0.23296880722045898, 1.3147013187408447],
+      "blender_splat_index": 860159,
+      "ply_splat_index": 1621868,
+      "support_splats": 9
+    },
+    {
+      "id": 110,
+      "name": "Flower_110_likely",
+      "quality": "likely",
+      "position": [0.22850910481065512, 0.3161399746313691, -1.5720951110124588],
+      "blender_position": [0.00860742386430502, -0.2346174567937851, 1.3146228790283203],
+      "blender_splat_index": 992765,
+      "ply_splat_index": 1873219,
+      "support_splats": 17
+    },
+    {
+      "id": 111,
+      "name": "Flower_111_review",
+      "quality": "review",
+      "position": [0.11597905308008194, 0.3158457661047578, -1.6368371695280075],
+      "blender_position": [-0.10392262786626816, -0.1698753982782364, 1.314328670501709],
+      "blender_splat_index": 859045,
+      "ply_splat_index": 1619728,
+      "support_splats": 4
+    },
+    {
+      "id": 112,
+      "name": "Flower_112_likely",
+      "quality": "likely",
+      "position": [0.33955615758895874, 0.3148684883490205, -1.5896023362874985],
+      "blender_position": [0.11965447664260864, -0.21711023151874542, 1.3133513927459717],
+      "blender_splat_index": 347980,
+      "ply_splat_index": 655702,
+      "support_splats": 12
+    },
+    {
+      "id": 113,
+      "name": "Flower_113_likely",
+      "quality": "likely",
+      "position": [-0.09862640500068665, 0.31436089519411325, -1.6467932313680649],
+      "blender_position": [-0.31852808594703674, -0.15991933643817902, 1.3128437995910645],
+      "blender_splat_index": 285802,
+      "ply_splat_index": 538778,
+      "support_splats": 10
+    },
+    {
+      "id": 114,
+      "name": "Flower_114_likely",
+      "quality": "likely",
+      "position": [0.10991289466619492, 0.3132985020056367, -1.590281292796135],
+      "blender_position": [-0.10998878628015518, -0.21643127501010895, 1.311781406402588],
+      "blender_splat_index": 376373,
+      "ply_splat_index": 708860,
+      "support_splats": 13
+    },
+    {
+      "id": 115,
+      "name": "Flower_115_likely",
+      "quality": "likely",
+      "position": [0.30301572382450104, 0.3121475363150239, -1.5992765724658966],
+      "blender_position": [0.08311404287815094, -0.2074359953403473, 1.310630440711975],
+      "blender_splat_index": 820224,
+      "ply_splat_index": 1546437,
+      "support_splats": 12
+    },
+    {
+      "id": 116,
+      "name": "Flower_116_review",
+      "quality": "review",
+      "position": [0.327016219496727, 0.3112739706411958, -1.6088278591632843],
+      "blender_position": [0.10711453855037689, -0.1978847086429596, 1.309756875038147],
+      "blender_splat_index": 757472,
+      "ply_splat_index": 1427636,
+      "support_splats": 7
+    },
+    {
+      "id": 117,
+      "name": "Flower_117_review",
+      "quality": "review",
+      "position": [-0.02801021933555603, 0.31117955688387156, -1.6236305087804794],
+      "blender_position": [-0.24791190028190613, -0.18308205902576447, 1.3096624612808228],
+      "blender_splat_index": 630627,
+      "ply_splat_index": 1188391,
+      "support_splats": 10
+    },
+    {
+      "id": 118,
+      "name": "Flower_118_likely",
+      "quality": "likely",
+      "position": [-0.062352389097213745, 0.31017736438661814, -1.6645159423351288],
+      "blender_position": [-0.28225407004356384, -0.1421966254711151, 1.3086602687835693],
+      "blender_splat_index": 872608,
+      "ply_splat_index": 1645532,
+      "support_splats": 11
+    },
+    {
+      "id": 119,
+      "name": "Flower_119_likely",
+      "quality": "likely",
+      "position": [0.18746129050850868, 0.30771461967378855, -1.5769762098789215],
+      "blender_position": [-0.032440390437841415, -0.2297363579273224, 1.3061975240707397],
+      "blender_splat_index": 402062,
+      "ply_splat_index": 757324,
+      "support_splats": 35
+    },
+    {
+      "id": 120,
+      "name": "Flower_120_likely",
+      "quality": "likely",
+      "position": [0.13104486465454102, 0.3075081491842866, -1.5813380628824234],
+      "blender_position": [-0.08885681629180908, -0.2253745049238205, 1.3059910535812378],
+      "blender_splat_index": 54228,
+      "ply_splat_index": 102075,
+      "support_splats": 29
+    },
+    {
+      "id": 121,
+      "name": "Flower_121_likely",
+      "quality": "likely",
+      "position": [-0.1525508165359497, 0.3064443254843354, -1.6988409459590912],
+      "blender_position": [-0.3724524974822998, -0.10787162184715271, 1.3049272298812866],
+      "blender_splat_index": 929468,
+      "ply_splat_index": 1753688,
+      "support_splats": 11
+    },
+    {
+      "id": 122,
+      "name": "Flower_122_likely",
+      "quality": "likely",
+      "position": [-0.003232225775718689, 0.3049158239737153, -1.6239454299211502],
+      "blender_position": [-0.2231339067220688, -0.1827671378850937, 1.3033987283706665],
+      "blender_splat_index": 227722,
+      "ply_splat_index": 429678,
+      "support_splats": 13
+    },
+    {
+      "id": 123,
+      "name": "Flower_123_likely",
+      "quality": "likely",
+      "position": [-0.1767570972442627, 0.3046024227514863, -1.7044288665056229],
+      "blender_position": [-0.3966587781906128, -0.10228370130062103, 1.3030853271484375],
+      "blender_splat_index": 466617,
+      "ply_splat_index": 878907,
+      "support_splats": 13
+    },
+    {
+      "id": 124,
+      "name": "Flower_124_likely",
+      "quality": "likely",
+      "position": [0.25498010590672493, 0.30438069347292185, -1.5677853226661682],
+      "blender_position": [0.03507842496037483, -0.23892724514007568, 1.302863597869873],
+      "blender_splat_index": 466646,
+      "ply_splat_index": 878956,
+      "support_splats": 23
+    },
+    {
+      "id": 125,
+      "name": "Flower_125_likely",
+      "quality": "likely",
+      "position": [0.03184893727302551, 0.30389265064150095, -1.614771693944931],
+      "blender_position": [-0.18805274367332458, -0.19194087386131287, 1.3023755550384521],
+      "blender_splat_index": 760157,
+      "ply_splat_index": 1432738,
+      "support_splats": 15
+    },
+    {
+      "id": 126,
+      "name": "Flower_126_likely",
+      "quality": "likely",
+      "position": [0.09029851853847504, 0.30120853427797556, -1.587727889418602],
+      "blender_position": [-0.12960316240787506, -0.2189846783876419, 1.2996914386749268],
+      "blender_splat_index": 188087,
+      "ply_splat_index": 354789,
+      "support_splats": 35
+    },
+    {
+      "id": 127,
+      "name": "Flower_127_likely",
+      "quality": "likely",
+      "position": [0.15301748365163803, 0.30075220111757517, -1.5738291889429092],
+      "blender_position": [-0.06688419729471207, -0.23288337886333466, 1.2992351055145264],
+      "blender_splat_index": 534701,
+      "ply_splat_index": 1007554,
+      "support_splats": 52
+    },
+    {
+      "id": 128,
+      "name": "Flower_128_likely",
+      "quality": "likely",
+      "position": [-0.06399500370025635, 0.3006656551733613, -1.6316067725419998],
+      "blender_position": [-0.28389668464660645, -0.17510579526424408, 1.2991485595703125],
+      "blender_splat_index": 610231,
+      "ply_splat_index": 1150027,
+      "support_splats": 17
+    },
+    {
+      "id": 129,
+      "name": "Flower_129_likely",
+      "quality": "likely",
+      "position": [-0.11726805567741394, 0.299957194365561, -1.6899837777018547],
+      "blender_position": [-0.33716973662376404, -0.11672879010438919, 1.2984400987625122],
+      "blender_splat_index": 952371,
+      "ply_splat_index": 1796940,
+      "support_splats": 13
+    },
+    {
+      "id": 130,
+      "name": "Flower_130_likely",
+      "quality": "likely",
+      "position": [0.06921741366386414, 0.299668469466269, -1.595473051071167],
+      "blender_position": [-0.15068426728248596, -0.2112395167350769, 1.2981513738632202],
+      "blender_splat_index": 90716,
+      "ply_splat_index": 170940,
+      "support_splats": 30
+    },
+    {
+      "id": 131,
+      "name": "Flower_131_review",
+      "quality": "review",
+      "position": [0.33391738682985306, 0.29829875472933054, -1.6299787908792496],
+      "blender_position": [0.11401570588350296, -0.17673377692699432, 1.2967816591262817],
+      "blender_splat_index": 109676,
+      "ply_splat_index": 206803,
+      "support_splats": 5
+    },
+    {
+      "id": 132,
+      "name": "Flower_132_likely",
+      "quality": "likely",
+      "position": [0.2769526243209839, 0.29815272334963083, -1.5721272826194763],
+      "blender_position": [0.05705094337463379, -0.23458528518676758, 1.296635627746582],
+      "blender_splat_index": 430661,
+      "ply_splat_index": 811300,
+      "support_splats": 17
+    },
+    {
+      "id": 133,
+      "name": "Flower_133_likely",
+      "quality": "likely",
+      "position": [0.32475923746824265, 0.2964368248358369, -1.5870629101991653],
+      "blender_position": [0.10485755652189255, -0.21964965760707855, 1.294919729232788],
+      "blender_splat_index": 516643,
+      "ply_splat_index": 973660,
+      "support_splats": 31
+    },
+    {
+      "id": 134,
+      "name": "Flower_134_likely",
+      "quality": "likely",
+      "position": [0.23478272184729576, 0.2946952963247895, -1.5700385868549347],
+      "blender_position": [0.014881040900945663, -0.2366739809513092, 1.2931782007217407],
+      "blender_splat_index": 770218,
+      "ply_splat_index": 1451710,
+      "support_splats": 43
+    },
+    {
+      "id": 135,
+      "name": "Flower_135_review",
+      "quality": "review",
+      "position": [-0.08241716027259827, 0.29155866149812937, -1.6724744141101837],
+      "blender_position": [-0.30231884121894836, -0.13423815369606018, 1.2900415658950806],
+      "blender_splat_index": 596510,
+      "ply_splat_index": 1124221,
+      "support_splats": 8
+    },
+    {
+      "id": 136,
+      "name": "Flower_136_likely",
+      "quality": "likely",
+      "position": [-0.1451522707939148, 0.2908319616690278, -1.6549993604421616],
+      "blender_position": [-0.3650539517402649, -0.15171320736408234, 1.289314866065979],
+      "blender_splat_index": 568763,
+      "ply_splat_index": 1071801,
+      "support_splats": 23
+    },
+    {
+      "id": 137,
+      "name": "Flower_137_likely",
+      "quality": "likely",
+      "position": [0.3027763366699219, 0.28764788154512644, -1.585882157087326],
+      "blender_position": [0.08287465572357178, -0.22083041071891785, 1.2861307859420776],
+      "blender_splat_index": 860488,
+      "ply_splat_index": 1622454,
+      "support_splats": 18
+    },
+    {
+      "id": 138,
+      "name": "Flower_138_likely",
+      "quality": "likely",
+      "position": [0.19739870354533195, 0.287265338934958, -1.573654294013977],
+      "blender_position": [-0.022502977401018143, -0.23305827379226685, 1.2857482433319092],
+      "blender_splat_index": 320642,
+      "ply_splat_index": 604584,
+      "support_splats": 41
+    },
+    {
+      "id": 139,
+      "name": "Flower_139_likely",
+      "quality": "likely",
+      "position": [-0.08006280660629272, 0.2869409704580903, -1.649266093969345],
+      "blender_position": [-0.2999644875526428, -0.1574464738368988, 1.2854238748550415],
+      "blender_splat_index": 299752,
+      "ply_splat_index": 565226,
+      "support_splats": 15
+    },
+    {
+      "id": 140,
+      "name": "Flower_140_likely",
+      "quality": "likely",
+      "position": [0.015334323048591614, 0.2863369369879365, -1.599132388830185],
+      "blender_position": [-0.20456735789775848, -0.20758017897605896, 1.2848198413848877],
+      "blender_splat_index": 611801,
+      "ply_splat_index": 1152976,
+      "support_splats": 19
+    },
+    {
+      "id": 141,
+      "name": "Flower_141_likely",
+      "quality": "likely",
+      "position": [0.1379183530807495, 0.28608469013124704, -1.5855035185813904],
+      "blender_position": [-0.08198332786560059, -0.22120904922485352, 1.2845675945281982],
+      "blender_splat_index": 350052,
+      "ply_splat_index": 659611,
+      "support_splats": 16
+    },
+    {
+      "id": 142,
+      "name": "Flower_142_review",
+      "quality": "review",
+      "position": [0.010412171483039856, 0.28582040313631296, -1.6228781789541245],
+      "blender_position": [-0.20948950946331024, -0.18383438885211945, 1.2843033075332642],
+      "blender_splat_index": 1156,
+      "ply_splat_index": 2265,
+      "support_splats": 9
+    },
+    {
+      "id": 143,
+      "name": "Flower_143_likely",
+      "quality": "likely",
+      "position": [0.12434325367212296, 0.2857519770041108, -1.6039657890796661],
+      "blender_position": [-0.09555842727422714, -0.20274677872657776, 1.284234881401062],
+      "blender_splat_index": 395687,
+      "ply_splat_index": 745302,
+      "support_splats": 13
+    },
+    {
+      "id": 144,
+      "name": "Flower_144_likely",
+      "quality": "likely",
+      "position": [0.17307284474372864, 0.285383858717978, -1.5768166929483414],
+      "blender_position": [-0.04682883620262146, -0.22989587485790253, 1.2838667631149292],
+      "blender_splat_index": 232960,
+      "ply_splat_index": 439378,
+      "support_splats": 17
+    },
+    {
+      "id": 145,
+      "name": "Flower_145_likely",
+      "quality": "likely",
+      "position": [-0.006398603320121765, 0.2852697754278779, -1.5913863778114319],
+      "blender_position": [-0.22630028426647186, -0.215326189994812, 1.283752679824829],
+      "blender_splat_index": 724061,
+      "ply_splat_index": 1364806,
+      "support_splats": 31
+    },
+    {
+      "id": 146,
+      "name": "Flower_146_likely",
+      "quality": "likely",
+      "position": [-0.16837304830551147, 0.2850796366110444, -1.6490483582019806],
+      "blender_position": [-0.3882747292518616, -0.1576642096042633, 1.2835625410079956],
+      "blender_splat_index": 920776,
+      "ply_splat_index": 1737052,
+      "support_splats": 18
+    },
+    {
+      "id": 147,
+      "name": "Flower_147_likely",
+      "quality": "likely",
+      "position": [-0.04433467984199524, 0.2828385019674897, -1.602292999625206],
+      "blender_position": [-0.26423636078834534, -0.2044195681810379, 1.281321406364441],
+      "blender_splat_index": 537933,
+      "ply_splat_index": 1013635,
+      "support_splats": 22
+    },
+    {
+      "id": 148,
+      "name": "Flower_148_likely",
+      "quality": "likely",
+      "position": [-0.10231280326843262, 0.28272871021181345, -1.6381582617759705],
+      "blender_position": [-0.3222144842147827, -0.16855430603027344, 1.2812116146087646],
+      "blender_splat_index": 172058,
+      "ply_splat_index": 324306,
+      "support_splats": 23
+    },
+    {
+      "id": 149,
+      "name": "Flower_149_likely",
+      "quality": "likely",
+      "position": [0.26239729300141335, 0.2819705391302705, -1.5665465295314789],
+      "blender_position": [0.04249561205506325, -0.24016603827476501, 1.2804534435272217],
+      "blender_splat_index": 646012,
+      "ply_splat_index": 1217547,
+      "support_splats": 48
+    },
+    {
+      "id": 150,
+      "name": "Flower_150_likely",
+      "quality": "likely",
+      "position": [0.04254406690597534, 0.2819358492270112, -1.6030451357364655],
+      "blender_position": [-0.17735761404037476, -0.20366743206977844, 1.2804187536239624],
+      "blender_splat_index": 1016773,
+      "ply_splat_index": 1918308,
+      "support_splats": 45
+    },
+    {
+      "id": 151,
+      "name": "Flower_151_likely",
+      "quality": "likely",
+      "position": [0.10092014819383621, 0.2814972782507539, -1.5953631699085236],
+      "blender_position": [-0.11898153275251389, -0.21134939789772034, 1.279980182647705],
+      "blender_splat_index": 361425,
+      "ply_splat_index": 680919,
+      "support_splats": 24
+    },
+    {
+      "id": 152,
+      "name": "Flower_152_review",
+      "quality": "review",
+      "position": [0.361372634768486, 0.2795716905966401, -1.6133713722229004],
+      "blender_position": [0.14147095382213593, -0.1933411955833435, 1.2780545949935913],
+      "blender_splat_index": 136248,
+      "ply_splat_index": 256858,
+      "support_splats": 13
+    },
+    {
+      "id": 153,
+      "name": "Flower_153_review",
+      "quality": "review",
+      "position": [-0.029272302985191345, 0.27930275443941355, -1.629109725356102],
+      "blender_position": [-0.24917398393154144, -0.1776028424501419, 1.2777856588363647],
+      "blender_splat_index": 56749,
+      "ply_splat_index": 106783,
+      "support_splats": 11
+    },
+    {
+      "id": 154,
+      "name": "Flower_154_likely",
+      "quality": "likely",
+      "position": [0.07748158276081085, 0.27913490775972605, -1.600638508796692],
+      "blender_position": [-0.14242009818553925, -0.206074059009552, 1.2776178121566772],
+      "blender_splat_index": 948912,
+      "ply_splat_index": 1790381,
+      "support_splats": 18
+    },
+    {
+      "id": 155,
+      "name": "Flower_155_review",
+      "quality": "review",
+      "position": [-0.158512145280838, 0.27755490783602, -1.7034834325313568],
+      "blender_position": [-0.3784138262271881, -0.10322913527488708, 1.2760378122329712],
+      "blender_splat_index": 309933,
+      "ply_splat_index": 584641,
+      "support_splats": 6
+    },
+    {
+      "id": 156,
+      "name": "Flower_156_likely",
+      "quality": "likely",
+      "position": [0.36691223084926605, 0.27605144027620554, -1.5820282399654388],
+      "blender_position": [0.14701054990291595, -0.22468432784080505, 1.2745343446731567],
+      "blender_splat_index": 501770,
+      "ply_splat_index": 945360,
+      "support_splats": 26
+    },
+    {
+      "id": 157,
+      "name": "Flower_157_review",
+      "quality": "review",
+      "position": [-0.20763978362083435, 0.275446810759604, -1.7370272129774094],
+      "blender_position": [-0.42754146456718445, -0.06968535482883453, 1.2739297151565552],
+      "blender_splat_index": 597657,
+      "ply_splat_index": 1126327,
+      "support_splats": 6
+    },
+    {
+      "id": 158,
+      "name": "Flower_158_review",
+      "quality": "review",
+      "position": [0.3413331061601639, 0.2745153093710542, -1.578843429684639],
+      "blender_position": [0.12143142521381378, -0.22786913812160492, 1.2729982137680054],
+      "blender_splat_index": 204790,
+      "ply_splat_index": 386306,
+      "support_splats": 12
+    },
+    {
+      "id": 159,
+      "name": "Flower_159_review",
+      "quality": "review",
+      "position": [0.38629738986492157, 0.27385560516268015, -1.6168356388807297],
+      "blender_position": [0.16639570891857147, -0.18987692892551422, 1.2723385095596313],
+      "blender_splat_index": 536940,
+      "ply_splat_index": 1011680,
+      "support_splats": 7
+    },
+    {
+      "id": 160,
+      "name": "Flower_160_likely",
+      "quality": "likely",
+      "position": [0.22269947594031692, 0.27182451728731394, -1.570477545261383],
+      "blender_position": [0.002797794993966818, -0.23623502254486084, 1.2703074216842651],
+      "blender_splat_index": 528413,
+      "ply_splat_index": 995768,
+      "support_splats": 35
+    },
+    {
+      "id": 161,
+      "name": "Flower_161_review",
+      "quality": "review",
+      "position": [-0.23576152324676514, 0.2706249142065644, -1.7422653213143349],
+      "blender_position": [-0.45566320419311523, -0.06444724649190903, 1.2691078186035156],
+      "blender_splat_index": 599222,
+      "ply_splat_index": 1129315,
+      "support_splats": 7
+    },
+    {
+      "id": 162,
+      "name": "Flower_162_likely",
+      "quality": "likely",
+      "position": [-0.025813832879066467, 0.2700511598959565, -1.5998840779066086],
+      "blender_position": [-0.24571551382541656, -0.20682848989963531, 1.2685340642929077],
+      "blender_splat_index": 212570,
+      "ply_splat_index": 400787,
+      "support_splats": 32
+    },
+    {
+      "id": 163,
+      "name": "Flower_163_likely",
+      "quality": "likely",
+      "position": [-0.13005918264389038, 0.269960799254477, -1.6638765931129456],
+      "blender_position": [-0.3499608635902405, -0.14283597469329834, 1.2684437036514282],
+      "blender_splat_index": 174320,
+      "ply_splat_index": 328739,
+      "support_splats": 21
+    },
+    {
+      "id": 164,
+      "name": "Flower_164_likely",
+      "quality": "likely",
+      "position": [-0.048666179180145264, 0.26924721244722605, -1.6214698404073715],
+      "blender_position": [-0.26856786012649536, -0.18524272739887238, 1.2677301168441772],
+      "blender_splat_index": 586797,
+      "ply_splat_index": 1105648,
+      "support_splats": 13
+    },
+    {
+      "id": 165,
+      "name": "Flower_165_likely",
+      "quality": "likely",
+      "position": [0.31525543332099915, 0.2679881239309907, -1.5787135511636734],
+      "blender_position": [0.09535375237464905, -0.2279990166425705, 1.266471028327942],
+      "blender_splat_index": 851681,
+      "ply_splat_index": 1605804,
+      "support_splats": 32
+    },
+    {
+      "id": 166,
+      "name": "Flower_166_review",
+      "quality": "review",
+      "position": [-0.18062591552734375, 0.26762107852846384, -1.7059431299567223],
+      "blender_position": [-0.40052759647369385, -0.10076943784952164, 1.266103982925415],
+      "blender_splat_index": 186040,
+      "ply_splat_index": 350934,
+      "support_splats": 6
+    },
+    {
+      "id": 167,
+      "name": "Flower_167_likely",
+      "quality": "likely",
+      "position": [-0.23541778326034546, 0.2658356809988618, -1.6700469255447388],
+      "blender_position": [-0.45531946420669556, -0.13666564226150513, 1.264318585395813],
+      "blender_splat_index": 834506,
+      "ply_splat_index": 1573353,
+      "support_splats": 11
+    },
+    {
+      "id": 168,
+      "name": "Flower_168_likely",
+      "quality": "likely",
+      "position": [0.12723040580749512, 0.26571539882570505, -1.5898660272359848],
+      "blender_position": [-0.09267127513885498, -0.2168465405702591, 1.2641983032226562],
+      "blender_splat_index": 58681,
+      "ply_splat_index": 110469,
+      "support_splats": 25
+    },
+    {
+      "id": 169,
+      "name": "Flower_169_likely",
+      "quality": "likely",
+      "position": [0.24960975348949432, 0.263899483717978, -1.5684138238430023],
+      "blender_position": [0.029708072543144226, -0.23829874396324158, 1.2623823881149292],
+      "blender_splat_index": 979773,
+      "ply_splat_index": 1848615,
+      "support_splats": 34
+    },
+    {
+      "id": 170,
+      "name": "Flower_170_likely",
+      "quality": "likely",
+      "position": [0.03014203906059265, 0.26297167781740427, -1.6118657737970352],
+      "blender_position": [-0.18975964188575745, -0.19484679400920868, 1.2614545822143555],
+      "blender_splat_index": 396040,
+      "ply_splat_index": 745943,
+      "support_splats": 29
+    },
+    {
+      "id": 171,
+      "name": "Flower_171_likely",
+      "quality": "likely",
+      "position": [-0.1592593789100647, 0.2607496166601777, -1.6600846201181412],
+      "blender_position": [-0.3791610598564148, -0.14662794768810272, 1.259232521057129],
+      "blender_splat_index": 350037,
+      "ply_splat_index": 659590,
+      "support_splats": 15
+    },
+    {
+      "id": 172,
+      "name": "Flower_172_likely",
+      "quality": "likely",
+      "position": [0.2725001201033592, 0.25949911121279, -1.569425344467163],
+      "blender_position": [0.052598439157009125, -0.2372872233390808, 1.2579820156097412],
+      "blender_splat_index": 197043,
+      "ply_splat_index": 371471,
+      "support_splats": 30
+    },
+    {
+      "id": 173,
+      "name": "Flower_173_likely",
+      "quality": "likely",
+      "position": [0.3826541304588318, 0.25865546707063913, -1.5851559042930603],
+      "blender_position": [0.1627524495124817, -0.2215566635131836, 1.2571383714675903],
+      "blender_splat_index": 993891,
+      "ply_splat_index": 1875321,
+      "support_splats": 18
+    },
+    {
+      "id": 174,
+      "name": "Flower_174_likely",
+      "quality": "likely",
+      "position": [0.00868728756904602, 0.25748125556856394, -1.6118510514497757],
+      "blender_position": [-0.21121439337730408, -0.1948615163564682, 1.2559641599655151],
+      "blender_splat_index": 953071,
+      "ply_splat_index": 1798242,
+      "support_splats": 18
+    },
+    {
+      "id": 175,
+      "name": "Flower_175_likely",
+      "quality": "likely",
+      "position": [-0.13070181012153625, 0.2571173096075654, -1.6415447741746902],
+      "blender_position": [-0.35060349106788635, -0.16516779363155365, 1.2556002140045166],
+      "blender_splat_index": 791624,
+      "ply_splat_index": 1492191,
+      "support_splats": 15
+    },
+    {
+      "id": 176,
+      "name": "Flower_176_likely",
+      "quality": "likely",
+      "position": [-0.06311210989952087, 0.2564264917746186, -1.6499489694833755],
+      "blender_position": [-0.28301379084587097, -0.15676359832286835, 1.2549093961715698],
+      "blender_splat_index": 155375,
+      "ply_splat_index": 292881,
+      "support_splats": 15
+    },
+    {
+      "id": 177,
+      "name": "Flower_177_likely",
+      "quality": "likely",
+      "position": [-0.20236992835998535, 0.2560404920950532, -1.6663379669189453],
+      "blender_position": [-0.42227160930633545, -0.14037460088729858, 1.2545233964920044],
+      "blender_splat_index": 548252,
+      "ply_splat_index": 1033099,
+      "support_splats": 19
+    },
+    {
+      "id": 178,
+      "name": "Flower_178_likely",
+      "quality": "likely",
+      "position": [-0.096769779920578, 0.2550608301535249, -1.6624999046325684],
+      "blender_position": [-0.3166714608669281, -0.14421266317367554, 1.253543734550476],
+      "blender_splat_index": 510361,
+      "ply_splat_index": 961699,
+      "support_splats": 30
+    },
+    {
+      "id": 179,
+      "name": "Flower_179_likely",
+      "quality": "likely",
+      "position": [0.35369423031806946, 0.25316933635622263, -1.5745197087526321],
+      "blender_position": [0.13379254937171936, -0.23219285905361176, 1.2516522407531738],
+      "blender_splat_index": 882363,
+      "ply_splat_index": 1664050,
+      "support_splats": 21
+    },
+    {
+      "id": 180,
+      "name": "Flower_180_likely",
+      "quality": "likely",
+      "position": [-0.04032471776008606, 0.25297430995851755, -1.6062750667333603],
+      "blender_position": [-0.26022639870643616, -0.2004375010728836, 1.2514572143554688],
+      "blender_splat_index": 747772,
+      "ply_splat_index": 1409322,
+      "support_splats": 32
+    },
+    {
+      "id": 181,
+      "name": "Flower_181_likely",
+      "quality": "likely",
+      "position": [0.15449758619070053, 0.25202290061861277, -1.5852404236793518],
+      "blender_position": [-0.06540409475564957, -0.2214721441268921, 1.250505805015564],
+      "blender_splat_index": 63790,
+      "ply_splat_index": 120065,
+      "support_splats": 31
+    },
+    {
+      "id": 182,
+      "name": "Flower_182_likely",
+      "quality": "likely",
+      "position": [0.09666851907968521, 0.2511065388098359, -1.5961874276399612],
+      "blender_position": [-0.12323316186666489, -0.21052514016628265, 1.249589443206787],
+      "blender_splat_index": 122987,
+      "ply_splat_index": 231931,
+      "support_splats": 19
+    },
+    {
+      "id": 183,
+      "name": "Flower_183_likely",
+      "quality": "likely",
+      "position": [0.19344201870262623, 0.24897996429353952, -1.5792428255081177],
+      "blender_position": [-0.02645966224372387, -0.22746974229812622, 1.2474628686904907],
+      "blender_splat_index": 829251,
+      "ply_splat_index": 1563469,
+      "support_splats": 40
+    },
+    {
+      "id": 184,
+      "name": "Flower_184_likely",
+      "quality": "likely",
+      "position": [0.3281411901116371, 0.24891070369631052, -1.5796110183000565],
+      "blender_position": [0.10823950916528702, -0.22710154950618744, 1.2473936080932617],
+      "blender_splat_index": 826832,
+      "ply_splat_index": 1558919,
+      "support_splats": 39
+    },
+    {
+      "id": 185,
+      "name": "Flower_185_likely",
+      "quality": "likely",
+      "position": [0.11816971749067307, 0.24823776725679636, -1.5795843005180359],
+      "blender_position": [-0.10173196345567703, -0.227128267288208, 1.2467206716537476],
+      "blender_splat_index": 4450,
+      "ply_splat_index": 8574,
+      "support_splats": 31
+    },
+    {
+      "id": 186,
+      "name": "Flower_186_likely",
+      "quality": "likely",
+      "position": [0.01018880307674408, 0.24686256889253855, -1.6426228433847427],
+      "blender_position": [-0.20971287786960602, -0.16408972442150116, 1.2453454732894897],
+      "blender_splat_index": 411070,
+      "ply_splat_index": 774398,
+      "support_splats": 15
+    },
+    {
+      "id": 187,
+      "name": "Flower_187_review",
+      "quality": "review",
+      "position": [-0.02976544201374054, 0.24672857765108347, -1.6270865947008133],
+      "blender_position": [-0.24966712296009064, -0.1796259731054306, 1.2452114820480347],
+      "blender_splat_index": 84746,
+      "ply_splat_index": 159684,
+      "support_splats": 5
+    },
+    {
+      "id": 188,
+      "name": "Flower_188_review",
+      "quality": "review",
+      "position": [-0.17675688862800598, 0.24506012443453074, -1.6990137547254562],
+      "blender_position": [-0.3966585695743561, -0.10769881308078766, 1.243543028831482],
+      "blender_splat_index": 225413,
+      "ply_splat_index": 425290,
+      "support_splats": 8
+    },
+    {
+      "id": 189,
+      "name": "Flower_189_likely",
+      "quality": "likely",
+      "position": [0.03133228421211243, 0.24339012149721384, -1.6351969987154007],
+      "blender_position": [-0.18856939673423767, -0.1715155690908432, 1.241873025894165],
+      "blender_splat_index": 392040,
+      "ply_splat_index": 738317,
+      "support_splats": 18
+    },
+    {
+      "id": 190,
+      "name": "Flower_190_likely",
+      "quality": "likely",
+      "position": [0.053335219621658325, 0.24291733745485544, -1.6317028254270554],
+      "blender_position": [-0.16656646132469177, -0.17500974237918854, 1.2414002418518066],
+      "blender_splat_index": 449427,
+      "ply_splat_index": 846775,
+      "support_splats": 25
+    },
+    {
+      "id": 191,
+      "name": "Flower_191_likely",
+      "quality": "likely",
+      "position": [0.24596198834478855, 0.24218002799898386, -1.5744311660528183],
+      "blender_position": [0.026060307398438454, -0.2322814017534256, 1.240662932395935],
+      "blender_splat_index": 358851,
+      "ply_splat_index": 676167,
+      "support_splats": 11
+    },
+    {
+      "id": 192,
+      "name": "Flower_192_likely",
+      "quality": "likely",
+      "position": [0.30124615132808685, 0.2419357681646943, -1.5783311426639557],
+      "blender_position": [0.08134447038173676, -0.2283814251422882, 1.2404186725616455],
+      "blender_splat_index": 867904,
+      "ply_splat_index": 1636563,
+      "support_splats": 32
+    },
+    {
+      "id": 193,
+      "name": "Flower_193_review",
+      "quality": "review",
+      "position": [0.3499448895454407, 0.2413608217611909, -1.5950759947299957],
+      "blender_position": [0.13004320859909058, -0.21163657307624817, 1.239843726158142],
+      "blender_splat_index": 881372,
+      "ply_splat_index": 1662205,
+      "support_splats": 11
+    },
+    {
+      "id": 194,
+      "name": "Flower_194_likely",
+      "quality": "likely",
+      "position": [0.07497379183769226, 0.23921088222414255, -1.6283751428127289],
+      "blender_position": [-0.14492788910865784, -0.17833742499351501, 1.2376937866210938],
+      "blender_splat_index": 63174,
+      "ply_splat_index": 118879,
+      "support_splats": 16
+    },
+    {
+      "id": 195,
+      "name": "Flower_195_likely",
+      "quality": "likely",
+      "position": [-0.08171871304512024, 0.23912076000124216, -1.655976265668869],
+      "blender_position": [-0.30162039399147034, -0.15073630213737488, 1.2376036643981934],
+      "blender_splat_index": 721029,
+      "ply_splat_index": 1358950,
+      "support_splats": 14
+    },
+    {
+      "id": 196,
+      "name": "Flower_196_likely",
+      "quality": "likely",
+      "position": [-0.110984206199646, 0.237981834448874, -1.6585256606340408],
+      "blender_position": [-0.3308858871459961, -0.14818690717220306, 1.2364647388458252],
+      "blender_splat_index": 888279,
+      "ply_splat_index": 1675135,
+      "support_splats": 22
+    },
+    {
+      "id": 197,
+      "name": "Flower_197_review",
+      "quality": "review",
+      "position": [-0.1859453022480011, 0.23532155994325876, -1.6788485497236252],
+      "blender_position": [-0.4058469831943512, -0.1278640180826187, 1.23380446434021],
+      "blender_splat_index": 726711,
+      "ply_splat_index": 1369869,
+      "support_splats": 6
+    },
+    {
+      "id": 198,
+      "name": "Flower_198_likely",
+      "quality": "likely",
+      "position": [-0.06520438194274902, 0.23466674331575632, -1.6387242674827576],
+      "blender_position": [-0.2851060628890991, -0.16798830032348633, 1.2331496477127075],
+      "blender_splat_index": 317815,
+      "ply_splat_index": 599328,
+      "support_splats": 11
+    },
+    {
+      "id": 199,
+      "name": "Flower_199_likely",
+      "quality": "likely",
+      "position": [0.2247160105034709, 0.2313280487433076, -1.5789530724287033],
+      "blender_position": [0.0048143295571208, -0.2277594953775406, 1.2298109531402588],
+      "blender_splat_index": 104891,
+      "ply_splat_index": 197693,
+      "support_splats": 42
+    },
+    {
+      "id": 200,
+      "name": "Flower_200_likely",
+      "quality": "likely",
+      "position": [0.18074364215135574, 0.23118905071169138, -1.584614634513855],
+      "blender_position": [-0.039158038794994354, -0.22209793329238892, 1.2296719551086426],
+      "blender_splat_index": 864815,
+      "ply_splat_index": 1630685,
+      "support_splats": 28
+    },
+    {
+      "id": 201,
+      "name": "Flower_201_likely",
+      "quality": "likely",
+      "position": [-0.04705172777175903, 0.2305122995749116, -1.6090637892484665],
+      "blender_position": [-0.26695340871810913, -0.1976487785577774, 1.2289952039718628],
+      "blender_splat_index": 874164,
+      "ply_splat_index": 1648470,
+      "support_splats": 16
+    },
+    {
+      "id": 202,
+      "name": "Flower_202_likely",
+      "quality": "likely",
+      "position": [0.34113071858882904, 0.22965435031801462, -1.5771327018737793],
+      "blender_position": [0.12122903764247894, -0.2295798659324646, 1.2281372547149658],
+      "blender_splat_index": 478280,
+      "ply_splat_index": 901061,
+      "support_splats": 38
+    },
+    {
+      "id": 203,
+      "name": "Flower_203_review",
+      "quality": "review",
+      "position": [0.3713560998439789, 0.22946325782686472, -1.604947030544281],
+      "blender_position": [0.15145441889762878, -0.2017655372619629, 1.227946162223816],
+      "blender_splat_index": 999074,
+      "ply_splat_index": 1885218,
+      "support_splats": 12
+    },
+    {
+      "id": 204,
+      "name": "Flower_204_likely",
+      "quality": "likely",
+      "position": [0.10062290728092194, 0.2293315315619111, -1.5887283831834793],
+      "blender_position": [-0.11927877366542816, -0.2179841846227646, 1.2278144359588623],
+      "blender_splat_index": 956446,
+      "ply_splat_index": 1804601,
+      "support_splats": 31
+    },
+    {
+      "id": 205,
+      "name": "Flower_205_likely",
+      "quality": "likely",
+      "position": [-0.13266435265541077, 0.2291876459494233, -1.6590664833784103],
+      "blender_position": [-0.35256603360176086, -0.14764608442783356, 1.2276705503463745],
+      "blender_splat_index": 712721,
+      "ply_splat_index": 1343211,
+      "support_splats": 27
+    },
+    {
+      "id": 206,
+      "name": "Flower_206_likely",
+      "quality": "likely",
+      "position": [0.41960759460926056, 0.22819022182375193, -1.5963990092277527],
+      "blender_position": [0.19970591366291046, -0.2103135585784912, 1.2266731262207031],
+      "blender_splat_index": 402843,
+      "ply_splat_index": 758715,
+      "support_splats": 22
+    },
+    {
+      "id": 207,
+      "name": "Flower_207_review",
+      "quality": "review",
+      "position": [0.12579777091741562, 0.2249374771490693, -1.581851676106453],
+      "blender_position": [-0.09410391002893448, -0.22486089169979095, 1.2234203815460205],
+      "blender_splat_index": 553087,
+      "ply_splat_index": 1042290,
+      "support_splats": 9
+    },
+    {
+      "id": 208,
+      "name": "Flower_208_likely",
+      "quality": "likely",
+      "position": [-0.1537538468837738, 0.22192195896059275, -1.6482070535421371],
+      "blender_position": [-0.3736555278301239, -0.15850551426410675, 1.220404863357544],
+      "blender_splat_index": 232826,
+      "ply_splat_index": 439128,
+      "support_splats": 31
+    },
+    {
+      "id": 209,
+      "name": "Flower_209_likely",
+      "quality": "likely",
+      "position": [0.1624128632247448, 0.2204175377264619, -1.593146100640297],
+      "blender_position": [-0.0574888177216053, -0.21356646716594696, 1.218900442123413],
+      "blender_splat_index": 455760,
+      "ply_splat_index": 858633,
+      "support_splats": 14
+    },
+    {
+      "id": 210,
+      "name": "Flower_210_review",
+      "quality": "review",
+      "position": [0.4535437673330307, 0.2200912619009614, -1.6557144522666931],
+      "blender_position": [0.2336420863866806, -0.15099811553955078, 1.2185741662979126],
+      "blender_splat_index": 869011,
+      "ply_splat_index": 1638673,
+      "support_splats": 6
+    },
+    {
+      "id": 211,
+      "name": "Flower_211_likely",
+      "quality": "likely",
+      "position": [0.2046350846067071, 0.22002593521028757, -1.5843983888626099],
+      "blender_position": [-0.015266596339643002, -0.22231417894363403, 1.2185088396072388],
+      "blender_splat_index": 737894,
+      "ply_splat_index": 1391021,
+      "support_splats": 19
+    },
+    {
+      "id": 212,
+      "name": "Flower_212_likely",
+      "quality": "likely",
+      "position": [0.06376653909683228, 0.21882514003664255, -1.6315179914236069],
+      "blender_position": [-0.15613514184951782, -0.17519457638263702, 1.2173080444335938],
+      "blender_splat_index": 79382,
+      "ply_splat_index": 149589,
+      "support_splats": 14
+    },
+    {
+      "id": 213,
+      "name": "Flower_213_likely",
+      "quality": "likely",
+      "position": [0.26635394617915154, 0.21843449119478464, -1.577578529715538],
+      "blender_position": [0.04645226523280144, -0.22913403809070587, 1.2169173955917358],
+      "blender_splat_index": 120142,
+      "ply_splat_index": 226581,
+      "support_splats": 37
+    },
+    {
+      "id": 214,
+      "name": "Flower_214_likely",
+      "quality": "likely",
+      "position": [0.3779897540807724, 0.2171749258413911, -1.583751142024994],
+      "blender_position": [0.1580880731344223, -0.22296142578125, 1.2156578302383423],
+      "blender_splat_index": 488290,
+      "ply_splat_index": 919933,
+      "support_splats": 21
+    },
+    {
+      "id": 215,
+      "name": "Flower_215_review",
+      "quality": "review",
+      "position": [0.4242076426744461, 0.21610657218843699, -1.6454012989997864],
+      "blender_position": [0.204305961728096, -0.16131126880645752, 1.2145894765853882],
+      "blender_splat_index": 112062,
+      "ply_splat_index": 211266,
+      "support_splats": 8
+    },
+    {
+      "id": 216,
+      "name": "Flower_216_likely",
+      "quality": "likely",
+      "position": [0.24388490431010723, 0.21564642433077097, -1.583720251917839],
+      "blender_position": [0.023983223363757133, -0.22299231588840485, 1.2141293287277222],
+      "blender_splat_index": 951282,
+      "ply_splat_index": 1794872,
+      "support_splats": 24
+    },
+    {
+      "id": 217,
+      "name": "Flower_217_review",
+      "quality": "review",
+      "position": [0.5823323726654053, 0.21409694198518991, -1.6900491937994957],
+      "blender_position": [0.3624306917190552, -0.1166633740067482, 1.2125798463821411],
+      "blender_splat_index": 216112,
+      "ply_splat_index": 407559,
+      "support_splats": 6
+    },
+    {
+      "id": 218,
+      "name": "Flower_218_likely",
+      "quality": "likely",
+      "position": [0.007177442312240601, 0.2140471125021577, -1.6169116646051407],
+      "blender_position": [-0.2127242386341095, -0.1898009032011032, 1.2125300168991089],
+      "blender_splat_index": 942366,
+      "ply_splat_index": 1778084,
+      "support_splats": 24
+    },
+    {
+      "id": 219,
+      "name": "Flower_219_likely",
+      "quality": "likely",
+      "position": [-0.11033162474632263, 0.21386174205690622, -1.6581479758024216],
+      "blender_position": [-0.33023330569267273, -0.14856459200382233, 1.2123446464538574],
+      "blender_splat_index": 47785,
+      "ply_splat_index": 90024,
+      "support_splats": 18
+    },
+    {
+      "id": 220,
+      "name": "Flower_220_likely",
+      "quality": "likely",
+      "position": [-0.06998401880264282, 0.2117921495810151, -1.6283454149961472],
+      "blender_position": [-0.2898856997489929, -0.17836715281009674, 1.2102750539779663],
+      "blender_splat_index": 968576,
+      "ply_splat_index": 1827569,
+      "support_splats": 29
+    },
+    {
+      "id": 221,
+      "name": "Flower_221_likely",
+      "quality": "likely",
+      "position": [0.4422455281019211, 0.2106693172827363, -1.6001871824264526],
+      "blender_position": [0.22234384715557098, -0.20652538537979126, 1.2091522216796875],
+      "blender_splat_index": 912498,
+      "ply_splat_index": 1721266,
+      "support_splats": 22
+    },
+    {
+      "id": 222,
+      "name": "Flower_222_likely",
+      "quality": "likely",
+      "position": [-0.17315781116485596, 0.20975998882204294, -1.6533701568841934],
+      "blender_position": [-0.39305949211120605, -0.15334241092205048, 1.2082428932189941],
+      "blender_splat_index": 413504,
+      "ply_splat_index": 779020,
+      "support_splats": 22
+    },
+    {
+      "id": 223,
+      "name": "Flower_223_likely",
+      "quality": "likely",
+      "position": [0.09236708283424377, 0.20867029670625925, -1.5874529033899307],
+      "blender_position": [-0.12753459811210632, -0.21925966441631317, 1.2071532011032104],
+      "blender_splat_index": 759777,
+      "ply_splat_index": 1432001,
+      "support_splats": 25
+    },
+    {
+      "id": 224,
+      "name": "Flower_224_likely",
+      "quality": "likely",
+      "position": [-0.03861638903617859, 0.20791224483400583, -1.60921148955822],
+      "blender_position": [-0.2585180699825287, -0.197501078248024, 1.206395149230957],
+      "blender_splat_index": 982029,
+      "ply_splat_index": 1852920,
+      "support_splats": 33
+    },
+    {
+      "id": 225,
+      "name": "Flower_225_likely",
+      "quality": "likely",
+      "position": [-0.13917315006256104, 0.20733181480318308, -1.6575639843940735],
+      "blender_position": [-0.35907483100891113, -0.1491485834121704, 1.2058147192001343],
+      "blender_splat_index": 739634,
+      "ply_splat_index": 1394340,
+      "support_splats": 16
+    },
+    {
+      "id": 226,
+      "name": "Flower_226_review",
+      "quality": "review",
+      "position": [0.14482355117797852, 0.20535627845674753, -1.607153296470642],
+      "blender_position": [-0.07507812976837158, -0.1995592713356018, 1.2038391828536987],
+      "blender_splat_index": 537062,
+      "ply_splat_index": 1011904,
+      "support_splats": 10
+    },
+    {
+      "id": 227,
+      "name": "Flower_227_likely",
+      "quality": "likely",
+      "position": [-0.016712799668312073, 0.20487622264772654, -1.6088659167289734],
+      "blender_position": [-0.23661448061466217, -0.1978466510772705, 1.2033591270446777],
+      "blender_splat_index": 140707,
+      "ply_splat_index": 265241,
+      "support_splats": 37
+    },
+    {
+      "id": 228,
+      "name": "Flower_228_review",
+      "quality": "review",
+      "position": [0.118785060942173, 0.2041134024038911, -1.6042854934930801],
+      "blender_position": [-0.1011166200041771, -0.20242707431316376, 1.2025963068008423],
+      "blender_splat_index": 270058,
+      "ply_splat_index": 509074,
+      "support_splats": 8
+    },
+    {
+      "id": 229,
+      "name": "Flower_229_likely",
+      "quality": "likely",
+      "position": [0.28429578989744186, 0.20272830966860056, -1.584113359451294],
+      "blender_position": [0.06439410895109177, -0.22259920835494995, 1.2012112140655518],
+      "blender_splat_index": 953397,
+      "ply_splat_index": 1798854,
+      "support_splats": 27
+    },
+    {
+      "id": 230,
+      "name": "Flower_230_likely",
+      "quality": "likely",
+      "position": [0.5588078498840332, 0.20267824176698923, -1.6582981050014496],
+      "blender_position": [0.3389061689376831, -0.1484144628047943, 1.2011611461639404],
+      "blender_splat_index": 568892,
+      "ply_splat_index": 1072033,
+      "support_splats": 10
+    },
+    {
+      "id": 231,
+      "name": "Flower_231_likely",
+      "quality": "likely",
+      "position": [0.30977633595466614, 0.20231441501528025, -1.5829178839921951],
+      "blender_position": [0.08987465500831604, -0.22379468381404877, 1.2007973194122314],
+      "blender_splat_index": 942752,
+      "ply_splat_index": 1778869,
+      "support_splats": 32
+    },
+    {
+      "id": 232,
+      "name": "Flower_232_likely",
+      "quality": "likely",
+      "position": [0.33405955880880356, 0.20087496284395456, -1.5795435160398483],
+      "blender_position": [0.11415787786245346, -0.22716905176639557, 1.1993578672409058],
+      "blender_splat_index": 173644,
+      "ply_splat_index": 327433,
+      "support_splats": 13
+    },
+    {
+      "id": 233,
+      "name": "Flower_233_likely",
+      "quality": "likely",
+      "position": [0.19837171584367752, 0.19990126136690378, -1.6020765602588654],
+      "blender_position": [-0.021529965102672577, -0.20463600754737854, 1.198384165763855],
+      "blender_splat_index": 388591,
+      "ply_splat_index": 731850,
+      "support_splats": 18
+    },
+    {
+      "id": 234,
+      "name": "Flower_234_review",
+      "quality": "review",
+      "position": [-0.05049315094947815, 0.19874600414186716, -1.6288908421993256],
+      "blender_position": [-0.27039483189582825, -0.17782172560691833, 1.1972289085388184],
+      "blender_splat_index": 417655,
+      "ply_splat_index": 786872,
+      "support_splats": 11
+    },
+    {
+      "id": 235,
+      "name": "Flower_235_review",
+      "quality": "review",
+      "position": [0.4303960055112839, 0.19303802493959665, -1.621421903371811],
+      "blender_position": [0.21049432456493378, -0.18529066443443298, 1.1915209293365479],
+      "blender_splat_index": 629582,
+      "ply_splat_index": 1186440,
+      "support_splats": 8
+    },
+    {
+      "id": 236,
+      "name": "Flower_236_review",
+      "quality": "review",
+      "position": [0.4033534675836563, 0.19027999881654978, -1.6016183644533157],
+      "blender_position": [0.1834517866373062, -0.20509420335292816, 1.188762903213501],
+      "blender_splat_index": 459918,
+      "ply_splat_index": 866405,
+      "support_splats": 10
+    },
+    {
+      "id": 237,
+      "name": "Flower_237_likely",
+      "quality": "likely",
+      "position": [-0.028227224946022034, 0.18931416515260935, -1.6216509640216827],
+      "blender_position": [-0.24812890589237213, -0.18506160378456116, 1.1877970695495605],
+      "blender_splat_index": 370863,
+      "ply_splat_index": 698521,
+      "support_splats": 16
+    },
+    {
+      "id": 238,
+      "name": "Flower_238_likely",
+      "quality": "likely",
+      "position": [-0.1613764762878418, 0.18905381206423044, -1.6593782007694244],
+      "blender_position": [-0.3812781572341919, -0.14733436703681946, 1.1875367164611816],
+      "blender_splat_index": 508605,
+      "ply_splat_index": 958387,
+      "support_splats": 20
+    },
+    {
+      "id": 239,
+      "name": "Flower_239_review",
+      "quality": "review",
+      "position": [0.43545374274253845, 0.18764904979616404, -1.651907056570053],
+      "blender_position": [0.21555206179618835, -0.1548055112361908, 1.1861319541931152],
+      "blender_splat_index": 74828,
+      "ply_splat_index": 140851,
+      "support_splats": 8
+    },
+    {
+      "id": 240,
+      "name": "Flower_240_likely",
+      "quality": "likely",
+      "position": [0.3523612469434738, 0.18648258689790964, -1.5927440524101257],
+      "blender_position": [0.13245956599712372, -0.21396851539611816, 1.1849654912948608],
+      "blender_splat_index": 641089,
+      "ply_splat_index": 1208124,
+      "support_splats": 24
+    },
+    {
+      "id": 241,
+      "name": "Flower_241_likely",
+      "quality": "likely",
+      "position": [0.23519954830408096, 0.1844913149252534, -1.604892760515213],
+      "blender_position": [0.015297867357730865, -0.20181980729103088, 1.1829742193222046],
+      "blender_splat_index": 321701,
+      "ply_splat_index": 606542,
+      "support_splats": 18
+    },
+    {
+      "id": 242,
+      "name": "Flower_242_likely",
+      "quality": "likely",
+      "position": [-0.14048153162002563, 0.18394688609987497, -1.6540056616067886],
+      "blender_position": [-0.36038321256637573, -0.15270690619945526, 1.1824297904968262],
+      "blender_splat_index": 702,
+      "ply_splat_index": 1397,
+      "support_splats": 29
+    },
+    {
+      "id": 243,
+      "name": "Flower_243_review",
+      "quality": "review",
+      "position": [0.15260683000087738, 0.18182257656008005, -1.60505810379982],
+      "blender_position": [-0.06729485094547272, -0.20165446400642395, 1.1803054809570312],
+      "blender_splat_index": 3047,
+      "ply_splat_index": 5858,
+      "support_splats": 11
+    },
+    {
+      "id": 244,
+      "name": "Flower_244_likely",
+      "quality": "likely",
+      "position": [0.028986766934394836, 0.18147138599306345, -1.6287271231412888],
+      "blender_position": [-0.19091491401195526, -0.17798544466495514, 1.1799542903900146],
+      "blender_splat_index": 954688,
+      "ply_splat_index": 1801322,
+      "support_splats": 20
+    },
+    {
+      "id": 245,
+      "name": "Flower_245_likely",
+      "quality": "likely",
+      "position": [0.29975811392068863, 0.18068973068147898, -1.5920140892267227],
+      "blender_position": [0.07985643297433853, -0.21469847857952118, 1.1791726350784302],
+      "blender_splat_index": 473135,
+      "ply_splat_index": 891282,
+      "support_splats": 27
+    },
+    {
+      "id": 246,
+      "name": "Flower_246_likely",
+      "quality": "likely",
+      "position": [0.3249477371573448, 0.18026665691286325, -1.5954635590314865],
+      "blender_position": [0.10504605621099472, -0.21124900877475739, 1.1787495613098145],
+      "blender_splat_index": 461930,
+      "ply_splat_index": 870162,
+      "support_splats": 18
+    },
+    {
+      "id": 247,
+      "name": "Flower_247_likely",
+      "quality": "likely",
+      "position": [-0.06896740198135376, 0.18017736915498972, -1.6330921649932861],
+      "blender_position": [-0.28886908292770386, -0.17362040281295776, 1.178660273551941],
+      "blender_splat_index": 805564,
+      "ply_splat_index": 1518773,
+      "support_splats": 35
+    },
+    {
+      "id": 248,
+      "name": "Flower_248_likely",
+      "quality": "likely",
+      "position": [0.2720506303012371, 0.1797690773382783, -1.6013674139976501],
+      "blender_position": [0.05214894935488701, -0.20534515380859375, 1.1782519817352295],
+      "blender_splat_index": 640979,
+      "ply_splat_index": 1207927,
+      "support_splats": 27
+    },
+    {
+      "id": 249,
+      "name": "Flower_249_likely",
+      "quality": "likely",
+      "position": [0.0896570086479187, 0.17911187652498484, -1.594199761748314],
+      "blender_position": [-0.1302446722984314, -0.21251280605793, 1.177594780921936],
+      "blender_splat_index": 747486,
+      "ply_splat_index": 1408809,
+      "support_splats": 24
+    },
+    {
+      "id": 250,
+      "name": "Flower_250_likely",
+      "quality": "likely",
+      "position": [-0.09760627150535583, 0.17457858566194773, -1.6510129570960999],
+      "blender_position": [-0.31750795245170593, -0.15569961071014404, 1.173061490058899],
+      "blender_splat_index": 357838,
+      "ply_splat_index": 674269,
+      "support_splats": 24
+    },
+    {
+      "id": 251,
+      "name": "Flower_251_likely",
+      "quality": "likely",
+      "position": [0.06934274733066559, 0.1739409351721406, -1.6103838086128235],
+      "blender_position": [-0.1505589336156845, -0.1963287591934204, 1.1724238395690918],
+      "blender_splat_index": 627867,
+      "ply_splat_index": 1183175,
+      "support_splats": 17
+    },
+    {
+      "id": 252,
+      "name": "Flower_252_review",
+      "quality": "review",
+      "position": [0.022539138793945312, 0.17275861743837595, -1.6653664708137512],
+      "blender_position": [-0.19736254215240479, -0.14134609699249268, 1.1712415218353271],
+      "blender_splat_index": 1001465,
+      "ply_splat_index": 1889635,
+      "support_splats": 9
+    },
+    {
+      "id": 253,
+      "name": "Flower_253_review",
+      "quality": "review",
+      "position": [0.3842015713453293, 0.17242268566042185, -1.6041706502437592],
+      "blender_position": [0.1642998903989792, -0.20254191756248474, 1.170905590057373],
+      "blender_splat_index": 980995,
+      "ply_splat_index": 1851011,
+      "support_splats": 9
+    },
+    {
+      "id": 254,
+      "name": "Flower_254_likely",
+      "quality": "likely",
+      "position": [0.1322057768702507, 0.17209640983492136, -1.6086459159851074],
+      "blender_position": [-0.0876959040760994, -0.19806665182113647, 1.1705793142318726],
+      "blender_splat_index": 162172,
+      "ply_splat_index": 305631,
+      "support_splats": 13
+    },
+    {
+      "id": 255,
+      "name": "Flower_255_likely",
+      "quality": "likely",
+      "position": [-0.174701988697052, 0.17145506385713816, -1.6629546582698822],
+      "blender_position": [-0.3946036696434021, -0.1437579095363617, 1.1699379682540894],
+      "blender_splat_index": 421313,
+      "ply_splat_index": 793673,
+      "support_splats": 29
+    },
+    {
+      "id": 256,
+      "name": "Flower_256_likely",
+      "quality": "likely",
+      "position": [-0.12126624584197998, 0.16946581844240427, -1.652308389544487],
+      "blender_position": [-0.3411679267883301, -0.1544041782617569, 1.1679487228393555],
+      "blender_splat_index": 237600,
+      "ply_splat_index": 448172,
+      "support_splats": 20
+    },
+    {
+      "id": 257,
+      "name": "Flower_257_review",
+      "quality": "review",
+      "position": [0.054355964064598083, 0.16640011314302683, -1.6359782963991165],
+      "blender_position": [-0.16554571688175201, -0.17073427140712738, 1.164883017539978],
+      "blender_splat_index": 419665,
+      "ply_splat_index": 790584,
+      "support_splats": 5
+    },
+    {
+      "id": 258,
+      "name": "Flower_258_review",
+      "quality": "review",
+      "position": [0.3989946246147156, 0.1646863603964448, -1.6241457611322403],
+      "blender_position": [0.17909294366836548, -0.1825668066740036, 1.163169264793396],
+      "blender_splat_index": 275011,
+      "ply_splat_index": 518453,
+      "support_splats": 16
+    },
+    {
+      "id": 259,
+      "name": "Flower_259_likely",
+      "quality": "likely",
+      "position": [0.47654667496681213, 0.16387454513460398, -1.6710170954465866],
+      "blender_position": [0.25664499402046204, -0.1356954723596573, 1.1623574495315552],
+      "blender_splat_index": 348075,
+      "ply_splat_index": 655888,
+      "support_splats": 15
+    },
+    {
+      "id": 260,
+      "name": "Flower_260_review",
+      "quality": "review",
+      "position": [0.3756580352783203, 0.16305724624544382, -1.6305403411388397],
+      "blender_position": [0.15575635433197021, -0.17617222666740417, 1.161540150642395],
+      "blender_splat_index": 17205,
+      "ply_splat_index": 32468,
+      "support_splats": 6
+    },
+    {
+      "id": 261,
+      "name": "Flower_261_review",
+      "quality": "review",
+      "position": [-0.018153563141822815, 0.16301099304109812, -1.6507843434810638],
+      "blender_position": [-0.2380552440881729, -0.15592822432518005, 1.1614938974380493],
+      "blender_splat_index": 507270,
+      "ply_splat_index": 955917,
+      "support_splats": 12
+    },
+    {
+      "id": 262,
+      "name": "Flower_262_likely",
+      "quality": "likely",
+      "position": [-0.08072689175605774, 0.16277412418276072, -1.6417680084705353],
+      "blender_position": [-0.30062857270240784, -0.16494455933570862, 1.161257028579712],
+      "blender_splat_index": 683629,
+      "ply_splat_index": 1288264,
+      "support_splats": 18
+    },
+    {
+      "id": 263,
+      "name": "Flower_263_likely",
+      "quality": "likely",
+      "position": [0.49828168749809265, 0.16062203887850046, -1.6670421957969666],
+      "blender_position": [0.27838000655174255, -0.13967037200927734, 1.1591049432754517],
+      "blender_splat_index": 777159,
+      "ply_splat_index": 1464901,
+      "support_splats": 14
+    },
+    {
+      "id": 264,
+      "name": "Flower_264_likely",
+      "quality": "likely",
+      "position": [-0.14645111560821533, 0.15953163150697947, -1.6546927690505981],
+      "blender_position": [-0.36635279655456543, -0.15201979875564575, 1.1580145359039307],
+      "blender_splat_index": 857834,
+      "ply_splat_index": 1617466,
+      "support_splats": 20
+    },
+    {
+      "id": 265,
+      "name": "Flower_265_likely",
+      "quality": "likely",
+      "position": [0.17399496585130692, 0.15821174625307322, -1.6063436269760132],
+      "blender_position": [-0.04590671509504318, -0.2003689408302307, 1.1566946506500244],
+      "blender_splat_index": 221846,
+      "ply_splat_index": 418350,
+      "support_splats": 18
+    },
+    {
+      "id": 266,
+      "name": "Flower_266_review",
+      "quality": "review",
+      "position": [0.20165549963712692, 0.15743366722017527, -1.6221179068088531],
+      "blender_position": [-0.018246181309223175, -0.18459466099739075, 1.1559165716171265],
+      "blender_splat_index": 148358,
+      "ply_splat_index": 279642,
+      "support_splats": 5
+    },
+    {
+      "id": 267,
+      "name": "Flower_267_likely",
+      "quality": "likely",
+      "position": [0.3383840247988701, 0.15691081527620554, -1.6134313642978668],
+      "blender_position": [0.11848234385251999, -0.19328120350837708, 1.1553937196731567],
+      "blender_splat_index": 537732,
+      "ply_splat_index": 1013238,
+      "support_splats": 12
+    },
+    {
+      "id": 268,
+      "name": "Flower_268_review",
+      "quality": "review",
+      "position": [0.4356742650270462, 0.1568733835592866, -1.6598496586084366],
+      "blender_position": [0.2157725840806961, -0.1468629091978073, 1.1553562879562378],
+      "blender_splat_index": 800059,
+      "ply_splat_index": 1508290,
+      "support_splats": 9
+    },
+    {
+      "id": 269,
+      "name": "Flower_269_likely",
+      "quality": "likely",
+      "position": [0.4564831405878067, 0.15648023132234812, -1.6512962877750397],
+      "blender_position": [0.2365814596414566, -0.15541628003120422, 1.1549631357192993],
+      "blender_splat_index": 516950,
+      "ply_splat_index": 974240,
+      "support_splats": 18
+    },
+    {
+      "id": 270,
+      "name": "Flower_270_likely",
+      "quality": "likely",
+      "position": [0.1365627646446228, 0.1528896475210786, -1.6229871660470963],
+      "blender_position": [-0.0833389163017273, -0.18372540175914764, 1.1513725519180298],
+      "blender_splat_index": 377758,
+      "ply_splat_index": 711487,
+      "support_splats": 15
+    },
+    {
+      "id": 271,
+      "name": "Flower_271_review",
+      "quality": "review",
+      "position": [0.06463456153869629, 0.1507797623053193, -1.6076738238334656],
+      "blender_position": [-0.1552671194076538, -0.19903874397277832, 1.1492626667022705],
+      "blender_splat_index": 843974,
+      "ply_splat_index": 1591252,
+      "support_splats": 13
+    },
+    {
+      "id": 272,
+      "name": "Flower_272_likely",
+      "quality": "likely",
+      "position": [-0.18933439254760742, 0.1486350679770112, -1.6693935096263885],
+      "blender_position": [-0.4092360734939575, -0.13731905817985535, 1.1471179723739624],
+      "blender_splat_index": 670936,
+      "ply_splat_index": 1264330,
+      "support_splats": 20
+    },
+    {
+      "id": 273,
+      "name": "Flower_273_review",
+      "quality": "review",
+      "position": [0.5874212980270386, 0.1450466299429536, -1.6963487789034843],
+      "blender_position": [0.3675196170806885, -0.11036378890275955, 1.1435295343399048],
+      "blender_splat_index": 578737,
+      "ply_splat_index": 1090493,
+      "support_splats": 8
+    },
+    {
+      "id": 274,
+      "name": "Flower_274_likely",
+      "quality": "likely",
+      "position": [-0.10642024874687195, 0.14385072235018015, -1.6902838423848152],
+      "blender_position": [-0.32632192969322205, -0.11642872542142868, 1.1423336267471313],
+      "blender_splat_index": 431596,
+      "ply_splat_index": 813099,
+      "support_splats": 11
+    },
+    {
+      "id": 275,
+      "name": "Flower_275_likely",
+      "quality": "likely",
+      "position": [0.5745027363300323, 0.1402570391073823, -1.6591131836175919],
+      "blender_position": [0.35460105538368225, -0.14759938418865204, 1.1387399435043335],
+      "blender_splat_index": 889473,
+      "ply_splat_index": 1677407,
+      "support_splats": 14
+    },
+    {
+      "id": 276,
+      "name": "Flower_276_review",
+      "quality": "review",
+      "position": [0.1205659732222557, 0.13942686561495066, -1.6393921226263046],
+      "blender_position": [-0.09933570772409439, -0.16732044517993927, 1.1379097700119019],
+      "blender_splat_index": 669901,
+      "ply_splat_index": 1262401,
+      "support_splats": 8
+    },
+    {
+      "id": 277,
+      "name": "Flower_277_likely",
+      "quality": "likely",
+      "position": [-0.13872572779655457, 0.1394122028723359, -1.6646643429994583],
+      "blender_position": [-0.35862740874290466, -0.14204822480678558, 1.137895107269287],
+      "blender_splat_index": 489849,
+      "ply_splat_index": 922935,
+      "support_splats": 20
+    },
+    {
+      "id": 278,
+      "name": "Flower_278_likely",
+      "quality": "likely",
+      "position": [0.29562029987573624, 0.1390062952414155, -1.6418921649456024],
+      "blender_position": [0.07571861892938614, -0.16482040286064148, 1.1374891996383667],
+      "blender_splat_index": 246817,
+      "ply_splat_index": 465601,
+      "support_splats": 14
+    },
+    {
+      "id": 279,
+      "name": "Flower_279_likely",
+      "quality": "likely",
+      "position": [-0.16937404870986938, 0.13809207919985056, -1.666116863489151],
+      "blender_position": [-0.3892757296562195, -0.1405957043170929, 1.1365749835968018],
+      "blender_splat_index": 465259,
+      "ply_splat_index": 876402,
+      "support_splats": 21
+    },
+    {
+      "id": 280,
+      "name": "Flower_280_likely",
+      "quality": "likely",
+      "position": [0.5217894613742828, 0.1361078405752778, -1.6648139357566833],
+      "blender_position": [0.30188778042793274, -0.14189863204956055, 1.134590744972229],
+      "blender_splat_index": 178948,
+      "ply_splat_index": 337397,
+      "support_splats": 29
+    },
+    {
+      "id": 281,
+      "name": "Flower_281_review",
+      "quality": "review",
+      "position": [0.09200997650623322, 0.13485411647707224, -1.6328966915607452],
+      "blender_position": [-0.12789170444011688, -0.17381587624549866, 1.1333370208740234],
+      "blender_splat_index": 339954,
+      "ply_splat_index": 640446,
+      "support_splats": 13
+    },
+    {
+      "id": 282,
+      "name": "Flower_282_review",
+      "quality": "review",
+      "position": [-0.12642094492912292, 0.1330718183889985, -1.6865752041339874],
+      "blender_position": [-0.346322625875473, -0.12013736367225647, 1.1315547227859497],
+      "blender_splat_index": 838623,
+      "ply_splat_index": 1581091,
+      "support_splats": 14
+    },
+    {
+      "id": 283,
+      "name": "Flower_283_review",
+      "quality": "review",
+      "position": [0.05051840841770172, 0.13035706523805857, -1.6286548376083374],
+      "blender_position": [-0.16938327252864838, -0.1780577301979065, 1.1288399696350098],
+      "blender_splat_index": 884503,
+      "ply_splat_index": 1668109,
+      "support_splats": 10
+    },
+    {
+      "id": 284,
+      "name": "Flower_284_likely",
+      "quality": "likely",
+      "position": [0.5002724528312683, 0.12737778667360544, -1.6637395322322845],
+      "blender_position": [0.2803707718849182, -0.14297303557395935, 1.1258606910705566],
+      "blender_splat_index": 353646,
+      "ply_splat_index": 666448,
+      "support_splats": 20
+    },
+    {
+      "id": 285,
+      "name": "Flower_285_likely",
+      "quality": "likely",
+      "position": [-0.21001407504081726, 0.12224976066499949, -1.6814999431371689],
+      "blender_position": [-0.42991575598716736, -0.125212624669075, 1.1207326650619507],
+      "blender_splat_index": 627388,
+      "ply_splat_index": 1182303,
+      "support_splats": 28
+    },
+    {
+      "id": 286,
+      "name": "Flower_286_likely",
+      "quality": "likely",
+      "position": [0.6338699758052826, 0.11777500156313181, -1.6735657155513763],
+      "blender_position": [0.4139682948589325, -0.13314685225486755, 1.116257905960083],
+      "blender_splat_index": 114009,
+      "ply_splat_index": 214958,
+      "support_splats": 11
+    },
+    {
+      "id": 287,
+      "name": "Flower_287_likely",
+      "quality": "likely",
+      "position": [0.2580845430493355, 0.11459771636873484, -1.663670390844345],
+      "blender_position": [0.03818286210298538, -0.1430421769618988, 1.113080620765686],
+      "blender_splat_index": 586852,
+      "ply_splat_index": 1105773,
+      "support_splats": 12
+    },
+    {
+      "id": 288,
+      "name": "Flower_288_likely",
+      "quality": "likely",
+      "position": [0.5568585395812988, 0.11374668125063181, -1.6617502272129059],
+      "blender_position": [0.33695685863494873, -0.144962340593338, 1.112229585647583],
+      "blender_splat_index": 700400,
+      "ply_splat_index": 1319977,
+      "support_splats": 24
+    },
+    {
+      "id": 289,
+      "name": "Flower_289_likely",
+      "quality": "likely",
+      "position": [0.5821291506290436, 0.11298338416963816, -1.6642194986343384],
+      "blender_position": [0.3622274696826935, -0.14249306917190552, 1.1114662885665894],
+      "blender_splat_index": 171382,
+      "ply_splat_index": 322984,
+      "support_splats": 13
+    },
+    {
+      "id": 290,
+      "name": "Flower_290_likely",
+      "quality": "likely",
+      "position": [0.3053974509239197, 0.11282042507082224, -1.6456277519464493],
+      "blender_position": [0.08549576997756958, -0.16108481585979462, 1.1113033294677734],
+      "blender_splat_index": 535803,
+      "ply_splat_index": 1009540,
+      "support_splats": 17
+    },
+    {
+      "id": 291,
+      "name": "Flower_291_likely",
+      "quality": "likely",
+      "position": [-0.17540204524993896, 0.11127416137605906, -1.6823015064001083],
+      "blender_position": [-0.39530372619628906, -0.12441106140613556, 1.1097570657730103],
+      "blender_splat_index": 667930,
+      "ply_splat_index": 1258651,
+      "support_splats": 17
+    },
+    {
+      "id": 292,
+      "name": "Flower_292_likely",
+      "quality": "likely",
+      "position": [0.6634742319583893, 0.10798648837953806, -1.680029422044754],
+      "blender_position": [0.4435725510120392, -0.12668314576148987, 1.1064693927764893],
+      "blender_splat_index": 146744,
+      "ply_splat_index": 276673,
+      "support_splats": 21
+    },
+    {
+      "id": 293,
+      "name": "Flower_293_likely",
+      "quality": "likely",
+      "position": [0.2804214097559452, 0.10676089767366648, -1.643481194972992],
+      "blender_position": [0.06051972880959511, -0.16323137283325195, 1.1052438020706177],
+      "blender_splat_index": 404053,
+      "ply_splat_index": 761012,
+      "support_splats": 23
+    },
+    {
+      "id": 294,
+      "name": "Flower_294_likely",
+      "quality": "likely",
+      "position": [0.6692874729633331, 0.10627786163240671, -1.6419367045164108],
+      "blender_position": [0.44938579201698303, -0.16477586328983307, 1.104760766029358],
+      "blender_splat_index": 1957,
+      "ply_splat_index": 3754,
+      "support_splats": 8
+    },
+    {
+      "id": 295,
+      "name": "Flower_295_likely",
+      "quality": "likely",
+      "position": [0.6161177158355713, 0.10258213523775339, -1.674805462360382],
+      "blender_position": [0.3962160348892212, -0.13190710544586182, 1.1010650396347046],
+      "blender_splat_index": 429739,
+      "ply_splat_index": 809555,
+      "support_splats": 14
+    },
+    {
+      "id": 296,
+      "name": "Flower_296_review",
+      "quality": "review",
+      "position": [-0.15563911199569702, 0.10257832054048777, -1.6935211420059204],
+      "blender_position": [-0.3755407929420471, -0.11319142580032349, 1.101061224937439],
+      "blender_splat_index": 639557,
+      "ply_splat_index": 1205277,
+      "support_splats": 11
+    },
+    {
+      "id": 297,
+      "name": "Flower_297_likely",
+      "quality": "likely",
+      "position": [0.6193883419036865, 0.10195712093263865, -1.6361252069473267],
+      "blender_position": [0.3994866609573364, -0.17058736085891724, 1.1004400253295898],
+      "blender_splat_index": 277375,
+      "ply_splat_index": 522835,
+      "support_splats": 15
+    },
+    {
+      "id": 298,
+      "name": "Flower_298_review",
+      "quality": "review",
+      "position": [0.594698429107666, 0.09915176872164011, -1.6487158834934235],
+      "blender_position": [0.3747967481613159, -0.15799668431282043, 1.0976346731185913],
+      "blender_splat_index": 439628,
+      "ply_splat_index": 828235,
+      "support_splats": 9
+    },
+    {
+      "id": 299,
+      "name": "Flower_299_likely",
+      "quality": "likely",
+      "position": [-0.21126118302345276, 0.09806076530367136, -1.6848305836319923],
+      "blender_position": [-0.43116286396980286, -0.12188198417425156, 1.0965436697006226],
+      "blender_splat_index": 364388,
+      "ply_splat_index": 686422,
+      "support_splats": 18
+    },
+    {
+      "id": 300,
+      "name": "Flower_300_likely",
+      "quality": "likely",
+      "position": [-0.17021936178207397, 0.0866524362936616, -1.6817069798707962],
+      "blender_position": [-0.3901210427284241, -0.1250055879354477, 1.0851353406906128],
+      "blender_splat_index": 173856,
+      "ply_splat_index": 327814,
+      "support_splats": 17
+    },
+    {
+      "id": 301,
+      "name": "Flower_301_review",
+      "quality": "review",
+      "position": [-0.2504296898841858, 0.08172658924013376, -1.7033810466527939],
+      "blender_position": [-0.4703313708305359, -0.10333152115345001, 1.080209493637085],
+      "blender_splat_index": 200999,
+      "ply_splat_index": 379038,
+      "support_splats": 5
+    },
+    {
+      "id": 302,
+      "name": "Flower_302_likely",
+      "quality": "likely",
+      "position": [-0.22464853525161743, 0.08071378711611032, -1.6900664046406746],
+      "blender_position": [-0.44455021619796753, -0.1166461631655693, 1.0791966915130615],
+      "blender_splat_index": 476229,
+      "ply_splat_index": 897151,
+      "support_splats": 31
+    },
+    {
+      "id": 303,
+      "name": "Flower_303_review",
+      "quality": "review",
+      "position": [0.293604351580143, 0.08033374790102243, -1.6686642616987228],
+      "blender_position": [0.07370267063379288, -0.13804830610752106, 1.0788166522979736],
+      "blender_splat_index": 710131,
+      "ply_splat_index": 1338253,
+      "support_splats": 8
+    },
+    {
+      "id": 304,
+      "name": "Flower_304_review",
+      "quality": "review",
+      "position": [-0.15868648886680603, 0.07711950782686472, -1.7004017606377602],
+      "blender_position": [-0.37858816981315613, -0.10631080716848373, 1.075602412223816],
+      "blender_splat_index": 785701,
+      "ply_splat_index": 1481043,
+      "support_splats": 7
+    },
+    {
+      "id": 305,
+      "name": "Flower_305_likely",
+      "quality": "likely",
+      "position": [0.5529963076114655, 0.06595102790743113, -1.677040010690689],
+      "blender_position": [0.33309462666511536, -0.1296725571155548, 1.0644339323043823],
+      "blender_splat_index": 441003,
+      "ply_splat_index": 830744,
+      "support_splats": 13
+    },
+    {
+      "id": 306,
+      "name": "Flower_306_review",
+      "quality": "review",
+      "position": [-0.23985427618026733, 0.06204370502382517, -1.7107435166835785],
+      "blender_position": [-0.45975595712661743, -0.0959690511226654, 1.0605266094207764],
+      "blender_splat_index": 192752,
+      "ply_splat_index": 363449,
+      "support_splats": 7
+    },
+    {
+      "id": 307,
+      "name": "Flower_307_likely",
+      "quality": "likely",
+      "position": [0.5150333940982819, 0.05616811756044626, -1.6824528872966766],
+      "blender_position": [0.29513171315193176, -0.12425968050956726, 1.0546510219573975],
+      "blender_splat_index": 688634,
+      "ply_splat_index": 1297642,
+      "support_splats": 28
+    },
+    {
+      "id": 308,
+      "name": "Flower_308_review",
+      "quality": "review",
+      "position": [0.5316158533096313, 0.04369083885103464, -1.6727210134267807],
+      "blender_position": [0.31171417236328125, -0.1339915543794632, 1.0421737432479858],
+      "blender_splat_index": 30716,
+      "ply_splat_index": 57832,
+      "support_splats": 10
+    },
+    {
+      "id": 309,
+      "name": "Flower_309_likely",
+      "quality": "likely",
+      "position": [-0.2796875834465027, 0.03905025962740183, -1.7097495049238205],
+      "blender_position": [-0.4995892643928528, -0.0969630628824234, 1.037533164024353],
+      "blender_splat_index": 895684,
+      "ply_splat_index": 1689144,
+      "support_splats": 17
+    },
+    {
+      "id": 310,
+      "name": "Flower_310_likely",
+      "quality": "likely",
+      "position": [0.6512464582920074, 0.03452674392610788, -1.6641729027032852],
+      "blender_position": [0.43134477734565735, -0.14253966510295868, 1.033009648323059],
+      "blender_splat_index": 319991,
+      "ply_splat_index": 603339,
+      "support_splats": 11
+    },
+    {
+      "id": 311,
+      "name": "Flower_311_review",
+      "quality": "review",
+      "position": [0.5215337574481964, 0.018407263793051243, -1.6919061914086342],
+      "blender_position": [0.3016320765018463, -0.11480637639760971, 1.0168901681900024],
+      "blender_splat_index": 359180,
+      "ply_splat_index": 676809,
+      "support_splats": 10
+    },
+    {
+      "id": 312,
+      "name": "Flower_312_review",
+      "quality": "review",
+      "position": [0.5490630269050598, 0.011966981925070286, -1.6754457652568817],
+      "blender_position": [0.3291613459587097, -0.13126680254936218, 1.0104498863220215],
+      "blender_splat_index": 737450,
+      "ply_splat_index": 1390232,
+      "support_splats": 9
+    }
+  ]
+}
