@@ -8,4 +8,4 @@ pub mod scene;
 mod browser;
 #[cfg(target_arch = "wasm32")]
 pub use browser::ExperimentApp;
-mod fluid_debug;
+mod debug_maps;
