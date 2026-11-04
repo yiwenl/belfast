@@ -255,6 +255,7 @@ impl ExperimentApp {
         ground_y: f32,
         count: Option<u32>,
         outside_decay: Option<f32>,
+        force_multiplier: Option<f32>,
     ) -> Result<(), JsValue> {
         let settings = ParticleSettings {
             count: count.unwrap_or(self.scene.particle_settings.count),
@@ -264,6 +265,8 @@ impl ExperimentApp {
             lifetime,
             life_variation,
             outside_decay: outside_decay.unwrap_or(self.scene.particle_settings.outside_decay),
+            force_multiplier: force_multiplier
+                .unwrap_or(self.scene.particle_settings.force_multiplier),
             lift,
             drag,
             ground_y,

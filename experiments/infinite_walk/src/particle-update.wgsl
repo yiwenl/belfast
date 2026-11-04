@@ -41,7 +41,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let origin = vec3(camera.light.x, motion.life.z, camera.light.z);
     // Filaments stay in local space so following the light never reseeds their rings.
     let field = filament_velocity(position - origin + p.velocity.xyz * dt * 0.5);
-    let target_velocity = (field + vec3(0.0, motion.step.z, 0.0)) * p.force_scale;
+    let target_velocity = (field + vec3(0.0, motion.step.z, 0.0)) * (p.force_scale * motion.force_multiplier);
     let velocity = filament_limit_velocity(mix(p.velocity.xyz, target_velocity, 1.0 - exp(-motion.step.w * dt)), 1.2);
     let fade = smoothstep(0.0, min(0.3, p.life * 0.2), age)
         * (1.0 - smoothstep(p.life * 0.8, p.life, age));

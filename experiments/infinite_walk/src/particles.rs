@@ -20,6 +20,7 @@ pub struct ParticleSettings {
     pub life_variation: f32,
     pub outside_decay: f32,
     pub lift: f32,
+    pub force_multiplier: f32,
     pub drag: f32,
     pub ground_y: f32,
 }
@@ -31,10 +32,11 @@ impl Default for ParticleSettings {
             visible: true,
             animate: true,
             size: 0.014,
-            lifetime: 5.0,
+            lifetime: 4.5,
             life_variation: 0.45,
             outside_decay: 3.8,
-            lift: 0.12,
+            lift: 0.0,
+            force_multiplier: 0.98,
             drag: 1.0,
             ground_y: -0.11,
         }
@@ -52,6 +54,7 @@ impl ParticleSettings {
             (self.life_variation, 0.0, 0.9),
             (self.outside_decay, 1.0, 10.0),
             (self.lift, 0.0, 1.0),
+            (self.force_multiplier, 0.0, 2.0),
             (self.drag, 0.1, 8.0),
             (self.ground_y, -2.0, 3.0),
         ] {
@@ -65,13 +68,13 @@ impl ParticleSettings {
 
 pub fn filament_defaults() -> FilamentSettings {
     FilamentSettings {
-        ring_radius: 1.0,
+        ring_radius: 0.75,
         core_radius: 0.031,
-        updraft: 0.16,
-        xz_drift: 0.0,
-        strength: 0.87,
-        circulation: 0.047,
-        lifetime: 7.4,
+        updraft: 0.24,
+        xz_drift: 0.01,
+        strength: 0.27,
+        circulation: 0.045,
+        lifetime: 6.8,
         ..Default::default()
     }
 }
@@ -81,7 +84,9 @@ pub fn filament_defaults() -> FilamentSettings {
 struct Motion {
     step: [f32; 4],
     life: [f32; 4],
-    counts: [u32; 4],
+    counts: [u32; 2],
+    force_multiplier: f32,
+    padding: u32,
 }
 
 pub struct Particles {
@@ -275,6 +280,7 @@ impl Particles {
         settings: ParticleSettings,
         filament: FilamentSettings,
         ring_count: u32,
+        reset_filaments: bool,
     ) -> Result<(), String> {
         let dt = if settings.animate {
             dt.clamp(0.0, 1.0 / 30.0)
@@ -293,7 +299,9 @@ impl Particles {
                     settings.ground_y,
                     settings.outside_decay,
                 ],
-                counts: [settings.count, self.active_count, 0, 0],
+                counts: [settings.count, self.active_count],
+                force_multiplier: settings.force_multiplier,
+                padding: 0,
             }],
             0,
         );
@@ -302,7 +310,11 @@ impl Particles {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("WalkParticleSimulation"),
             });
-        self.filaments.step(device, &mut encoder, dt)?;
+        if reset_filaments {
+            self.filaments.reset(&mut encoder);
+        } else {
+            self.filaments.step(device, &mut encoder, dt)?;
+        }
         self.active_count = settings.count;
         if self.active_count == 0 {
             device.queue().submit([encoder.finish()]);

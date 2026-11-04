@@ -13,9 +13,14 @@ let detachInput: (() => void) | undefined;
 let animationFrame = 0;
 let disposed = false;
 const loading = new AbortController();
+const resolutions = {
+  hd: [1920, 1080],
+  portrait: [1080, 1920],
+  full: null,
+} as const;
 const settings = {
   fps: "—",
-  resolution: "hd",
+  resolution: "hd" as keyof typeof resolutions,
   pointSize: 0.01,
   copyOffset: 0.011,
   cameraY: 0.75,
@@ -34,10 +39,19 @@ const display = sceneTab.addFolder({ title: "Display" });
 display
   .addBinding(settings, "resolution", {
     label: "Resolution",
-    options: { "HD · 1920 × 1080": "hd", "Full browser": "full" },
+    options: {
+      "HD · 1920 × 1080": "hd",
+      "Portrait · 1080 × 1920": "portrait",
+      "Full browser": "full",
+    },
   })
-  .on("change", ({ value }) => canvas.classList.toggle("fixed-resolution", value === "hd"));
-canvas.classList.toggle("fixed-resolution", settings.resolution === "hd");
+  .on("change", fitCanvas);
+function fitCanvas() {
+  const size = resolutions[settings.resolution];
+  canvas.classList.toggle("fixed-resolution", size !== null);
+  if (size) canvas.style.setProperty("--canvas-aspect", String(size[0] / size[1]));
+}
+fitCanvas();
 display
   .addBinding(settings, "whiteParticles", { label: "White particles" })
   .on("change", ({ value }) => app?.setWhiteParticles(value));
@@ -94,10 +108,11 @@ const particles = {
   visible: true,
   animate: true,
   size: 0.014,
-  lifetime: 5,
+  lifetime: 4.5,
   lifeVariation: 0.45,
   outsideDecay: 3.8,
-  lift: 0.12,
+  lift: 0,
+  forceMultiplier: 0.98,
   drag: 1,
   groundY: -0.11,
 };
@@ -113,6 +128,7 @@ function updateParticles() {
     particles.groundY,
     particles.count,
     particles.outsideDecay,
+    particles.forceMultiplier,
   );
 }
 const particleControls = particlesTab.addFolder({ title: "Drifting particles" });
@@ -145,6 +161,12 @@ lifeControls.addBinding(particles, "outsideDecay", {
 });
 const motionControls = particlesTab.addFolder({ title: "Motion" });
 motionControls.addBinding(particles, "animate", { label: "Animate" });
+motionControls.addBinding(particles, "forceMultiplier", {
+  label: "Force multiplier",
+  min: 0,
+  max: 2,
+  step: 0.01,
+});
 motionControls.addBinding(particles, "lift", {
   label: "Particle updraft",
   min: 0,
@@ -159,13 +181,13 @@ for (const folder of [particleControls, lifeControls, motionControls]) {
 const filament = {
   debug: false,
   rings: 12,
-  updraft: 0.16,
-  drift: 0,
-  radius: 1,
+  updraft: 0.24,
+  drift: 0.01,
+  radius: 0.75,
   core: 0.031,
-  strength: 0.87,
-  circulation: 0.047,
-  lifetime: 7.4,
+  strength: 0.27,
+  circulation: 0.045,
+  lifetime: 6.8,
 };
 filamentTab
   .addBinding(filament, "debug", { label: "Debug view" })
@@ -282,9 +304,9 @@ async function start() {
     function frame(timestampMs: number) {
       if (disposed) return;
       try {
-        if (settings.resolution === "hd") {
-          // Keep the drawing buffer exact while CSS fits the 16:9 image to the window.
-          created.resize(1920, 1080, 1);
+        const size = resolutions[settings.resolution];
+        if (size) {
+          created.resize(size[0], size[1], 1);
         } else {
           created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
         }

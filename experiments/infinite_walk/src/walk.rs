@@ -7,6 +7,7 @@ pub const DRIFT_X: f32 = END[0] - START[0];
 pub struct Walk {
     target_phase: f64,
     remaining: f64,
+    moving: bool,
 }
 
 impl Walk {
@@ -19,14 +20,18 @@ impl Walk {
         self.remaining += distance;
     }
 
-    pub fn advance(&mut self, seconds: f32) {
+    /// Returns true once, on the frame an eased walk comes to rest.
+    pub fn advance(&mut self, seconds: f32) -> bool {
         if !seconds.is_finite() || seconds <= 0.0 {
-            return;
+            return false;
         }
         self.remaining *= (-12.0 * f64::from(seconds.min(0.1))).exp();
         if self.remaining.abs() < 1e-9 {
             self.remaining = 0.0;
+            return std::mem::take(&mut self.moving);
         }
+        self.moving = true;
+        false
     }
 
     pub fn position(&self) -> [f32; 3] {

@@ -29,6 +29,7 @@ pub struct Scene {
     pub particle_settings: ParticleSettings,
     pub filament_settings: FilamentSettings,
     pub filament_rings: u32,
+    filament_reset_pending: bool,
     pub show_filament_debug: bool,
     shadow_pipeline: wgpu::RenderPipeline,
     shadow_preview_pipeline: wgpu::RenderPipeline,
@@ -316,6 +317,7 @@ impl Scene {
             particle_settings: ParticleSettings::default(),
             filament_settings: particles::filament_defaults(),
             filament_rings: 12,
+            filament_reset_pending: false,
             show_filament_debug: false,
             shadow_pipeline,
             shadow_preview_pipeline,
@@ -459,7 +461,7 @@ impl Scene {
     }
 
     pub fn update(&mut self, device: &Device, delta_seconds: f32, now_ms: f64) {
-        self.walk.advance(delta_seconds);
+        self.filament_reset_pending |= self.walk.advance(delta_seconds);
         let mut eye = self.walk.position();
         eye[1] = self.camera_y;
         let path_length = DRIFT_X.hypot(LENGTH);
@@ -597,6 +599,7 @@ impl Scene {
                 self.particle_settings,
                 self.filament_settings,
                 self.filament_rings,
+                std::mem::take(&mut self.filament_reset_pending),
             )?;
         }
         Ok(())
