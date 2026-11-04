@@ -15,14 +15,22 @@ fn point_corner(vertex: u32) -> vec2<f32> {
     return corners[vertex];
 }
 
-fn shadow_visibility(center: vec3<f32>) -> f32 {
-    let clip = camera.light_view_projection * vec4(center, 1.0);
-    if clip.w <= 0.0 || clip.z < 0.0 || clip.z > clip.w || any(abs(clip.xy) > vec2(clip.w)) {
-        return 1.0;
-    }
-    let projected = clip.xyz / clip.w;
-    let uv = vec2(projected.x * 0.5 + 0.5, 0.5 - projected.y * 0.5);
-    let depth = projected.z - camera.shadow.y;
+fn shadow_coordinates(beam: vec3<f32>) -> vec3<f32> {
+    return vec3(beam.x * 0.5 + 0.5, 0.5 - beam.y * 0.5, beam.z - camera.shadow.y);
+}
+
+fn beam_edge(radial: vec2<f32>) -> f32 {
+    return 1.0 - smoothstep(camera.light_shape.z, camera.light_shape.y, length(radial) * camera.light_shape.y);
+}
+
+fn light_at_depth(depth: f32) -> f32 {
+    let distance = depth * camera.light_shape.x;
+    let falloff = 1.0 - depth * depth;
+    return camera.light.w * falloff * falloff / (1.0 + distance * distance);
+}
+
+fn shadow_visibility(beam: vec3<f32>) -> f32 {
+    let coords = shadow_coordinates(beam);
     let texel = 1.0 / camera.shadow.x;
     var visibility = 0.0;
     // A fixed, wider tent filter reduces brightness jumps as particle shadows cross texels.
@@ -32,8 +40,8 @@ fn shadow_visibility(center: vec3<f32>) -> f32 {
             visibility += weight * textureSampleCompareLevel(
                 shadow_map,
                 shadow_sampler,
-                uv + vec2(f32(x), f32(y)) * texel,
-                depth,
+                coords.xy + vec2(f32(x), f32(y)) * texel,
+                coords.z,
             );
         }
     }
@@ -55,15 +63,12 @@ fn billboard_vertex(vertex: u32, center: vec3<f32>, color: vec4<f32>, size: f32)
     out.position = clip;
     out.point_coord = coord;
     var illumination = camera.light_shape.w;
-    if inside_light_cylinder(center) {
-        let offset = center - camera.light.xyz;
-        let edge = 1.0 - smoothstep(camera.light_shape.z, camera.light_shape.y, length(offset.xz));
-        let depth_squared = offset.y * offset.y;
-        let falloff = 1.0 - depth_squared / (camera.light_shape.x * camera.light_shape.x);
-        var direct = camera.light.w * edge * falloff * falloff / (1.0 + depth_squared);
+    let beam = light_space(center);
+    if inside_light_cylinder(beam) {
+        var direct = beam_edge(beam.xy) * light_at_depth(beam.z);
         if camera.shadow.z > 0.0 {
             // shortcut: receive at particle centers; use surface geometry for per-pixel shadow detail.
-            direct *= shadow_visibility(center);
+            direct *= shadow_visibility(beam);
         }
         illumination += direct;
     }
@@ -124,10 +129,10 @@ struct ShadowVertex {
 
 fn shadow_vertex(vertex: u32, center: vec3<f32>, size: f32) -> ShadowVertex {
     let coord = point_corner(vertex);
-    // Light-facing discs give particles a solid circular silhouette from the downward light.
-    let world = center + vec3(coord.x, 0.0, coord.y) * size;
+    // Expand in the light's image plane so shadow discs always face the source.
+    let beam = light_space(center);
     var out: ShadowVertex;
-    out.position = camera.light_view_projection * vec4(world, 1.0);
+    out.position = vec4(beam.xy + coord * (size / camera.light_shape.y), beam.z, 1.0);
     out.point_coord = coord;
     return out;
 }
@@ -157,23 +162,23 @@ fn fs_shadow(in: ShadowVertex) {
     if dot(disk, disk) > 1.0 || length(in.point_coord) > 0.5 { discard; }
 }
 
-struct ShadowPreviewVertex {
+struct ScreenVertex {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
 }
 
 @vertex
-fn vs_shadow_preview(@builtin(vertex_index) vertex: u32) -> ShadowPreviewVertex {
+fn vs_fullscreen(@builtin(vertex_index) vertex: u32) -> ScreenVertex {
     let positions = array<vec2<f32>, 3>(vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
     let position = positions[vertex];
-    var out: ShadowPreviewVertex;
+    var out: ScreenVertex;
     out.position = vec4(position, 0.0, 1.0);
     out.uv = vec2(position.x * 0.5 + 0.5, 0.5 - position.y * 0.5);
     return out;
 }
 
 @fragment
-fn fs_shadow_preview(in: ShadowPreviewVertex) -> @location(0) vec4<f32> {
+fn fs_shadow_preview(in: ScreenVertex) -> @location(0) vec4<f32> {
     let size = textureDimensions(shadow_map);
     let pixel = clamp(vec2<i32>(in.uv * vec2<f32>(size)), vec2(0), vec2<i32>(size) - vec2(1));
     let depth = textureLoad(shadow_map, pixel, 0);

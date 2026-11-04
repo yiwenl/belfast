@@ -19,7 +19,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let dt = motion.step.x;
     // Use the same copy of the forest as the spawn pass when the walk loops.
     let position = wrapped_position(p.position.xyz);
-    let age = p.velocity.w + dt * select(motion.life.w, 1.0, inside_light_cylinder(position));
+    let age = p.velocity.w + dt * select(motion.life.w, 1.0, inside_light_cylinder(light_space(position)));
     if id.x >= motion.counts.y || p.life <= 0.0 || age >= p.life {
         if spawns.count == 0u {
             p.position.w = 0.0;
@@ -38,7 +38,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
 
-    let origin = vec3(camera.light.x, motion.life.z, camera.light.z);
+    let origin = camera.light.xyz;
     // Filaments stay in local space so following the light never reseeds their rings.
     let field = filament_velocity(position - origin + p.velocity.xyz * dt * 0.5);
     let target_velocity = (field + vec3(0.0, motion.step.z, 0.0)) * (p.force_scale * motion.force_multiplier);

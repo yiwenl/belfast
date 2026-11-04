@@ -104,6 +104,14 @@ shadowControls
 shadowControls
   .addBinding(shadows, "showMap", { label: "Show shadow map" })
   .on("change", ({ value }) => app?.setShowShadowMap(value));
+const fog = { density: 0.22, halfHeight: 0.45 };
+const fogControls = lightTab.addFolder({ title: "Volumetric fog" });
+fogControls
+  .addBinding(fog, "density", { label: "Density", min: 0, max: 0.5, step: 0.01 })
+  .on("change", ({ value }) => app?.setFogDensity(value));
+fogControls
+  .addBinding(fog, "halfHeight", { label: "Ground half-height", min: 0.05, max: 3, step: 0.05 })
+  .on("change", ({ value }) => app?.setFogHalfHeight(value));
 const particles = {
   count: 250_000,
   visible: true,

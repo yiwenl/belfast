@@ -8,6 +8,7 @@ pub const STRIDE: u64 = 48;
 pub const MAX_RINGS: u32 = 24;
 const VERTICES_PER_RING: u32 = 12;
 const FILAMENT_RESET_SECONDS: std::ops::RangeInclusive<f32> = 2.0..=4.0;
+pub const FOREST_FLOOR_Y: f32 = -0.11;
 const CAMERA: &str = include_str!("camera.wgsl");
 const STATE: &str = include_str!("particle-state.wgsl");
 
@@ -39,7 +40,7 @@ impl Default for ParticleSettings {
             lift: 0.0,
             force_multiplier: 0.98,
             drag: 1.0,
-            ground_y: -0.11,
+            ground_y: FOREST_FLOOR_Y,
         }
     }
 }
@@ -232,7 +233,7 @@ impl Particles {
         let debug_draw = Draw::new(
             device,
             &format!(
-                "const VERTICES_PER_RING: u32 = {VERTICES_PER_RING}u;\n{CAMERA}\n{STATE}\n{}",
+                "const VERTICES_PER_RING: u32 = {VERTICES_PER_RING}u;\n{CAMERA}\n{}",
                 include_str!("filament-debug.wgsl")
             ),
             &debug_mesh,
@@ -249,10 +250,6 @@ impl Particles {
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: filaments.field().gpu().as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: motion.gpu().as_entire_binding(),
                 },
             ],
             "WalkFilamentDebugBinding",
@@ -300,7 +297,7 @@ impl Particles {
                 life: [
                     settings.lifetime,
                     settings.life_variation,
-                    settings.ground_y,
+                    0.0,
                     settings.outside_decay,
                 ],
                 counts: [settings.count, self.active_count],

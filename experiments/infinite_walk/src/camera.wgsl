@@ -4,14 +4,18 @@ struct Camera {
     billboard: vec4<f32>,
     // Camera Z, distance behind camera, loop length, X drift per loop.
     walk: vec4<f32>,
-    appearance: vec4<f32>, // white override, copy offset per axis, padding
-    // Top center and intensity of the downward light cylinder.
+    appearance: vec2<f32>, // white override, copy offset per axis
+    forest_floor_y: f32,
+    inverse_fog_half_height: f32,
+    // Beam center at filament ground height, and light intensity.
     light: vec4<f32>,
-    // Vertical range, outer radius, inner radius, ambient illumination.
+    // Axial range, outer radius, inner radius, ambient illumination.
     light_shape: vec4<f32>,
     light_view_projection: mat4x4<f32>,
-    // Shadow map size, depth bias, strength, padding.
+    // Shadow map size, depth bias, strength, fog density per world unit.
     shadow: vec4<f32>,
+    inverse_view_projection: mat4x4<f32>,
+    fog_noise_offset: vec4<f32>, // periodic wind displacement in noise cells, padding
 }
 @group(0) @binding(0) var<uniform> camera: Camera;
 
@@ -24,8 +28,11 @@ fn forest_position(position: vec3<f32>, direction: vec3<f32>, is_copy: bool) -> 
     return wrapped_position(position + direction * select(0.0, camera.appearance.y, is_copy));
 }
 
-fn inside_light_cylinder(position: vec3<f32>) -> bool {
-    let offset = position - camera.light.xyz;
-    return camera.light.w > 0.0 && offset.y <= 0.0 && -offset.y < camera.light_shape.x
-        && dot(offset.xz, offset.xz) < camera.light_shape.y * camera.light_shape.y;
+// The orthographic light projection maps radius to one and axial depth to [0, 1].
+fn light_space(world: vec3<f32>) -> vec3<f32> {
+    return (camera.light_view_projection * vec4(world, 1.0)).xyz;
+}
+
+fn inside_light_cylinder(beam: vec3<f32>) -> bool {
+    return camera.light.w > 0.0 && beam.z >= 0.0 && beam.z < 1.0 && dot(beam.xy, beam.xy) < 1.0;
 }

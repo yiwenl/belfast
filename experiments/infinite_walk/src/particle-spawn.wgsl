@@ -13,7 +13,7 @@ struct ForestPoint {
 @group(0) @binding(2) var<storage, read_write> spawns: SpawnList;
 
 fn add_spawn(position: vec3<f32>, color: u32) {
-    if !inside_light_cylinder(position) { return; }
+    if !inside_light_cylinder(light_space(position)) { return; }
     let index = atomicAdd(&spawns.count, 1u);
     spawns.points[index] = SourcePoint(position, color);
 }

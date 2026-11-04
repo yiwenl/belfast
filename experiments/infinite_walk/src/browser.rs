@@ -235,6 +235,16 @@ impl ExperimentApp {
         self.scene.set_show_shadow_map(enabled);
     }
 
+    #[wasm_bindgen(js_name = setFogDensity)]
+    pub fn set_fog_density(&mut self, density: f32) -> Result<(), JsValue> {
+        self.scene.set_fog_density(density).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setFogHalfHeight)]
+    pub fn set_fog_half_height(&mut self, height: f32) -> Result<(), JsValue> {
+        self.scene.set_fog_half_height(height).map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = setLight)]
     pub fn set_light(
         &mut self,

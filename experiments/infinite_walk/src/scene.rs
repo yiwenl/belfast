@@ -14,9 +14,18 @@ use crate::{
 pub const SHADER: &str = concat!(
     include_str!("camera.wgsl"),
     "\n",
-    include_str!("points.wgsl")
+    include_str!("points.wgsl"),
+    "\n",
+    include_str!("fog.wgsl")
 );
 const SHADOW_SIZE: u32 = 2048;
+const LIGHT_TILT_DEGREES: f32 = 15.0;
+
+struct FrameTargets {
+    color: wgpu::TextureView,
+    depth: wgpu::TextureView,
+    fog_inputs: wgpu::BindGroup,
+}
 
 pub struct Scene {
     pub camera: PerspectiveCamera,
@@ -54,7 +63,10 @@ pub struct Scene {
     light_radius: f32,
     viewport: [u32; 2],
     pixel_scale: f32,
-    depth: Option<(wgpu::Texture, wgpu::TextureView)>,
+    fog_pipeline: wgpu::RenderPipeline,
+    fog_density: f32,
+    fog_half_height: f32,
+    targets: Option<FrameTargets>,
 }
 
 impl Scene {
@@ -98,7 +110,7 @@ impl Scene {
                         },
                         wgpu::BindGroupLayoutEntry {
                             binding: 1,
-                            visibility: wgpu::ShaderStages::VERTEX,
+                            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
                             count: None,
                         },
@@ -206,21 +218,21 @@ impl Scene {
                     },
                     ..pipeline_options
                 });
-        let shadow_preview_pipeline =
+        let fullscreen_pipeline = |name, layout, fragment| {
             device
                 .gpu()
                 .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                    label: Some("InfiniteWalkShadowPreview"),
-                    layout: Some(&pipeline_layout),
+                    label: Some(name),
+                    layout: Some(layout),
                     vertex: wgpu::VertexState {
                         module: &shader,
-                        entry_point: Some("vs_shadow_preview"),
+                        entry_point: Some("vs_fullscreen"),
                         compilation_options: Default::default(),
                         buffers: &[],
                     },
                     fragment: Some(wgpu::FragmentState {
                         module: &shader,
-                        entry_point: Some("fs_shadow_preview"),
+                        entry_point: Some(fragment),
                         compilation_options: Default::default(),
                         targets: &[Some(wgpu::ColorTargetState {
                             format: device.format(),
@@ -229,17 +241,44 @@ impl Scene {
                         })],
                     }),
                     primitive: Default::default(),
-                    depth_stencil: Some(wgpu::DepthStencilState {
-                        format: wgpu::TextureFormat::Depth32Float,
-                        depth_write_enabled: Some(false),
-                        depth_compare: Some(wgpu::CompareFunction::Always),
-                        stencil: Default::default(),
-                        bias: Default::default(),
-                    }),
+                    depth_stencil: None,
                     multisample: Default::default(),
                     multiview_mask: None,
                     cache: None,
-                });
+                })
+        };
+        let shadow_preview_pipeline = fullscreen_pipeline(
+            "InfiniteWalkShadowPreview",
+            &pipeline_layout,
+            "fs_shadow_preview",
+        );
+        let fog_inputs = device
+            .gpu()
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("InfiniteWalkFogInputs"),
+                entries: &[
+                    (0, wgpu::TextureSampleType::Float { filterable: false }),
+                    (1, wgpu::TextureSampleType::Depth),
+                ]
+                .map(|(binding, sample_type)| wgpu::BindGroupLayoutEntry {
+                    binding,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                }),
+            });
+        let fog_layout = device
+            .gpu()
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("InfiniteWalkFogLayout"),
+                bind_group_layouts: &[Some(&layout), Some(&shadow_layout), Some(&fog_inputs)],
+                immediate_size: 0,
+            });
+        let fog_pipeline = fullscreen_pipeline("InfiniteWalkVolumetricFog", &fog_layout, "fs_fog");
         // The depth pass binds only uniforms, never the shadow texture it is writing.
         let shadow_pipeline_layout =
             device
@@ -298,7 +337,7 @@ impl Scene {
                     ..shadow_options
                 });
         let camera_buffer =
-            Buffer::create(device, 224, BufferUsage::uniform(), "InfiniteWalkCamera");
+            Buffer::create(device, 304, BufferUsage::uniform(), "InfiniteWalkCamera");
         let camera_bind_group = device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("InfiniteWalkCamera"),
             layout: &layout,
@@ -308,7 +347,7 @@ impl Scene {
             }],
         });
         // Night fog (#131414). An sRGB render target encodes the clear color on write.
-        let [r, g, b] = [0x13_u8, 0x14, 0x14].map(|byte| {
+        let [r, g, b] = [0x09_u8, 0x09, 0x08].map(|byte| {
             let value = f64::from(byte) / 255.0;
             if !device.format().is_srgb() {
                 value
@@ -354,7 +393,10 @@ impl Scene {
             light_radius: 1.45,
             viewport: [0, 0],
             pixel_scale: 1.0,
-            depth: None,
+            fog_pipeline,
+            fog_density: 0.22,
+            fog_half_height: 0.45,
+            targets: None,
         })
     }
 
@@ -421,6 +463,22 @@ impl Scene {
         Ok(())
     }
 
+    pub fn set_fog_density(&mut self, density: f32) -> Result<(), String> {
+        if !(0.0..=0.5).contains(&density) {
+            return Err("Fog density must be between 0 and 0.5".into());
+        }
+        self.fog_density = density;
+        Ok(())
+    }
+
+    pub fn set_fog_half_height(&mut self, height: f32) -> Result<(), String> {
+        if !(0.05..=3.0).contains(&height) {
+            return Err("Fog half-height must be between 0.05 and 3 world units".into());
+        }
+        self.fog_half_height = height;
+        Ok(())
+    }
+
     pub fn set_show_shadow_map(&mut self, enabled: bool) {
         self.show_shadow_map = enabled;
     }
@@ -455,22 +513,47 @@ impl Scene {
             return;
         }
         self.viewport = [width, height];
-        let texture = device.gpu().create_texture(&wgpu::TextureDescriptor {
-            label: Some("InfiniteWalkDepth"),
-            size: wgpu::Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
+        let attachment = |label, format| {
+            device
+                .gpu()
+                .create_texture(&wgpu::TextureDescriptor {
+                    label: Some(label),
+                    size: wgpu::Extent3d {
+                        width,
+                        height,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                        | wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                })
+                .create_view(&Default::default())
+        };
+        let depth = attachment("InfiniteWalkDepth", wgpu::TextureFormat::Depth32Float);
+        let color = attachment("InfiniteWalkSceneColor", device.format());
+        let fog_inputs = device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("InfiniteWalkFogInputs"),
+            layout: &self.fog_pipeline.get_bind_group_layout(2),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&color),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&depth),
+                },
+            ],
         });
-        let view = texture.create_view(&Default::default());
-        self.depth = Some((texture, view));
+        self.targets = Some(FrameTargets {
+            depth,
+            color,
+            fog_inputs,
+        });
     }
 
     pub fn update(&mut self, device: &Device, delta_seconds: f32, now_ms: f64) {
@@ -481,9 +564,15 @@ impl Scene {
         let target_y = eye[1] + path_length * self.camera_pitch_radians.tan();
         self.camera
             .look_at(eye, [eye[0] + DRIFT_X, target_y, eye[2] - LENGTH]);
-        let mut uniform = [0.0_f32; 56];
+        let mut uniform = [0.0_f32; 76];
         let projection = self.camera.projection_matrix();
-        uniform[..16].copy_from_slice(&self.camera.view_projection_matrix());
+        let view_projection = Mat4::from_cols_array(&self.camera.view_projection_matrix());
+        uniform[..16].copy_from_slice(&view_projection.to_cols_array());
+        uniform[56..72].copy_from_slice(&view_projection.inverse().to_cols_array());
+        // Wrap each wind phase in f64 so long-running sessions retain smooth motion.
+        for (i, speed) in [-0.08, -0.015, -0.035].into_iter().enumerate() {
+            uniform[72 + i] = (now_ms * 0.001 * speed).rem_euclid(16.0) as f32;
+        }
         uniform[16..20].copy_from_slice(&[
             projection[0],
             projection[5],
@@ -493,28 +582,42 @@ impl Scene {
         uniform[20..24].copy_from_slice(&[eye[2], 1.0, LENGTH, DRIFT_X]);
         uniform[24] = if self.white_particles { 1.0 } else { 0.0 };
         uniform[25] = self.copy_offset;
+        uniform[26] = particles::FOREST_FLOOR_Y;
+        uniform[27] = self.fog_half_height.recip();
         let forward_scale = self.light_forward / path_length;
-        let light_eye = Vec3::new(
+        let floor_target = Vec3::new(
             eye[0] + DRIFT_X * forward_scale,
-            eye[1] + self.light_height,
+            particles::FOREST_FLOOR_Y,
             eye[2] - LENGTH * forward_scale,
         );
-        uniform[28..32].copy_from_slice(&light_eye.extend(self.light_intensity).to_array());
+        let camera_right = Vec3::new(LENGTH, 0.0, DRIFT_X) / path_length;
+        // Horizontal shift per unit of height keeps the floor target fixed as the light moves.
+        let toward_lamp = Vec3::Y + camera_right * LIGHT_TILT_DEGREES.to_radians().tan();
+        let light_eye = floor_target + toward_lamp * (eye[1] + self.light_height - floor_target.y);
+        let filament_origin =
+            floor_target + toward_lamp * (self.particle_settings.ground_y - floor_target.y);
+        uniform[28..32].copy_from_slice(&filament_origin.extend(self.light_intensity).to_array());
         let radius = self.light_radius;
         uniform[32..36].copy_from_slice(&[self.light_range, radius, radius * (2.0 / 3.0), 0.025]);
         let light_matrix =
             Mat4::orthographic_rh(-radius, radius, -radius, radius, 0.0, self.light_range)
-                * Mat4::look_at_rh(light_eye, light_eye - Vec3::Y, Vec3::Z);
+                * Mat4::look_to_rh(light_eye, -toward_lamp.normalize(), Vec3::Z);
         uniform[36..52].copy_from_slice(&light_matrix.to_cols_array());
-        uniform[52..56].copy_from_slice(&[SHADOW_SIZE as f32, 0.00002, self.shadow_strength, 0.0]);
+        uniform[52..56].copy_from_slice(&[
+            SHADOW_SIZE as f32,
+            0.00002,
+            self.shadow_strength,
+            self.fog_density,
+        ]);
         self.camera_buffer.write(device, &uniform, 0);
         let _skeleton = self.skeleton.latest(now_ms);
     }
 
     pub fn render(&self, device: &Device, view: &wgpu::TextureView) {
-        let Some((_, depth)) = &self.depth else {
+        let Some(targets) = &self.targets else {
             return;
         };
+        let fog_active = self.fog_density > 0.0 && self.light_intensity > 0.0;
         let mut encoder = device
             .gpu()
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -545,7 +648,7 @@ impl Scene {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("InfiniteWalkPoints"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view,
+                    view: if fog_active { &targets.color } else { view },
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
@@ -554,10 +657,14 @@ impl Scene {
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: depth,
+                    view: &targets.depth,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Discard,
+                        store: if fog_active {
+                            wgpu::StoreOp::Store
+                        } else {
+                            wgpu::StoreOp::Discard
+                        },
                     }),
                     stencil_ops: None,
                 }),
@@ -584,6 +691,32 @@ impl Scene {
                     particles.draw_debug(&mut pass);
                 }
             }
+        }
+        if fog_active || self.show_shadow_map {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("InfiniteWalkComposite"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: if fog_active {
+                            wgpu::LoadOp::Clear(self.background)
+                        } else {
+                            wgpu::LoadOp::Load
+                        },
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                ..Default::default()
+            });
+            pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            pass.set_bind_group(1, &self.shadow_binding, &[]);
+            if fog_active {
+                pass.set_pipeline(&self.fog_pipeline);
+                pass.set_bind_group(2, &targets.fog_inputs, &[]);
+                pass.draw(0..3, 0..1);
+            }
             if self.show_shadow_map {
                 let [width, height] = self.viewport.map(|value| value as f32);
                 let shortest = width.min(height);
@@ -591,8 +724,6 @@ impl Scene {
                 let size = (220.0 * self.pixel_scale).min(shortest - 2.0 * margin);
                 pass.set_viewport(margin, height - margin - size, size, size, 0.0, 1.0);
                 pass.set_pipeline(&self.shadow_preview_pipeline);
-                pass.set_bind_group(0, &self.camera_bind_group, &[]);
-                pass.set_bind_group(1, &self.shadow_binding, &[]);
                 pass.draw(0..3, 0..1);
             }
         }
