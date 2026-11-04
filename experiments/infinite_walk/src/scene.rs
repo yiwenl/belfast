@@ -7,7 +7,7 @@ use glam::{Mat4, Vec3};
 use crate::{
     input::SkeletonInput,
     particles::{self, ParticleSettings, Particles},
-    point_cloud::PointCloud,
+    point_cloud::{Point, PointCloud},
     walk::{Walk, DRIFT_X, LENGTH},
 };
 
@@ -41,6 +41,7 @@ pub struct Scene {
     points: Option<Buffer>,
     point_count: u32,
     point_size: f32,
+    copy_offset: f32,
     white_particles: bool,
     camera_y: f32,
     camera_pitch_radians: f32,
@@ -130,9 +131,9 @@ impl Scene {
                 source: wgpu::ShaderSource::Wgsl(SHADER.into()),
             });
         let vertex_buffers = [Some(wgpu::VertexBufferLayout {
-            array_stride: 16,
+            array_stride: size_of::<Point>() as u64,
             step_mode: wgpu::VertexStepMode::Instance,
-            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Unorm8x4],
+            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Unorm8x4, 2 => Float32x3],
         })];
         let particle_vertex_buffers = [Some(wgpu::VertexBufferLayout {
             array_stride: particles::STRIDE,
@@ -327,6 +328,7 @@ impl Scene {
             points: None,
             point_count: 0,
             point_size: 0.01,
+            copy_offset: 0.015,
             white_particles: false,
             camera_y: 0.59,
             camera_pitch_radians: 4.0_f32.to_radians(),
@@ -344,7 +346,7 @@ impl Scene {
     pub fn load_point_cloud(&mut self, device: &Device, bytes: &[u8]) -> Result<u32, String> {
         let cloud = PointCloud::parse(bytes)?;
         let count = cloud.points.len() as u32;
-        if u64::from(count) * 16 > device.gpu().limits().max_buffer_size {
+        if u64::from(count) * size_of::<Point>() as u64 > device.gpu().limits().max_buffer_size {
             return Err("Point cloud exceeds this GPU's vertex buffer limit".into());
         }
         let points = Buffer::from_data(
@@ -365,6 +367,14 @@ impl Scene {
             return Err("Particle size must be between 0.001 and 0.05 world units".into());
         }
         self.point_size = size;
+        Ok(())
+    }
+
+    pub fn set_copy_offset(&mut self, offset: f32) -> Result<(), String> {
+        if !(0.0..=0.25).contains(&offset) {
+            return Err("Copy offset must be between 0 and 0.25 world units".into());
+        }
+        self.copy_offset = offset;
         Ok(())
     }
 
@@ -467,6 +477,7 @@ impl Scene {
         ]);
         uniform[20..24].copy_from_slice(&[eye[2], 1.0, LENGTH, DRIFT_X]);
         uniform[24] = if self.white_particles { 1.0 } else { 0.0 };
+        uniform[25] = self.copy_offset;
         let forward_scale = self.light_forward / path_length;
         let light_eye = Vec3::new(
             eye[0] + DRIFT_X * forward_scale,
@@ -503,7 +514,7 @@ impl Scene {
                     pass.set_pipeline(&self.shadow_pipeline);
                     pass.set_bind_group(0, &self.camera_bind_group, &[]);
                     pass.set_vertex_buffer(0, points.gpu().slice(..));
-                    pass.draw(0..6, 0..self.point_count);
+                    pass.draw(0..12, 0..self.point_count);
                 }
                 if self.particle_settings.visible {
                     if let Some(particles) = &self.particles {
@@ -549,7 +560,7 @@ impl Scene {
                 pass.set_bind_group(0, &self.camera_bind_group, &[]);
                 pass.set_bind_group(1, &self.shadow_binding, &[]);
                 pass.set_vertex_buffer(0, points.gpu().slice(..));
-                pass.draw(0..6, 0..self.point_count);
+                pass.draw(0..12, 0..self.point_count);
             }
             if let Some(particles) = &self.particles {
                 if self.particle_settings.visible {

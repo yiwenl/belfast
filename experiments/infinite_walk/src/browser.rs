@@ -191,6 +191,11 @@ impl ExperimentApp {
         self.scene.set_camera_y(y).map_err(js_error)
     }
 
+    #[wasm_bindgen(js_name = setCopyOffset)]
+    pub fn set_copy_offset(&mut self, offset: f32) -> Result<(), JsValue> {
+        self.scene.set_copy_offset(offset).map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = setCameraPitch)]
     pub fn set_camera_pitch(&mut self, degrees: f32) -> Result<(), JsValue> {
         self.scene.set_camera_pitch(degrees).map_err(js_error)

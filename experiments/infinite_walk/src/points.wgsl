@@ -77,8 +77,10 @@ fn vs_main(
     @builtin(vertex_index) vertex: u32,
     @location(0) position: vec3<f32>,
     @location(1) color: vec4<f32>,
+    @location(2) copy_direction: vec3<f32>,
 ) -> VertexOut {
-    return billboard_vertex(vertex, wrapped_position(position), color, camera.billboard.z);
+    let center = forest_position(position, copy_direction, vertex >= 6u);
+    return billboard_vertex(vertex % 6u, center, color, camera.billboard.z);
 }
 
 @vertex
@@ -131,8 +133,13 @@ fn shadow_vertex(vertex: u32, center: vec3<f32>, size: f32) -> ShadowVertex {
 }
 
 @vertex
-fn vs_shadow(@builtin(vertex_index) vertex: u32, @location(0) position: vec3<f32>) -> ShadowVertex {
-    return shadow_vertex(vertex, wrapped_position(position), camera.billboard.z);
+fn vs_shadow(
+    @builtin(vertex_index) vertex: u32,
+    @location(0) position: vec3<f32>,
+    @location(2) copy_direction: vec3<f32>,
+) -> ShadowVertex {
+    let center = forest_position(position, copy_direction, vertex >= 6u);
+    return shadow_vertex(vertex % 6u, center, camera.billboard.z);
 }
 
 @vertex

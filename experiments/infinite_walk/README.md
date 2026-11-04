@@ -34,7 +34,7 @@ The **Count** control adjusts the number of drifting billboard particles from 0 
 
 ## Assets
 
-`public/forest.ply` is a local copy of `forest_walk_patched_final.ply` from `/Users/yi-wenlin/Development/Sketches/experiments2/apps/birdsong/public/` (370,681 points). The source is already rotated and patched; positions and RGB remain unchanged. PLY assets are ignored by this repository. On another checkout, copy that file to `public/forest.ply` before starting or building.
+`public/forest.ply` is a local copy of `forest_walk_patched_final.ply` from `/Users/yi-wenlin/Development/Sketches/experiments2/apps/birdsong/public/` (370,681 points). Each original point has one same-color copy. **Copy offset** sets the maximum displacement per axis (0–0.25 world units, default 0.015). Each copy follows its fixed random direction as the slider moves and overlaps its original at zero. Both sets share the rendering, shadow and spawn passes, for 741,362 forest points. PLY assets are ignored by this repository. On another checkout, copy that file to `public/forest.ply` before starting or building.
 
 The camera uses birdsong's start `[-0.3, 0.3, 4.3]`, end `[0.1, 0.3, -9]`, an 88° vertical field of view, and 0.0005 path cycles per wheel pixel. Points repeat along that same diagonal in the vertex shader. Each lap rebases the camera and cloud together to retain precision. Points render as opaque, depth-tested circular billboards with a diameter of 0.01 world units, so they appear larger near the camera.
 

@@ -17,6 +17,7 @@ const settings = {
   fps: "—",
   resolution: "hd",
   pointSize: 0.01,
+  copyOffset: 0.015,
   cameraY: 0.59,
   cameraPitch: 4,
   whiteParticles: false,
@@ -40,6 +41,9 @@ pane
     step: 0.001,
   })
   .on("change", ({ value }) => app?.setPointSize(value));
+pane
+  .addBinding(settings, "copyOffset", { label: "Copy offset", min: 0, max: 0.25, step: 0.001 })
+  .on("change", ({ value }) => app?.setCopyOffset(value));
 pane
   .addBinding(settings, "whiteParticles", { label: "White particles" })
   .on("change", ({ value }) => app?.setWhiteParticles(value));
@@ -251,9 +255,9 @@ async function start() {
     if (!response.ok) throw new Error(`Unable to load point cloud (${response.status})`);
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (disposed) return;
-    const count = created.loadPointCloud(bytes);
+    const sourceCount = created.loadPointCloud(bytes);
     document.querySelector<HTMLElement>("#point-count")!.textContent =
-      `${count.toLocaleString()} points`;
+      `${sourceCount.toLocaleString()} PLY points + ${sourceCount.toLocaleString()} copies`;
     detachInput = bindWalkInput(canvas, created);
     pane.disabled = false;
 

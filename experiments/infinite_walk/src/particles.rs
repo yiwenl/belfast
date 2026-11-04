@@ -108,7 +108,8 @@ impl Particles {
         camera: &Buffer,
     ) -> Result<Self, String> {
         let limits = device.gpu().limits();
-        let spawn_bytes = 16 + u64::from(source_count) * 16;
+        // Each forest point can emit from both its original and its offset copy.
+        let spawn_bytes = 16 + u64::from(source_count) * 2 * 16;
         if [sources.size(), spawn_bytes, u64::from(MAX_COUNT) * STRIDE]
             .into_iter()
             .any(|bytes| {

@@ -4,6 +4,7 @@
 pub struct Point {
     pub position: [f32; 3],
     pub color: [u8; 4],
+    copy_direction: [f32; 4], // XYZ plus padding for the GPU storage layout
 }
 
 #[derive(Debug)]
@@ -96,6 +97,13 @@ impl PointCloud {
         points
             .try_reserve_exact(count)
             .map_err(|_| "Not enough memory for this point cloud")?;
+        let mut seed = 0x5eed_f012u32;
+        let mut random_axis = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            (seed >> 8) as f32 / 8_388_608.0 - 1.0
+        };
         for record in bytes[end..end + length].chunks_exact(stride) {
             let position = std::array::from_fn(|i| {
                 f32::from_le_bytes(record[offsets[i]..offsets[i] + 4].try_into().unwrap())
@@ -111,6 +119,7 @@ impl PointCloud {
                     record[offsets[5]],
                     255,
                 ],
+                copy_direction: [random_axis(), random_axis(), random_axis(), 0.0],
             });
         }
         Ok(Self { points })
