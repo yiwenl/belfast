@@ -22,6 +22,7 @@ pub struct Scene {
     pub camera: PerspectiveCamera,
     pub walk: Walk,
     pub skeleton: SkeletonInput,
+    background: wgpu::Color,
     pipeline: wgpu::RenderPipeline,
     particle_pipeline: wgpu::RenderPipeline,
     particle_shadow_pipeline: wgpu::RenderPipeline,
@@ -306,7 +307,19 @@ impl Scene {
                 resource: camera_buffer.gpu().as_entire_binding(),
             }],
         });
+        // Night fog (#131414). An sRGB render target encodes the clear color on write.
+        let [r, g, b] = [0x13_u8, 0x14, 0x14].map(|byte| {
+            let value = f64::from(byte) / 255.0;
+            if !device.format().is_srgb() {
+                value
+            } else if value <= 0.04045 {
+                value / 12.92
+            } else {
+                ((value + 0.055) / 1.055).powf(2.4)
+            }
+        });
         Ok(Self {
+            background: wgpu::Color { r, g, b, a: 1.0 },
             camera: PerspectiveCamera::new(88.0_f32.to_radians(), 1.0, 0.1, 100.0),
             walk: Walk::default(),
             skeleton: SkeletonInput::default(),
@@ -536,12 +549,7 @@ impl Scene {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.025,
-                            g: 0.025,
-                            b: 0.025,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(self.background),
                         store: wgpu::StoreOp::Store,
                     },
                 })],

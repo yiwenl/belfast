@@ -8,9 +8,11 @@ Copied from `experiments/template`: a Rust-owned WebGPU scene with a looping for
 pnpm --dir experiments/infinite_walk dev
 ```
 
-Open <http://localhost:5186>. Scroll down to walk forward; scroll up to walk backward. Movement eases to a stop and loops in both directions. The camera follows the original birdsong path at an adjustable height and fixed heading. A mouse wheel or trackpad is required; pinch gestures retain browser zoom.
+Open <http://localhost:5186>. Scroll down to walk forward or up to walk backward. Scroll movement eases to a stop and loops in both directions. Press **P** to walk backward automatically at one lap per 80 seconds. Press it again to stop in place. Press **F** to toggle fullscreen for the canvas alone. The camera follows the original birdsong path at an adjustable height and fixed heading. Pinch gestures retain browser zoom.
 
 **Resolution** defaults to **HD · 1920 × 1080**. Select **Portrait · 1080 × 1920** for a vertical 9:16 canvas. Both presets use their exact pixel dimensions and fit the browser window at their native aspect ratio. **Full browser** fills the viewport and renders at its size multiplied by device pixel ratio.
+
+Press **Ctrl+S** or **⌘S** to download the current canvas frame as a PNG at its rendering resolution.
 
 FPS stays visible above the **Scene**, **Light**, **Particles** and **Filament** tabs. The **Scene** tab includes a live **Particle size** slider (0.001–0.05 world units, default 0.01), and **Camera Y** (0–3 world units, default 0.75). **Camera pitch (°)** tilts the view from −85° (down) to +85° (up), with 0° level and +4° as the default. Scrolling follows the horizontal walking path at every pitch.
 

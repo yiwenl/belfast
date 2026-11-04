@@ -125,7 +125,8 @@ impl ExperimentApp {
         Ok(())
     }
 
-    pub fn frame(&mut self, timestamp_ms: f64) -> Result<(), JsValue> {
+    /// Returns true when the canvas contains a freshly rendered frame for capture.
+    pub fn frame(&mut self, timestamp_ms: f64) -> Result<bool, JsValue> {
         if !timestamp_ms.is_finite() || timestamp_ms < 0.0 {
             return Err(js_error(
                 "Frame timestamp must be finite, non-negative milliseconds",
@@ -140,7 +141,7 @@ impl ExperimentApp {
         self.scene
             .update(&self.device, delta_seconds.min(0.1), timestamp_ms);
         if !self.drawable {
-            return Ok(());
+            return Ok(false);
         }
         self.scene
             .simulate(&self.device, delta_seconds)
@@ -149,11 +150,11 @@ impl ExperimentApp {
             wgpu::CurrentSurfaceTexture::Success(frame) => (frame, false),
             wgpu::CurrentSurfaceTexture::Suboptimal(frame) => (frame, true),
             wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
-                return Ok(())
+                return Ok(false)
             }
             wgpu::CurrentSurfaceTexture::Outdated => {
                 self.surface.configure(self.device.gpu(), &self.config);
-                return Ok(());
+                return Ok(false);
             }
             wgpu::CurrentSurfaceTexture::Lost => {
                 self.surface = self
@@ -161,7 +162,7 @@ impl ExperimentApp {
                     .create_surface(wgpu::SurfaceTarget::Canvas(self.canvas.clone()))
                     .map_err(js_error)?;
                 self.surface.configure(self.device.gpu(), &self.config);
-                return Ok(());
+                return Ok(false);
             }
             wgpu::CurrentSurfaceTexture::Validation => {
                 return Err(js_error("WebGPU surface validation failed"))
@@ -175,11 +176,16 @@ impl ExperimentApp {
         if reconfigure {
             self.surface.configure(self.device.gpu(), &self.config);
         }
-        Ok(())
+        Ok(!reconfigure)
     }
 
     pub fn scroll(&mut self, delta: f32) {
         self.scene.walk.scroll(delta);
+    }
+
+    #[wasm_bindgen(js_name = toggleAutoBackward)]
+    pub fn toggle_auto_backward(&mut self) {
+        self.scene.walk.toggle_auto_backward();
     }
 
     #[wasm_bindgen(js_name = setPointSize)]

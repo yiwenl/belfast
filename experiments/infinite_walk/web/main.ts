@@ -11,6 +11,7 @@ const errorOutput = document.querySelector<HTMLElement>("#error")!;
 let app: ExperimentApp | undefined;
 let detachInput: (() => void) | undefined;
 let animationFrame = 0;
+let savePngRequested = false;
 let disposed = false;
 const loading = new AbortController();
 const resolutions = {
@@ -261,6 +262,55 @@ function onPageHide(event: PageTransitionEvent) {
   if (!event.persisted) dispose();
 }
 
+async function onKeyDown(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.isComposing || event.altKey) return;
+  if (event.ctrlKey || event.metaKey) {
+    if (!event.shiftKey && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      if (!event.repeat) savePngRequested = true;
+    }
+    return;
+  }
+  if (event.repeat) return;
+  const target = event.target;
+  if (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.closest("input, textarea, select"))
+  )
+    return;
+
+  switch (event.key.toLowerCase()) {
+    case "f":
+      event.preventDefault();
+      try {
+        if (document.fullscreenElement === canvas) await document.exitFullscreen();
+        else await canvas.requestFullscreen();
+      } catch (error) {
+        console.warn("Could not toggle canvas fullscreen", error);
+      }
+      break;
+    case "p":
+      event.preventDefault();
+      app?.toggleAutoBackward();
+      break;
+  }
+}
+
+function downloadCanvasPng() {
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      console.warn("Could not export canvas as PNG");
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `infinite-walk-${Date.now()}.png`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, "image/png");
+}
+
 function reportError(error: unknown) {
   if (disposed) return;
   status.hidden = true;
@@ -291,10 +341,9 @@ async function start() {
     if (!response.ok) throw new Error(`Unable to load point cloud (${response.status})`);
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (disposed) return;
-    const sourceCount = created.loadPointCloud(bytes);
-    document.querySelector<HTMLElement>("#point-count")!.textContent =
-      `${sourceCount.toLocaleString()} PLY points + ${sourceCount.toLocaleString()} copies`;
+    created.loadPointCloud(bytes);
     detachInput = bindWalkInput(canvas, created);
+    window.addEventListener("keydown", onKeyDown, { signal: loading.signal });
     pane.disabled = false;
 
     // Retain the template's optional skeleton input for later particle interaction.
@@ -311,7 +360,11 @@ async function start() {
           created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
         }
         // Use the current clock so input received earlier in this RAF is not dated in the future.
-        created.frame(performance.now());
+        const rendered = created.frame(performance.now());
+        if (rendered && savePngRequested) {
+          savePngRequested = false;
+          downloadCanvasPng();
+        }
         fps.tick(timestampMs);
         status.hidden = true;
         animationFrame = requestAnimationFrame(frame);

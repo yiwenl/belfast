@@ -2,15 +2,25 @@ pub const START: [f32; 3] = [-0.3, 0.3, 4.3];
 pub const END: [f32; 3] = [0.1, 0.3, -9.0];
 pub const LENGTH: f32 = START[2] - END[2];
 pub const DRIFT_X: f32 = END[0] - START[0];
+const AUTO_LAP_SECONDS: f64 = 80.0;
 
 #[derive(Default)]
 pub struct Walk {
     target_phase: f64,
     remaining: f64,
     moving: bool,
+    auto_backward: bool,
 }
 
 impl Walk {
+    pub fn toggle_auto_backward(&mut self) {
+        self.auto_backward = !self.auto_backward;
+        if !self.auto_backward {
+            self.target_phase = (self.target_phase - self.remaining).rem_euclid(1.0);
+            self.remaining = 0.0;
+        }
+    }
+
     pub fn scroll(&mut self, pixels: f32) {
         if !pixels.is_finite() {
             return;
@@ -20,15 +30,21 @@ impl Walk {
         self.remaining += distance;
     }
 
-    /// Returns true once, on the frame an eased walk comes to rest.
+    /// Returns true once, on the frame the camera comes to rest.
     pub fn advance(&mut self, seconds: f32) -> bool {
         if !seconds.is_finite() || seconds <= 0.0 {
             return false;
         }
-        self.remaining *= (-12.0 * f64::from(seconds.min(0.1))).exp();
+        let seconds = f64::from(seconds.min(0.1));
+        if self.auto_backward {
+            self.target_phase = (self.target_phase - seconds / AUTO_LAP_SECONDS).rem_euclid(1.0);
+        }
+        self.remaining *= (-12.0 * seconds).exp();
         if self.remaining.abs() < 1e-9 {
             self.remaining = 0.0;
-            return std::mem::take(&mut self.moving);
+            if !self.auto_backward {
+                return std::mem::take(&mut self.moving);
+            }
         }
         self.moving = true;
         false

@@ -11,6 +11,7 @@ const fps = createFpsMeter(document.querySelector<HTMLElement>("#fps")!);
 let app: ExperimentApp | undefined;
 let detachInput: (() => void) | undefined;
 let animationFrame = 0;
+let savePngRequested = false;
 let disposed = false;
 
 function dispose() {
@@ -22,11 +23,54 @@ function dispose() {
   app?.free();
   app = undefined;
   window.removeEventListener("pagehide", onPageHide);
+  window.removeEventListener("keydown", onKeyDown);
 }
 
 function onPageHide(event: PageTransitionEvent) {
   // A persisted page resumes its existing RAF when restored from the back/forward cache.
   if (!event.persisted) dispose();
+}
+
+async function onKeyDown(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.isComposing || event.altKey) return;
+  const key = event.key.toLowerCase();
+  if (event.ctrlKey || event.metaKey) {
+    if (key === "s" && !event.shiftKey) {
+      event.preventDefault();
+      if (!event.repeat) savePngRequested = true;
+    }
+    return;
+  }
+  if (key !== "f" || event.repeat) return;
+  const target = event.target;
+  if (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.closest("input, textarea, select"))
+  )
+    return;
+
+  event.preventDefault();
+  try {
+    if (document.fullscreenElement === canvas) await document.exitFullscreen();
+    else await canvas.requestFullscreen();
+  } catch (error) {
+    console.warn("Could not toggle canvas fullscreen", error);
+  }
+}
+
+function downloadCanvasPng() {
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      console.warn("Could not export canvas as PNG");
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `canvas-${Date.now()}.png`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, "image/png");
 }
 
 function reportError(error: unknown) {
@@ -53,6 +97,7 @@ async function start() {
     }
     app = created;
     detachInput = bindOrbitInput(canvas, created);
+    window.addEventListener("keydown", onKeyDown);
 
     // Future Kinetic integration: forward each event's poses and performance.now().
     // See README.md for the optional camera/tracker setup and disposal.
@@ -64,7 +109,11 @@ async function start() {
       try {
         created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
         // Use the current clock so input received earlier in this RAF is not dated in the future.
-        created.frame(performance.now());
+        const rendered = created.frame(performance.now());
+        if (rendered && savePngRequested) {
+          savePngRequested = false;
+          downloadCanvasPng();
+        }
         fps.tick(timestampMs);
         status.hidden = true;
         animationFrame = requestAnimationFrame(frame);

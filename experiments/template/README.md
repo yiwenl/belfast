@@ -16,6 +16,8 @@ Open <http://localhost:5174>. WebGPU requires a supported browser on localhost o
 - Left drag: orbit.
 - Shift + left drag or middle drag: pan.
 - Wheel / trackpad scroll: zoom.
+- Press **F** to toggle fullscreen for the canvas.
+- Press **Ctrl+S** or **⌘S** to download a PNG of the canvas at its rendering resolution.
 
 `dev` builds release Wasm, starts Vite, and watches `.rs` / `.wgsl` under this experiment's `src/` and `crates/belfast/src`. A save rebuilds Wasm and reloads the page after a successful build. TypeScript and CSS keep Vite's hot reload. Cargo manifest changes are not watched; restart `dev` after changing dependencies.
 
