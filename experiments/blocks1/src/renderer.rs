@@ -1,5 +1,5 @@
 use crate::{
-    fluid_debug::FluidDebug,
+    debug_maps::DebugMaps,
     particles::{Particles, STATE},
 };
 use belfast::{
@@ -22,6 +22,7 @@ pub struct RenderOptions {
     pub size: f32,
     pub shadow_strength: f32,
     pub show_debug_maps: bool,
+    pub show_color_map: bool,
 }
 
 pub struct Renderer {
@@ -41,7 +42,7 @@ pub struct Renderer {
     background_group: BindGroup,
     background_image: wgpu::TextureView,
     background_blur: Draw,
-    fluid_debug: FluidDebug,
+    debug_maps: DebugMaps,
 }
 fn load_texture(
     device: &Device,
@@ -395,7 +396,7 @@ impl Renderer {
             background_group,
             background_image: bg.view().clone(),
             background_blur,
-            fluid_debug: FluidDebug::new(device, fluid)?,
+            debug_maps: DebugMaps::new(device, fluid)?,
         })
     }
     pub fn is_color_transitioning(&self) -> bool {
@@ -428,6 +429,7 @@ impl Renderer {
             &palette,
             &self.shadow,
         );
+        self.debug_maps.set_color_map(device, &palette);
         self.palette = palette;
         self.color_offset = 0.0;
         Ok(())
@@ -498,7 +500,7 @@ impl Renderer {
         if self.depth.width() != width || self.depth.height() != height {
             self.depth = depth_texture(device, width, height)?;
         }
-        self.fluid_debug.resize(device, width, height, pixel_ratio);
+        self.debug_maps.resize(device, width, height, pixel_ratio);
         Ok(())
     }
     pub fn render(
@@ -561,8 +563,13 @@ impl Renderer {
         self.material_group.bind(&mut pass, 2);
         self.draw.draw(&mut pass, &self.mesh, particles.count());
         drop(pass);
-        if options.show_debug_maps {
-            self.fluid_debug.render(encoder, view);
+        if options.show_debug_maps || options.show_color_map {
+            self.debug_maps.render(
+                encoder,
+                view,
+                options.show_debug_maps,
+                options.show_color_map,
+            );
         }
     }
 }

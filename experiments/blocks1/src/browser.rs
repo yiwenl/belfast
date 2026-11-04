@@ -300,6 +300,10 @@ impl ExperimentApp {
     pub fn set_debug_maps(&mut self, visible: bool) {
         self.scene.show_debug_maps = visible;
     }
+    #[wasm_bindgen(js_name = setColorMapPreview)]
+    pub fn set_color_map_preview(&mut self, visible: bool) {
+        self.scene.show_color_map = visible;
+    }
     pub fn reset(&mut self) {
         self.scene.reset(&self.device);
     }

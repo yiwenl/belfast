@@ -28,23 +28,47 @@ export function createColorDialog(
   const status = document.querySelector<HTMLElement>("#color-status")!;
   const motionStatus = document.querySelector<HTMLElement>("#motion-status")!;
   const preview = document.querySelector<HTMLImageElement>("#color-preview")!;
-  const imagePreview = document.querySelector<HTMLImageElement>("#color-map-preview")!;
   const lifetime = new AbortController();
   const client = new ParticleClient({ baseUrl: new URL("/image-api", location.origin).href });
   let busy = false;
+  let composing = false;
   let previewUrl: string | undefined;
-  let imagePreviewVisible = false;
-
-  function setImagePreviewVisible(visible: boolean) {
-    imagePreviewVisible = visible;
-    imagePreview.hidden = !visible || !previewUrl;
-  }
 
   function open() {
     if (lifetime.signal.aborted || dialog.open) return;
     app.clearPointer();
     dialog.showModal();
     if (!busy) prompt.focus();
+  }
+
+  function resizeQuickPrompt() {
+    if (!dialog.classList.contains("quick-prompt")) return;
+    prompt.style.height = "0px";
+    prompt.style.height = `${prompt.scrollHeight}px`;
+  }
+
+  function startTyping(text: string) {
+    if (busy || dialog.open || lifetime.signal.aborted) return false;
+    prompt.value = text;
+    dialog.classList.add("quick-prompt");
+    open();
+    prompt.setSelectionRange(text.length, text.length);
+    resizeQuickPrompt();
+    return true;
+  }
+
+  function onPromptKeyDown(event: KeyboardEvent) {
+    if (
+      !dialog.classList.contains("quick-prompt") ||
+      composing ||
+      event.isComposing ||
+      event.keyCode === 229
+    )
+      return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (!event.repeat) form.requestSubmit();
+    }
   }
 
   function generateRandom() {
@@ -111,8 +135,6 @@ export function createColorDialog(
       previewUrl = URL.createObjectURL(result.blob);
       preview.src = previewUrl;
       preview.hidden = false;
-      imagePreview.src = previewUrl;
-      setImagePreviewVisible(imagePreviewVisible);
       status.textContent = "Blending colors…";
       if (!motionStatus.dataset.error) dialog.close();
       // Both palettes are in use until the fade ends; keep the next submission locked.
@@ -170,6 +192,7 @@ export function createColorDialog(
       return;
     }
     busy = true;
+    if (dialog.classList.contains("quick-prompt")) dialog.close();
     prompt.disabled = submit.disabled = random.disabled = true;
     submit.textContent = "Generating…";
     form.setAttribute("aria-busy", "true");
@@ -191,20 +214,47 @@ export function createColorDialog(
   }
 
   form.addEventListener("submit", generate, { signal: lifetime.signal });
+  prompt.addEventListener("keydown", onPromptKeyDown, { signal: lifetime.signal });
+  prompt.addEventListener("input", resizeQuickPrompt, { signal: lifetime.signal });
+  prompt.addEventListener("compositionstart", () => (composing = true), {
+    signal: lifetime.signal,
+  });
+  prompt.addEventListener("compositionend", () => (composing = false), {
+    signal: lifetime.signal,
+  });
+  window.addEventListener("resize", resizeQuickPrompt, { signal: lifetime.signal });
+  dialog.addEventListener(
+    "cancel",
+    (event) => {
+      if (composing) {
+        event.preventDefault();
+        return;
+      }
+      prompt.value = "";
+    },
+    { signal: lifetime.signal },
+  );
+  dialog.addEventListener(
+    "close",
+    () => {
+      dialog.classList.remove("quick-prompt");
+      prompt.style.removeProperty("height");
+      composing = false;
+    },
+    { signal: lifetime.signal },
+  );
   random.addEventListener("click", generateRandom, { signal: lifetime.signal });
   close.addEventListener("click", () => dialog.close(), { signal: lifetime.signal });
   return {
     open,
+    startTyping,
     generateRandom,
-    setImagePreviewVisible,
     dispose() {
       lifetime.abort();
       dialog.close();
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       preview.removeAttribute("src");
       preview.hidden = true;
-      imagePreview.removeAttribute("src");
-      imagePreview.hidden = true;
     },
   };
 }

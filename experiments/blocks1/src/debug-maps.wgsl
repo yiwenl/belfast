@@ -11,7 +11,7 @@ struct Output {
     let corners = array<vec2<f32>, 6>(vec2(0,0), vec2(1,0), vec2(0,1), vec2(0,1), vec2(1,0), vec2(1,1));
     let uv = corners[vertex];
     let css = viewport.xy / viewport.z;
-    // Match the CSS label layout; keep the overlays in CSS pixels at every DPR.
+    // Match the windowed CSS labels; the maps themselves also render in fullscreen.
     let size = max(1.0, min(160.0, min((css.x - 44.0) * 0.5, css.y - 56.0)));
     let pixel = vec2<f32>(16.0 + f32(instance) * (size + 12.0), 16.0) + uv * size;
     var out: Output;

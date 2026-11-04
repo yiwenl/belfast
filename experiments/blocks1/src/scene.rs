@@ -91,6 +91,7 @@ pub struct Scene {
     settings: Settings,
     pub paused: bool,
     pub show_debug_maps: bool,
+    pub show_color_map: bool,
     mouse: MouseFlow,
     hands: [MouseFlow; 2],
     motion: Motion,
@@ -112,6 +113,7 @@ impl Scene {
             settings: Settings::default(),
             paused: false,
             show_debug_maps: false,
+            show_color_map: false,
             mouse: MouseFlow::default(),
             hands: std::array::from_fn(|_| MouseFlow::default()),
             motion: Motion::default(),
@@ -274,6 +276,7 @@ impl Scene {
                 size: self.settings.block_size,
                 shadow_strength: self.settings.shadow_strength,
                 show_debug_maps: self.show_debug_maps,
+                show_color_map: self.show_color_map,
             },
         );
         device.queue().submit([encoder.finish()]);

@@ -32,7 +32,7 @@ export function createControls(
   const debugLabels = document.querySelector<HTMLElement>("#fluid-debug-labels")!;
   const pane = new Pane({ title: "Blocks 1", expanded: window.innerWidth > 600 });
   pane.addButton({ title: "Generate scene…" }).on("click", openColorDialog);
-  const imagePreview = pane.addBinding(values, "imagePreview", { label: "Image preview (D)" });
+  const imagePreview = pane.addBinding(values, "imagePreview", { label: "Image preview (Alt+D)" });
   const apply = () => {
     app.setSettings(
       new Float32Array([
