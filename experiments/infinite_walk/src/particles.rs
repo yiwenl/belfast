@@ -27,15 +27,15 @@ pub struct ParticleSettings {
 impl Default for ParticleSettings {
     fn default() -> Self {
         Self {
-            count: 119_565,
+            count: 250_000,
             visible: true,
             animate: true,
             size: 0.014,
             lifetime: 5.0,
-            life_variation: 0.4,
-            outside_decay: 2.0,
-            lift: 0.18,
-            drag: 1.6,
+            life_variation: 0.45,
+            outside_decay: 3.8,
+            lift: 0.12,
+            drag: 1.0,
             ground_y: -0.11,
         }
     }
@@ -65,12 +65,13 @@ impl ParticleSettings {
 
 pub fn filament_defaults() -> FilamentSettings {
     FilamentSettings {
-        ring_radius: 0.69,
-        core_radius: 0.08,
-        updraft: 0.54,
-        xz_drift: 0.08,
-        strength: 2.34,
-        circulation: 0.031,
+        ring_radius: 1.0,
+        core_radius: 0.031,
+        updraft: 0.16,
+        xz_drift: 0.0,
+        strength: 0.87,
+        circulation: 0.047,
+        lifetime: 7.4,
         ..Default::default()
     }
 }

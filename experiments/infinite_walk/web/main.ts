@@ -17,8 +17,8 @@ const settings = {
   fps: "—",
   resolution: "hd",
   pointSize: 0.01,
-  copyOffset: 0.015,
-  cameraY: 0.59,
+  copyOffset: 0.011,
+  cameraY: 0.75,
   cameraPitch: 4,
   whiteParticles: false,
   fov: 88,
@@ -26,14 +26,24 @@ const settings = {
 const pane = new Pane({ title: "Infinite walk" });
 pane.disabled = true;
 pane.addBinding(settings, "fps", { label: "FPS", readonly: true, interval: 500 });
-pane
+const [sceneTab, lightTab, particlesTab, filamentTab] = pane.addTab({
+  pages: [{ title: "Scene" }, { title: "Light" }, { title: "Particles" }, { title: "Filament" }],
+}).pages;
+
+const display = sceneTab.addFolder({ title: "Display" });
+display
   .addBinding(settings, "resolution", {
     label: "Resolution",
     options: { "HD · 1920 × 1080": "hd", "Full browser": "full" },
   })
   .on("change", ({ value }) => canvas.classList.toggle("fixed-resolution", value === "hd"));
 canvas.classList.toggle("fixed-resolution", settings.resolution === "hd");
-pane
+display
+  .addBinding(settings, "whiteParticles", { label: "White particles" })
+  .on("change", ({ value }) => app?.setWhiteParticles(value));
+
+const cloud = sceneTab.addFolder({ title: "PLY point cloud" });
+cloud
   .addBinding(settings, "pointSize", {
     label: "Particle size",
     min: 0.001,
@@ -41,13 +51,12 @@ pane
     step: 0.001,
   })
   .on("change", ({ value }) => app?.setPointSize(value));
-pane
+cloud
   .addBinding(settings, "copyOffset", { label: "Copy offset", min: 0, max: 0.25, step: 0.001 })
   .on("change", ({ value }) => app?.setCopyOffset(value));
-pane
-  .addBinding(settings, "whiteParticles", { label: "White particles" })
-  .on("change", ({ value }) => app?.setWhiteParticles(value));
-pane
+
+const camera = sceneTab.addFolder({ title: "Camera" });
+camera
   .addBinding(settings, "cameraY", {
     label: "Camera Y",
     min: 0,
@@ -55,14 +64,15 @@ pane
     step: 0.01,
   })
   .on("change", ({ value }) => app?.setCameraY(value));
-pane
+camera
   .addBinding(settings, "cameraPitch", { label: "Camera pitch (°)", min: -85, max: 85, step: 1 })
   .on("change", ({ value }) => app?.setCameraPitch(value));
-pane
+camera
   .addBinding(settings, "fov", { label: "FOV (°)", min: 10, max: 120, step: 1 })
   .on("change", ({ value }) => app?.setFov(value));
-const light = { forward: 2.9, height: 4.2, intensity: 30, range: 5.5, radius: 1.45 };
-const lighting = pane.addFolder({ title: "Cylinder light" });
+const light = { forward: 2.9, height: 4.2, intensity: 30, range: 7.6, radius: 1.45 };
+
+const lighting = lightTab.addFolder({ title: "Cylinder light" });
 lighting.addBinding(light, "forward", { label: "Forward", min: 0, max: 10, step: 0.1 });
 lighting.addBinding(light, "height", { label: "Height", min: 0.1, max: 5, step: 0.1 });
 lighting.addBinding(light, "intensity", { label: "Intensity", min: 0, max: 30, step: 0.1 });
@@ -71,23 +81,24 @@ lighting.addBinding(light, "radius", { label: "Radius", min: 0.05, max: 5, step:
 lighting.on("change", () =>
   app?.setLight(light.forward, light.height, light.intensity, light.range, light.radius),
 );
-const shadows = { strength: 0.85, showMap: true };
-pane
-  .addBinding(shadows, "strength", { label: "Shadows", min: 0, max: 1, step: 0.01 })
+const shadows = { strength: 0.9, showMap: true };
+const shadowControls = lightTab.addFolder({ title: "Shadows" });
+shadowControls
+  .addBinding(shadows, "strength", { label: "Strength", min: 0, max: 1, step: 0.01 })
   .on("change", ({ value }) => app?.setShadowStrength(value));
-pane
+shadowControls
   .addBinding(shadows, "showMap", { label: "Show shadow map" })
   .on("change", ({ value }) => app?.setShowShadowMap(value));
 const particles = {
-  count: 119_565,
+  count: 250_000,
   visible: true,
   animate: true,
   size: 0.014,
   lifetime: 5,
-  lifeVariation: 0.4,
-  outsideDecay: 2,
-  lift: 0.18,
-  drag: 1.6,
+  lifeVariation: 0.45,
+  outsideDecay: 3.8,
+  lift: 0.12,
+  drag: 1,
   groundY: -0.11,
 };
 function updateParticles() {
@@ -104,94 +115,95 @@ function updateParticles() {
     particles.outsideDecay,
   );
 }
-const particleControls = pane.addFolder({ title: "Drifting particles" });
+const particleControls = particlesTab.addFolder({ title: "Drifting particles" });
 particleControls.addBinding(particles, "count", { label: "Count", min: 0, max: 500_000, step: 1 });
 particleControls.addBinding(particles, "visible", { label: "Visible" });
-particleControls.addBinding(particles, "animate", { label: "Animate" });
 particleControls.addBinding(particles, "size", {
   label: "Size",
   min: 0.001,
   max: 0.05,
   step: 0.001,
 });
-particleControls.addBinding(particles, "lifetime", {
+const lifeControls = particlesTab.addFolder({ title: "Lifetime" });
+lifeControls.addBinding(particles, "lifetime", {
   label: "Life (s)",
   min: 0.5,
   max: 20,
   step: 0.1,
 });
-particleControls.addBinding(particles, "lifeVariation", {
+lifeControls.addBinding(particles, "lifeVariation", {
   label: "Life variation",
   min: 0,
   max: 0.9,
   step: 0.05,
 });
-particleControls.addBinding(particles, "outsideDecay", {
+lifeControls.addBinding(particles, "outsideDecay", {
   label: "Outside decay (×)",
   min: 1,
   max: 10,
   step: 0.1,
 });
-particleControls.addBinding(particles, "lift", {
+const motionControls = particlesTab.addFolder({ title: "Motion" });
+motionControls.addBinding(particles, "animate", { label: "Animate" });
+motionControls.addBinding(particles, "lift", {
   label: "Particle updraft",
   min: 0,
   max: 1,
   step: 0.01,
 });
-particleControls.addBinding(particles, "drag", { label: "Drag", min: 0.1, max: 8, step: 0.1 });
-particleControls.on("change", updateParticles);
+motionControls.addBinding(particles, "drag", { label: "Drag", min: 0.1, max: 8, step: 0.1 });
+for (const folder of [particleControls, lifeControls, motionControls]) {
+  folder.on("change", updateParticles);
+}
+
 const filament = {
   debug: false,
   rings: 12,
-  updraft: 0.54,
-  drift: 0.08,
-  radius: 0.69,
-  core: 0.08,
-  strength: 2.34,
-  circulation: 0.031,
-  lifetime: 6,
+  updraft: 0.16,
+  drift: 0,
+  radius: 1,
+  core: 0.031,
+  strength: 0.87,
+  circulation: 0.047,
+  lifetime: 7.4,
 };
-const filamentControls = pane.addFolder({ title: "Filament" });
-filamentControls
+filamentTab
   .addBinding(filament, "debug", { label: "Debug view" })
   .on("change", ({ value }) => app?.setFilamentDebugVisible(value));
-filamentControls.addBinding(filament, "rings", { label: "Ring count", min: 1, max: 24, step: 1 });
-filamentControls
+filamentTab
   .addBinding(particles, "groundY", { label: "Ground Y", min: -2, max: 3, step: 0.01 })
   .on("change", updateParticles);
-filamentControls.addBinding(filament, "updraft", {
-  label: "Updraft",
-  min: 0,
-  max: 1.5,
-  step: 0.01,
-});
-filamentControls.addBinding(filament, "drift", { label: "XZ drift", min: 0, max: 0.5, step: 0.01 });
-filamentControls.addBinding(filament, "radius", {
+const rings = filamentTab.addFolder({ title: "Rings" });
+rings.addBinding(filament, "rings", { label: "Ring count", min: 1, max: 24, step: 1 });
+rings.addBinding(filament, "radius", {
   label: "Ring radius",
   min: 0.05,
   max: 2,
   step: 0.01,
 });
-filamentControls.addBinding(filament, "core", {
+rings.addBinding(filament, "core", {
   label: "Core radius",
   min: 0.005,
   max: 0.3,
   step: 0.001,
 });
-filamentControls.addBinding(filament, "strength", { label: "Vortex", min: 0, max: 5, step: 0.01 });
-filamentControls.addBinding(filament, "circulation", {
-  label: "Circulation",
-  min: 0,
-  max: 0.05,
-  step: 0.001,
-});
-filamentControls.addBinding(filament, "lifetime", {
+rings.addBinding(filament, "lifetime", {
   label: "Ring life (s)",
   min: 1,
   max: 20,
   step: 0.1,
 });
-filamentControls.on("change", () =>
+const flow = filamentTab.addFolder({ title: "Flow" });
+flow.addBinding(filament, "updraft", { label: "Updraft", min: 0, max: 1.5, step: 0.01 });
+flow.addBinding(filament, "drift", { label: "XZ drift", min: 0, max: 0.5, step: 0.01 });
+flow.addBinding(filament, "strength", { label: "Vortex", min: 0, max: 5, step: 0.01 });
+flow.addBinding(filament, "circulation", {
+  label: "Circulation",
+  min: 0,
+  max: 0.05,
+  step: 0.001,
+});
+function updateFilament() {
   app?.setFilament(
     filament.updraft,
     filament.drift,
@@ -201,8 +213,10 @@ filamentControls.on("change", () =>
     filament.circulation,
     filament.lifetime,
     filament.rings,
-  ),
-);
+  );
+}
+rings.on("change", updateFilament);
+flow.on("change", updateFilament);
 const fps = createFpsMeter((value) => {
   settings.fps = value === null ? "—" : String(value);
 });
