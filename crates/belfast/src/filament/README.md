@@ -22,8 +22,9 @@ device.queue().submit([encoder.finish()]);
 
 ## API and ordering
 
-- `new(device, rings, vertices_per_ring, settings)` seeds closed XZ rings in Y-up world coordinates. Ring count must be positive, each ring needs at least three vertices, and buffer sizes/dispatch counts must fit the device. Topology is fixed for the simulation's lifetime.
-- `field()` returns a stable storage buffer containing `rings × vertices_per_ring` consecutive `vec4<f32>` records: world XYZ and age in seconds. Ring endpoints wrap within their own ring. This is filament geometry, **not** a sampled velocity grid.
+- `new(device, rings, vertices_per_ring, settings)` seeds closed XZ rings in Y-up world coordinates. Ring count must be positive, each ring needs at least three vertices, and buffer sizes/dispatch counts must fit the device. The initial ring count sets the capacity.
+- `set_ring_count(rings)` selects 1 through the original ring count. Changing the count reseeds the active rings on the next step and preserves the drift clock.
+- `field()` returns a stable storage buffer whose active prefix contains `rings() × vertices_per_ring()` consecutive `vec4<f32>` records: world XYZ and age in seconds. Ring endpoints wrap within their own ring. This is filament geometry, **not** a sampled velocity grid.
 - `params()` returns the stable 64-byte uniform used by the sampler below. Both buffers retain their identity across updates, settings changes and resets, so consumer bind groups do not need rebuilding.
 - `set_settings(settings)` validates before changing state. New parameters apply on the next `step`. Changing origin, ring radius or lifetime also reseeds the rings, preserving the drift clock. Other settings preserve their current shape.
 - `step(device, encoder, dt)` accepts finite `dt` in `0..=1/30` seconds and checks device identity. `dt = 0` applies settings/reseeding without advancing motion. Pausing/clamping a frame delta is the caller's decision.

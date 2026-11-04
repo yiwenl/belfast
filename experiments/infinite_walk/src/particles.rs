@@ -3,20 +3,22 @@ use belfast::{
     BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device, Draw, DrawOptions, Mesh,
 };
 
-pub const COUNT: u32 = 20_000;
+const MAX_COUNT: u32 = 500_000;
 pub const STRIDE: u64 = 48;
-const RINGS: u32 = 6;
+pub const MAX_RINGS: u32 = 24;
 const VERTICES_PER_RING: u32 = 12;
 const CAMERA: &str = include_str!("camera.wgsl");
 const STATE: &str = include_str!("particle-state.wgsl");
 
 #[derive(Clone, Copy)]
 pub struct ParticleSettings {
+    pub count: u32,
     pub visible: bool,
     pub animate: bool,
     pub size: f32,
     pub lifetime: f32,
     pub life_variation: f32,
+    pub outside_decay: f32,
     pub lift: f32,
     pub drag: f32,
     pub ground_y: f32,
@@ -25,11 +27,13 @@ pub struct ParticleSettings {
 impl Default for ParticleSettings {
     fn default() -> Self {
         Self {
+            count: 119_565,
             visible: true,
             animate: true,
             size: 0.014,
             lifetime: 5.0,
             life_variation: 0.4,
+            outside_decay: 2.0,
             lift: 0.18,
             drag: 1.6,
             ground_y: -0.11,
@@ -39,16 +43,20 @@ impl Default for ParticleSettings {
 
 impl ParticleSettings {
     pub fn validate(&self) -> Result<(), String> {
+        if self.count > MAX_COUNT {
+            return Err(format!("Particle count must be between 0 and {MAX_COUNT}"));
+        }
         for (value, min, max) in [
             (self.size, 0.001, 0.05),
             (self.lifetime, 0.5, 20.0),
             (self.life_variation, 0.0, 0.9),
+            (self.outside_decay, 1.0, 10.0),
             (self.lift, 0.0, 1.0),
             (self.drag, 0.1, 8.0),
             (self.ground_y, -2.0, 3.0),
         ] {
             if !(min..=max).contains(&value) {
-                return Err("Invalid particle size, lifetime, lift, drag or ground height".into());
+                return Err("Particle setting outside its supported range".into());
             }
         }
         Ok(())
@@ -57,12 +65,12 @@ impl ParticleSettings {
 
 pub fn filament_defaults() -> FilamentSettings {
     FilamentSettings {
-        ring_radius: 0.65,
+        ring_radius: 0.69,
         core_radius: 0.08,
-        updraft: 0.35,
+        updraft: 0.54,
         xz_drift: 0.08,
-        strength: 1.61,
-        circulation: 0.012,
+        strength: 2.34,
+        circulation: 0.031,
         ..Default::default()
     }
 }
@@ -77,6 +85,7 @@ struct Motion {
 
 pub struct Particles {
     states: [Buffer; 2],
+    active_count: u32,
     current: usize,
     filaments: FilamentSimulation,
     spawns: Buffer,
@@ -100,19 +109,20 @@ impl Particles {
     ) -> Result<Self, String> {
         let limits = device.gpu().limits();
         let spawn_bytes = 16 + u64::from(source_count) * 16;
-        if [sources.size(), spawn_bytes, u64::from(COUNT) * STRIDE]
+        if [sources.size(), spawn_bytes, u64::from(MAX_COUNT) * STRIDE]
             .into_iter()
             .any(|bytes| {
                 bytes > limits.max_buffer_size || bytes > limits.max_storage_buffer_binding_size
             })
-            || source_count.div_ceil(64) > limits.max_compute_workgroups_per_dimension
+            || source_count.max(MAX_COUNT).div_ceil(64)
+                > limits.max_compute_workgroups_per_dimension
         {
             return Err("Particle emitters exceed GPU storage or dispatch limits".into());
         }
         let states = std::array::from_fn(|_| {
             Buffer::create(
                 device,
-                u64::from(COUNT) * STRIDE,
+                u64::from(MAX_COUNT) * STRIDE,
                 BufferUsage::vertex_storage(),
                 "WalkParticleState",
             )
@@ -124,7 +134,7 @@ impl Particles {
             "WalkParticleSpawns",
         );
         let filaments =
-            FilamentSimulation::new(device, RINGS, VERTICES_PER_RING, filament_defaults())?;
+            FilamentSimulation::new(device, MAX_RINGS, VERTICES_PER_RING, filament_defaults())?;
         let motion = Buffer::create(
             device,
             std::mem::size_of::<Motion>() as u64,
@@ -240,6 +250,7 @@ impl Particles {
         );
         Ok(Self {
             states,
+            active_count: 0,
             current: 0,
             filaments,
             spawns,
@@ -261,6 +272,7 @@ impl Particles {
         dt: f32,
         settings: ParticleSettings,
         filament: FilamentSettings,
+        ring_count: u32,
     ) -> Result<(), String> {
         let dt = if settings.animate {
             dt.clamp(0.0, 1.0 / 30.0)
@@ -268,6 +280,7 @@ impl Particles {
             0.0
         };
         self.filaments.set_settings(filament)?;
+        self.filaments.set_ring_count(ring_count)?;
         self.motion.write(
             device,
             &[Motion {
@@ -276,9 +289,9 @@ impl Particles {
                     settings.lifetime,
                     settings.life_variation,
                     settings.ground_y,
-                    0.0,
+                    settings.outside_decay,
                 ],
-                counts: [COUNT, 0, 0, 0],
+                counts: [settings.count, self.active_count, 0, 0],
             }],
             0,
         );
@@ -288,6 +301,11 @@ impl Particles {
                 label: Some("WalkParticleSimulation"),
             });
         self.filaments.step(device, &mut encoder, dt)?;
+        self.active_count = settings.count;
+        if self.active_count == 0 {
+            device.queue().submit([encoder.finish()]);
+            return Ok(());
+        }
         encoder.clear_buffer(self.spawns.gpu(), 0, Some(16));
         self.select_spawns.run(
             &mut encoder,
@@ -298,7 +316,7 @@ impl Particles {
         self.advect.run(
             &mut encoder,
             Some(&self.bindings[self.current]),
-            [COUNT.div_ceil(64), 1, 1],
+            [self.active_count.div_ceil(64), 1, 1],
             Some("WalkParticleAdvection"),
         );
         self.current = 1 - self.current;
@@ -310,8 +328,13 @@ impl Particles {
         &self.states[self.current]
     }
 
+    pub fn count(&self) -> u32 {
+        self.active_count
+    }
+
     pub fn draw_debug<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>) {
         self.debug_binding.bind(pass, 0);
-        self.debug_draw.draw(pass, &self.debug_mesh, RINGS);
+        self.debug_draw
+            .draw(pass, &self.debug_mesh, self.filaments.rings());
     }
 }

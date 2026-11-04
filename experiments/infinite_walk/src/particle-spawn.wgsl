@@ -10,14 +10,10 @@ struct SpawnList {
 
 @compute @workgroup_size(64)
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
-    if id.x >= arrayLength(&sources) || camera.light.w <= 0.0 { return; }
+    if id.x >= arrayLength(&sources) { return; }
     let source = sources[id.x];
     let position = wrapped_position(source.position);
-    let offset = position - camera.light.xyz;
-    let distance = length(offset);
-    if distance >= camera.light_shape.x || -offset.y / max(distance, 0.0001) <= camera.light_shape.z {
-        return;
-    }
+    if !inside_spotlight(position) { return; }
     let index = atomicAdd(&spawns.count, 1u);
     spawns.points[index] = SourcePoint(position, source.color);
 }

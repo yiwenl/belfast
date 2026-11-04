@@ -70,6 +70,7 @@ struct FilamentParams {
 
 pub struct FilamentSimulation {
     device: Device,
+    ring_capacity: u32,
     rings: u32,
     vertices_per_ring: u32,
     settings: FilamentSettings,
@@ -143,6 +144,7 @@ impl FilamentSimulation {
         );
         Ok(Self {
             device: device.clone(),
+            ring_capacity: rings,
             rings,
             vertices_per_ring,
             settings,
@@ -159,6 +161,20 @@ impl FilamentSimulation {
     pub fn rings(&self) -> u32 {
         self.rings
     }
+
+    /// Reseed this many active rings on the next step, keeping consumer bindings stable.
+    pub fn set_ring_count(&mut self, rings: u32) -> Result<(), String> {
+        if !(1..=self.ring_capacity).contains(&rings) {
+            return Err(format!(
+                "Ring count must be between 1 and {}",
+                self.ring_capacity
+            ));
+        }
+        self.reseed |= self.rings != rings;
+        self.rings = rings;
+        Ok(())
+    }
+
     pub fn vertices_per_ring(&self) -> u32 {
         self.vertices_per_ring
     }
@@ -214,7 +230,7 @@ impl FilamentSimulation {
             0,
             self.field.gpu(),
             0,
-            self.field.size(),
+            u64::from(self.rings * self.vertices_per_ring) * 16,
         );
         self.time += dt;
         Ok(())
@@ -235,7 +251,7 @@ impl FilamentSimulation {
             wgpu::BufferUsages::COPY_SRC,
             "FilamentSeedUpload",
         );
-        encoder.copy_buffer_to_buffer(upload.gpu(), 0, self.field.gpu(), 0, self.field.size());
+        encoder.copy_buffer_to_buffer(upload.gpu(), 0, self.field.gpu(), 0, upload.size());
         self.reseed = false;
     }
 

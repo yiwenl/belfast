@@ -191,6 +191,11 @@ impl ExperimentApp {
         self.scene.set_camera_y(y).map_err(js_error)
     }
 
+    #[wasm_bindgen(js_name = setCameraPitch)]
+    pub fn set_camera_pitch(&mut self, degrees: f32) -> Result<(), JsValue> {
+        self.scene.set_camera_pitch(degrees).map_err(js_error)
+    }
+
     #[wasm_bindgen(js_name = setFov)]
     pub fn set_fov(&mut self, degrees: f32) -> Result<(), JsValue> {
         if !degrees.is_finite() || !(10.0..=120.0).contains(&degrees) {
@@ -243,13 +248,17 @@ impl ExperimentApp {
         lift: f32,
         drag: f32,
         ground_y: f32,
+        count: Option<u32>,
+        outside_decay: Option<f32>,
     ) -> Result<(), JsValue> {
         let settings = ParticleSettings {
+            count: count.unwrap_or(self.scene.particle_settings.count),
             visible,
             animate,
             size,
             lifetime,
             life_variation,
+            outside_decay: outside_decay.unwrap_or(self.scene.particle_settings.outside_decay),
             lift,
             drag,
             ground_y,
@@ -269,7 +278,12 @@ impl ExperimentApp {
         strength: f32,
         circulation: f32,
         lifetime: f32,
+        rings: Option<u32>,
     ) -> Result<(), JsValue> {
+        let rings = rings.unwrap_or(self.scene.filament_rings);
+        if !(1..=crate::particles::MAX_RINGS).contains(&rings) {
+            return Err(js_error("Invalid filament ring count"));
+        }
         for (value, min, max) in [
             (updraft, 0.0, 1.5),
             (drift, 0.0, 0.5),
@@ -295,6 +309,7 @@ impl ExperimentApp {
         };
         settings.validate().map_err(js_error)?;
         self.scene.filament_settings = settings;
+        self.scene.filament_rings = rings;
         Ok(())
     }
 

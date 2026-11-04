@@ -8,7 +8,7 @@ use crate::{
     input::SkeletonInput,
     particles::{self, ParticleSettings, Particles},
     point_cloud::PointCloud,
-    walk::{Walk, DRIFT_X, LENGTH, START},
+    walk::{Walk, DRIFT_X, LENGTH},
 };
 
 pub const SHADER: &str = concat!(
@@ -29,6 +29,7 @@ pub struct Scene {
     particles: Option<Particles>,
     pub particle_settings: ParticleSettings,
     pub filament_settings: FilamentSettings,
+    pub filament_rings: u32,
     pub show_filament_debug: bool,
     shadow_pipeline: wgpu::RenderPipeline,
     shadow_preview_pipeline: wgpu::RenderPipeline,
@@ -43,6 +44,7 @@ pub struct Scene {
     point_size: f32,
     white_particles: bool,
     camera_y: f32,
+    camera_pitch_radians: f32,
     light_forward: f32,
     light_height: f32,
     light_intensity: f32,
@@ -304,7 +306,7 @@ impl Scene {
             }],
         });
         Ok(Self {
-            camera: PerspectiveCamera::new(std::f32::consts::FRAC_PI_4, 1.0, 0.1, 100.0),
+            camera: PerspectiveCamera::new(88.0_f32.to_radians(), 1.0, 0.1, 100.0),
             walk: Walk::default(),
             skeleton: SkeletonInput::default(),
             pipeline,
@@ -313,6 +315,7 @@ impl Scene {
             particles: None,
             particle_settings: ParticleSettings::default(),
             filament_settings: particles::filament_defaults(),
+            filament_rings: 12,
             show_filament_debug: false,
             shadow_pipeline,
             shadow_preview_pipeline,
@@ -326,12 +329,13 @@ impl Scene {
             point_count: 0,
             point_size: 0.01,
             white_particles: false,
-            camera_y: START[1],
-            light_forward: 3.5,
-            light_height: 2.0,
-            light_intensity: 12.0,
-            light_range: 4.1,
-            light_fov: 65.0,
+            camera_y: 0.59,
+            camera_pitch_radians: 4.0_f32.to_radians(),
+            light_forward: 2.9,
+            light_height: 4.2,
+            light_intensity: 30.0,
+            light_range: 5.5,
+            light_fov: 33.0,
             viewport: [0, 0],
             pixel_scale: 1.0,
             depth: None,
@@ -366,10 +370,18 @@ impl Scene {
     }
 
     pub fn set_camera_y(&mut self, y: f32) -> Result<(), String> {
-        if !y.is_finite() || !(-2.0..=3.0).contains(&y) {
-            return Err("Camera Y must be between -2 and 3 world units".into());
+        if !(0.0..=3.0).contains(&y) {
+            return Err("Camera Y must be between 0 and 3 world units".into());
         }
         self.camera_y = y;
+        Ok(())
+    }
+
+    pub fn set_camera_pitch(&mut self, degrees: f32) -> Result<(), String> {
+        if !(-85.0..=85.0).contains(&degrees) {
+            return Err("Camera pitch must be between -85 and 85 degrees".into());
+        }
+        self.camera_pitch_radians = degrees.to_radians();
         Ok(())
     }
 
@@ -441,8 +453,10 @@ impl Scene {
         self.walk.advance(delta_seconds);
         let mut eye = self.walk.position();
         eye[1] = self.camera_y;
+        let path_length = DRIFT_X.hypot(LENGTH);
+        let target_y = eye[1] + path_length * self.camera_pitch_radians.tan();
         self.camera
-            .look_at(eye, [eye[0] + DRIFT_X, eye[1], eye[2] - LENGTH]);
+            .look_at(eye, [eye[0] + DRIFT_X, target_y, eye[2] - LENGTH]);
         let mut uniform = [0.0_f32; 56];
         let projection = self.camera.projection_matrix();
         uniform[..16].copy_from_slice(&self.camera.view_projection_matrix());
@@ -454,7 +468,7 @@ impl Scene {
         ]);
         uniform[20..24].copy_from_slice(&[eye[2], 1.0, LENGTH, DRIFT_X]);
         uniform[24] = if self.white_particles { 1.0 } else { 0.0 };
-        let forward_scale = self.light_forward / DRIFT_X.hypot(LENGTH);
+        let forward_scale = self.light_forward / path_length;
         let light_eye = Vec3::new(
             eye[0] + DRIFT_X * forward_scale,
             eye[1] + self.light_height,
@@ -511,7 +525,7 @@ impl Scene {
                         pass.set_pipeline(&self.particle_shadow_pipeline);
                         pass.set_bind_group(0, &self.camera_bind_group, &[]);
                         pass.set_vertex_buffer(0, particles.buffer().gpu().slice(..));
-                        pass.draw(0..6, 0..particles::COUNT);
+                        pass.draw(0..6, 0..particles.count());
                     }
                 }
             }
@@ -558,7 +572,7 @@ impl Scene {
                     pass.set_bind_group(0, &self.camera_bind_group, &[]);
                     pass.set_bind_group(1, &self.shadow_binding, &[]);
                     pass.set_vertex_buffer(0, particles.buffer().gpu().slice(..));
-                    pass.draw(0..6, 0..particles::COUNT);
+                    pass.draw(0..6, 0..particles.count());
                 }
                 if self.show_filament_debug {
                     particles.draw_debug(&mut pass);
@@ -586,6 +600,7 @@ impl Scene {
                 delta_seconds,
                 self.particle_settings,
                 self.filament_settings,
+                self.filament_rings,
             )?;
         }
         Ok(())

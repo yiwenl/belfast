@@ -17,9 +17,10 @@ const settings = {
   fps: "—",
   resolution: "hd",
   pointSize: 0.01,
-  cameraY: 0.3,
+  cameraY: 0.59,
+  cameraPitch: 4,
   whiteParticles: false,
-  fov: 45,
+  fov: 88,
 };
 const pane = new Pane({ title: "Infinite walk" });
 pane.disabled = true;
@@ -45,15 +46,18 @@ pane
 pane
   .addBinding(settings, "cameraY", {
     label: "Camera Y",
-    min: -2,
+    min: 0,
     max: 3,
     step: 0.01,
   })
   .on("change", ({ value }) => app?.setCameraY(value));
 pane
+  .addBinding(settings, "cameraPitch", { label: "Camera pitch (°)", min: -85, max: 85, step: 1 })
+  .on("change", ({ value }) => app?.setCameraPitch(value));
+pane
   .addBinding(settings, "fov", { label: "FOV (°)", min: 10, max: 120, step: 1 })
   .on("change", ({ value }) => app?.setFov(value));
-const light = { forward: 3.5, height: 2, intensity: 12, range: 4.1, fov: 65 };
+const light = { forward: 2.9, height: 4.2, intensity: 30, range: 5.5, fov: 33 };
 const lighting = pane.addFolder({ title: "Spotlight" });
 lighting.addBinding(light, "forward", { label: "Forward", min: 0, max: 10, step: 0.1 });
 lighting.addBinding(light, "height", { label: "Height", min: 0.1, max: 5, step: 0.1 });
@@ -71,12 +75,13 @@ pane
   .addBinding(shadows, "showMap", { label: "Show shadow map" })
   .on("change", ({ value }) => app?.setShowShadowMap(value));
 const particles = {
-  count: 20_000,
+  count: 119_565,
   visible: true,
   animate: true,
   size: 0.014,
   lifetime: 5,
   lifeVariation: 0.4,
+  outsideDecay: 2,
   lift: 0.18,
   drag: 1.6,
   groundY: -0.11,
@@ -91,10 +96,12 @@ function updateParticles() {
     particles.lift,
     particles.drag,
     particles.groundY,
+    particles.count,
+    particles.outsideDecay,
   );
 }
-const particleControls = pane.addFolder({ title: "Drifting particles", expanded: false });
-particleControls.addBinding(particles, "count", { label: "Count", readonly: true });
+const particleControls = pane.addFolder({ title: "Drifting particles" });
+particleControls.addBinding(particles, "count", { label: "Count", min: 0, max: 500_000, step: 1 });
 particleControls.addBinding(particles, "visible", { label: "Visible" });
 particleControls.addBinding(particles, "animate", { label: "Animate" });
 particleControls.addBinding(particles, "size", {
@@ -115,6 +122,12 @@ particleControls.addBinding(particles, "lifeVariation", {
   max: 0.9,
   step: 0.05,
 });
+particleControls.addBinding(particles, "outsideDecay", {
+  label: "Outside decay (×)",
+  min: 1,
+  max: 10,
+  step: 0.1,
+});
 particleControls.addBinding(particles, "lift", {
   label: "Particle updraft",
   min: 0,
@@ -125,18 +138,20 @@ particleControls.addBinding(particles, "drag", { label: "Drag", min: 0.1, max: 8
 particleControls.on("change", updateParticles);
 const filament = {
   debug: false,
-  updraft: 0.35,
+  rings: 12,
+  updraft: 0.54,
   drift: 0.08,
-  radius: 0.65,
+  radius: 0.69,
   core: 0.08,
-  strength: 1.61,
-  circulation: 0.012,
+  strength: 2.34,
+  circulation: 0.031,
   lifetime: 6,
 };
 const filamentControls = pane.addFolder({ title: "Filament" });
 filamentControls
   .addBinding(filament, "debug", { label: "Debug view" })
   .on("change", ({ value }) => app?.setFilamentDebugVisible(value));
+filamentControls.addBinding(filament, "rings", { label: "Ring count", min: 1, max: 24, step: 1 });
 filamentControls
   .addBinding(particles, "groundY", { label: "Ground Y", min: -2, max: 3, step: 0.01 })
   .on("change", updateParticles);
@@ -181,6 +196,7 @@ filamentControls.on("change", () =>
     filament.strength,
     filament.circulation,
     filament.lifetime,
+    filament.rings,
   ),
 );
 const fps = createFpsMeter((value) => {
