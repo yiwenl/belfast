@@ -34,15 +34,7 @@ function dispose() {
 }
 
 async function onKeyDown(event: KeyboardEvent) {
-  if (
-    event.defaultPrevented ||
-    event.repeat ||
-    event.isComposing ||
-    event.ctrlKey ||
-    event.metaKey ||
-    event.altKey
-  )
-    return;
+  if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey) return;
   const target = event.target;
   if (
     target instanceof HTMLElement &&
@@ -50,19 +42,30 @@ async function onKeyDown(event: KeyboardEvent) {
   )
     return;
 
-  const key = event.key.toLowerCase();
-  if (key === "f") {
+  // Reserve plain letters for prompts, including prompts beginning with F, R or D.
+  if (!event.altKey) {
+    if (event.key === " " && target instanceof HTMLElement && target.closest("button, a")) return;
+    if (event.key === "Dead" || event.key === "Process" || event.keyCode === 229) {
+      colorDialog?.startTyping("");
+    } else if (!event.isComposing && [...event.key].length === 1) {
+      if (colorDialog?.startTyping(event.key)) event.preventDefault();
+    }
+    return;
+  }
+  if (event.isComposing) return;
+  // Use physical keys so Option shortcuts also work on macOS keyboard layouts.
+  if (event.code === "KeyF") {
     event.preventDefault();
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.documentElement.requestFullscreen();
+      else await canvas.requestFullscreen();
     } catch (error) {
       console.warn("Could not toggle fullscreen:", error);
     }
-  } else if (key === "r") {
+  } else if (event.code === "KeyR") {
     event.preventDefault();
     colorDialog?.generateRandom();
-  } else if (key === "d") {
+  } else if (event.code === "KeyD") {
     event.preventDefault();
     controls?.toggleImagePreview();
   }
@@ -101,7 +104,7 @@ async function start() {
     controls = createControls(
       created,
       () => colorDialog?.open(),
-      (visible) => colorDialog?.setImagePreviewVisible(visible),
+      (visible) => created.setColorMapPreview(visible),
       kineticInput,
     );
     detachInput = bindFluidInput(canvas, created);

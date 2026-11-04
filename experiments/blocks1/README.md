@@ -67,13 +67,25 @@ maximum capacity once (64 MB total); only active particles are simulated and dra
 Changing the count keeps the scene running, and reset retains the selected count.
 Higher counts increase GPU load.
 
-Press `F` to toggle fullscreen, or `R` to generate a random scene's colors and motion
-without opening the dialog. Errors open the dialog so you can retry. Shortcuts ignore
-text fields, editable content, held keys, IME composition and Ctrl/Cmd/Alt combinations.
-`R` is ignored until both services finish and the color blend completes.
-Press `D` or toggle `Image preview (D)` to show the latest generated source image
-in the upper-left corner. The preview starts hidden and updates when an image
-arrives; it shares the dialog's image without making another API request.
+Start typing anywhere outside text fields to enter a prompt directly. Large white text
+appears in the center over a completely transparent dialog and wraps automatically.
+Press `Enter` to submit the same prompt to the image and Motion services; the overlay
+closes immediately. Press `Esc` to clear and cancel. IME confirmation does not submit.
+Prompt entry waits until any previous generation and color blend finish.
+
+Press `Alt/Option + F` to toggle canvas-only fullscreen (without Tweakpane or the FPS
+display), or `Alt/Option + R` to generate a random
+scene's colors and motion without opening the dialog. Plain F/R/D now type into the
+prompt. Errors open the full dialog so you can retry. Shortcuts ignore text fields,
+editable content, held keys, IME composition and Ctrl/Cmd combinations.
+Random generation waits until both services finish and the color blend completes.
+Press `Alt/Option + D` or toggle `Image preview (Alt+D)` to show the latest generated source image
+in the upper-left corner. WebGPU draws the preview directly from the latest generated
+palette texture, so it remains visible in canvas-only fullscreen. The preview starts
+hidden and stays empty until the first generated image arrives. It uses the original
+image colors, without particle lighting, blurring or transition, and makes no extra
+API request or GPU texture copy. Its size stays at 192 CSS pixels with a 16-pixel margin
+(shrinking to fit small canvases).
 
 `Generate scene…` opens a text dialog. Enter an English scene description (up to
 500 characters) to submit the same text to SD-Turbo and the Motion API at
@@ -204,6 +216,8 @@ GPU field directly, with no CPU readback.
 - `src/particles.rs`, `particle-update.wgsl`: GPU storage ping-pong, life/respawn,
   fluid sampling and depth noise. No per-frame particle transfers to JavaScript.
 - `src/renderer.rs`, `blocks.wgsl`: flow-aligned cubes and 2048² PCF shadows.
+- `src/debug_maps.rs`, `debug-maps.wgsl`, `color-map-debug.wgsl`: GPU overlays for
+  velocity, density and the generated color map.
 - `src/browser.rs`: template canvas/surface lifecycle and the small Wasm API.
 - `web/controls.ts`: Tweakpane. JS forwards settings, pointer events and frame timestamps.
 - `web/input.ts`, `src/mouse.rs`: canvas pointer events, camera-plane projection

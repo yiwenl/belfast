@@ -20,15 +20,9 @@ canvas {
   touch-action: none;
 }
 
-#color-map-preview {
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  width: min(192px, calc(100vw - 32px), calc(100dvh - 32px));
-  height: auto;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px #0006;
-  pointer-events: none;
+canvas:fullscreen {
+  width: 100vw;
+  height: 100dvh;
 }
 
 #fps {
@@ -169,6 +163,40 @@ canvas {
 #color-dialog :disabled {
   opacity: 0.55;
   cursor: wait;
+}
+#color-dialog.quick-prompt {
+  width: min(1100px, calc(100vw - 64px));
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: hidden;
+}
+#color-dialog.quick-prompt::backdrop {
+  background: transparent;
+}
+#color-dialog.quick-prompt #color-form > :not(#color-prompt) {
+  display: none;
+}
+#color-dialog.quick-prompt #color-prompt {
+  display: block;
+  max-height: calc(100dvh - 64px);
+  padding: 8px;
+  resize: none;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: white;
+  caret-color: white;
+  font-size: clamp(30px, 5vw, 64px);
+  line-height: 1.3;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+#color-dialog.quick-prompt #color-prompt::placeholder {
+  color: transparent;
 }
 @media (max-width: 600px) {
   .tp-dfwv {
