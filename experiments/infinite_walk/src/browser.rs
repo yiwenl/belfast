@@ -135,9 +135,10 @@ impl ExperimentApp {
             return Err(js_error(error));
         }
         let previous = self.last_frame_ms.unwrap_or(timestamp_ms);
-        let delta_seconds = ((timestamp_ms - previous) * 0.001).clamp(0.0, 0.1) as f32;
+        let delta_seconds = ((timestamp_ms - previous) * 0.001).max(0.0) as f32;
         self.last_frame_ms = Some(timestamp_ms.max(previous));
-        self.scene.update(&self.device, delta_seconds, timestamp_ms);
+        self.scene
+            .update(&self.device, delta_seconds.min(0.1), timestamp_ms);
         if !self.drawable {
             return Ok(());
         }

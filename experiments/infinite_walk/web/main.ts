@@ -95,7 +95,7 @@ lighting.addBinding(light, "radius", { label: "Radius", min: 0.05, max: 5, step:
 lighting.on("change", () =>
   app?.setLight(light.forward, light.height, light.intensity, light.range, light.radius),
 );
-const shadows = { strength: 0.9, showMap: true };
+const shadows = { strength: 0.99, showMap: false };
 const shadowControls = lightTab.addFolder({ title: "Shadows" });
 shadowControls
   .addBinding(shadows, "strength", { label: "Strength", min: 0, max: 1, step: 0.01 })

@@ -7,6 +7,7 @@ const MAX_COUNT: u32 = 500_000;
 pub const STRIDE: u64 = 48;
 pub const MAX_RINGS: u32 = 24;
 const VERTICES_PER_RING: u32 = 12;
+const FILAMENT_RESET_SECONDS: std::ops::RangeInclusive<f32> = 2.0..=4.0;
 const CAMERA: &str = include_str!("camera.wgsl");
 const STATE: &str = include_str!("particle-state.wgsl");
 
@@ -94,6 +95,7 @@ pub struct Particles {
     active_count: u32,
     current: usize,
     filaments: FilamentSimulation,
+    seconds_until_filament_reset: f32,
     spawns: Buffer,
     source_count: u32,
     select_spawns: Compute,
@@ -260,6 +262,7 @@ impl Particles {
             active_count: 0,
             current: 0,
             filaments,
+            seconds_until_filament_reset: rand::random_range(FILAMENT_RESET_SECONDS),
             spawns,
             source_count,
             select_spawns,
@@ -276,14 +279,15 @@ impl Particles {
     pub fn simulate(
         &mut self,
         device: &Device,
-        dt: f32,
+        elapsed_seconds: f32,
         settings: ParticleSettings,
         filament: FilamentSettings,
         ring_count: u32,
         reset_filaments: bool,
     ) -> Result<(), String> {
         let dt = if settings.animate {
-            dt.clamp(0.0, 1.0 / 30.0)
+            self.seconds_until_filament_reset -= elapsed_seconds;
+            elapsed_seconds.clamp(0.0, 1.0 / 30.0)
         } else {
             0.0
         };
@@ -310,8 +314,9 @@ impl Particles {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("WalkParticleSimulation"),
             });
-        if reset_filaments {
+        if reset_filaments || self.seconds_until_filament_reset <= 0.0 {
             self.filaments.reset(&mut encoder);
+            self.seconds_until_filament_reset = rand::random_range(FILAMENT_RESET_SECONDS);
         } else {
             self.filaments.step(device, &mut encoder, dt)?;
         }

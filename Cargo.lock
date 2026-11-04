@@ -219,9 +219,11 @@ version = "0.1.0"
 dependencies = [
  "belfast",
  "bytemuck",
+ "getrandom 0.3.4",
  "glam",
  "naga",
  "pollster",
+ "rand",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
