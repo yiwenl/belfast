@@ -17,10 +17,3 @@ struct SourcePoint {
     position: vec3<f32>,
     color: u32,
 }
-
-fn inside_spotlight(position: vec3<f32>) -> bool {
-    let offset = position - camera.light.xyz;
-    let distance = length(offset);
-    return camera.light.w > 0.0 && distance < camera.light_shape.x
-        && -offset.y > camera.light_shape.z * max(distance, 0.0001);
-}

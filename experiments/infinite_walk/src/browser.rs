@@ -230,10 +230,10 @@ impl ExperimentApp {
         height: f32,
         intensity: f32,
         range: f32,
-        fov: f32,
+        radius: f32,
     ) -> Result<(), JsValue> {
         self.scene
-            .set_light(forward, height, intensity, range, fov)
+            .set_light(forward, height, intensity, range, radius)
             .map_err(js_error)
     }
 

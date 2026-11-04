@@ -13,7 +13,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     if id.x >= arrayLength(&sources) { return; }
     let source = sources[id.x];
     let position = wrapped_position(source.position);
-    if !inside_spotlight(position) { return; }
+    if !inside_light_cylinder(position) { return; }
     let index = atomicAdd(&spawns.count, 1u);
     spawns.points[index] = SourcePoint(position, source.color);
 }

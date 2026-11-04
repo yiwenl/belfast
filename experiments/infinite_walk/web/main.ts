@@ -57,15 +57,15 @@ pane
 pane
   .addBinding(settings, "fov", { label: "FOV (°)", min: 10, max: 120, step: 1 })
   .on("change", ({ value }) => app?.setFov(value));
-const light = { forward: 2.9, height: 4.2, intensity: 30, range: 5.5, fov: 33 };
-const lighting = pane.addFolder({ title: "Spotlight" });
+const light = { forward: 2.9, height: 4.2, intensity: 30, range: 5.5, radius: 1.45 };
+const lighting = pane.addFolder({ title: "Cylinder light" });
 lighting.addBinding(light, "forward", { label: "Forward", min: 0, max: 10, step: 0.1 });
 lighting.addBinding(light, "height", { label: "Height", min: 0.1, max: 5, step: 0.1 });
 lighting.addBinding(light, "intensity", { label: "Intensity", min: 0, max: 30, step: 0.1 });
 lighting.addBinding(light, "range", { label: "Range", min: 0.2, max: 10, step: 0.1 });
-lighting.addBinding(light, "fov", { label: "FOV (°)", min: 10, max: 150, step: 1 });
+lighting.addBinding(light, "radius", { label: "Radius", min: 0.05, max: 5, step: 0.01 });
 lighting.on("change", () =>
-  app?.setLight(light.forward, light.height, light.intensity, light.range, light.fov),
+  app?.setLight(light.forward, light.height, light.intensity, light.range, light.radius),
 );
 const shadows = { strength: 0.85, showMap: true };
 pane

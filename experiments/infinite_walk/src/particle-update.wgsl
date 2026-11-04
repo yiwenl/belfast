@@ -19,7 +19,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let dt = motion.step.x;
     // Use the same copy of the forest as the spawn pass when the walk loops.
     let position = wrapped_position(p.position.xyz);
-    let age = p.velocity.w + dt * select(motion.life.w, 1.0, inside_spotlight(position));
+    let age = p.velocity.w + dt * select(motion.life.w, 1.0, inside_light_cylinder(position));
     if id.x >= motion.counts.y || p.life <= 0.0 || age >= p.life {
         if spawns.count == 0u {
             p.position.w = 0.0;

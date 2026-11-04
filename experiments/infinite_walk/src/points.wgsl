@@ -54,18 +54,19 @@ fn billboard_vertex(vertex: u32, center: vec3<f32>, color: vec4<f32>, size: f32)
     }
     out.position = clip;
     out.point_coord = coord;
-    let from_light = center - camera.light.xyz;
-    let distance_squared = dot(from_light, from_light);
-    let cone_angle = -from_light.y / max(sqrt(distance_squared), 0.0001);
-    let cone = smoothstep(camera.light_shape.z, camera.light_shape.y, cone_angle);
-    let falloff = max(1.0 - distance_squared / (camera.light_shape.x * camera.light_shape.x), 0.0);
-    let direct = camera.light.w * cone * falloff * falloff / (1.0 + distance_squared);
-    var visibility = 1.0;
-    if direct > 0.0 && camera.shadow.z > 0.0 {
-        // shortcut: receive at particle centers; use surface geometry for per-pixel shadow detail.
-        visibility = shadow_visibility(center);
+    var illumination = camera.light_shape.w;
+    if inside_light_cylinder(center) {
+        let offset = center - camera.light.xyz;
+        let edge = 1.0 - smoothstep(camera.light_shape.z, camera.light_shape.y, length(offset.xz));
+        let depth_squared = offset.y * offset.y;
+        let falloff = 1.0 - depth_squared / (camera.light_shape.x * camera.light_shape.x);
+        var direct = camera.light.w * edge * falloff * falloff / (1.0 + depth_squared);
+        if camera.shadow.z > 0.0 {
+            // shortcut: receive at particle centers; use surface geometry for per-pixel shadow detail.
+            direct *= shadow_visibility(center);
+        }
+        illumination += direct;
     }
-    let illumination = camera.light_shape.w + direct * visibility;
     let albedo = select(color.rgb, vec3(1.0), camera.appearance.x > 0.5);
     out.color = srgb_to_linear(albedo) * illumination;
     return out;
@@ -145,7 +146,8 @@ fn vs_particle_shadow(
 
 @fragment
 fn fs_shadow(in: ShadowVertex) {
-    if length(in.point_coord) > 0.5 { discard; }
+    let disk = in.position.xy * (2.0 / camera.shadow.x) - 1.0;
+    if dot(disk, disk) > 1.0 || length(in.point_coord) > 0.5 { discard; }
 }
 
 struct ShadowPreviewVertex {
@@ -168,11 +170,7 @@ fn fs_shadow_preview(in: ShadowPreviewVertex) -> @location(0) vec4<f32> {
     let size = textureDimensions(shadow_map);
     let pixel = clamp(vec2<i32>(in.uv * vec2<f32>(size)), vec2(0), vec2<i32>(size) - vec2(1));
     let depth = textureLoad(shadow_map, pixel, 0);
-    let near = camera.shadow.w;
-    let far = camera.light_shape.x;
-    // Linearize perspective depth so distant particles do not all appear white.
-    let gray = clamp(near / (far - depth * (far - near)), 0.0, 1.0);
-    var color = vec3(gray);
+    var color = vec3(depth);
     if camera.billboard.w > 0.5 { color = srgb_to_linear(color); }
     return vec4(color, 1.0);
 }

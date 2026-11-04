@@ -17,7 +17,6 @@ pub const SHADER: &str = concat!(
     include_str!("points.wgsl")
 );
 const SHADOW_SIZE: u32 = 2048;
-const SHADOW_NEAR: f32 = 0.01;
 
 pub struct Scene {
     pub camera: PerspectiveCamera,
@@ -49,7 +48,7 @@ pub struct Scene {
     light_height: f32,
     light_intensity: f32,
     light_range: f32,
-    light_fov: f32,
+    light_radius: f32,
     viewport: [u32; 2],
     pixel_scale: f32,
     depth: Option<(wgpu::Texture, wgpu::TextureView)>,
@@ -335,7 +334,7 @@ impl Scene {
             light_height: 4.2,
             light_intensity: 30.0,
             light_range: 5.5,
-            light_fov: 33.0,
+            light_radius: 1.45,
             viewport: [0, 0],
             pixel_scale: 1.0,
             depth: None,
@@ -407,21 +406,21 @@ impl Scene {
         height: f32,
         intensity: f32,
         range: f32,
-        fov: f32,
+        radius: f32,
     ) -> Result<(), String> {
         if !(0.0..=10.0).contains(&forward)
             || !(0.1..=5.0).contains(&height)
             || !(0.0..=30.0).contains(&intensity)
             || !(0.2..=10.0).contains(&range)
-            || !(10.0..=150.0).contains(&fov)
+            || !(0.05..=5.0).contains(&radius)
         {
-            return Err("Invalid spotlight offset, height, intensity, range or FOV".into());
+            return Err("Invalid cylinder light offset, height, intensity, range or radius".into());
         }
         self.light_forward = forward;
         self.light_height = height;
         self.light_intensity = intensity;
         self.light_range = range;
-        self.light_fov = fov;
+        self.light_radius = radius;
         Ok(())
     }
 
@@ -475,27 +474,13 @@ impl Scene {
             eye[2] - LENGTH * forward_scale,
         );
         uniform[28..32].copy_from_slice(&light_eye.extend(self.light_intensity).to_array());
-        // Keep the soft edge proportional as the full cone angle changes.
-        let outer_angle = (self.light_fov * 0.5).to_radians();
-        uniform[32..36].copy_from_slice(&[
-            self.light_range,
-            (outer_angle * (2.0 / 3.0)).cos(),
-            outer_angle.cos(),
-            0.025,
-        ]);
-        let light_matrix = Mat4::perspective_rh(
-            self.light_fov.to_radians(),
-            1.0,
-            SHADOW_NEAR,
-            self.light_range,
-        ) * Mat4::look_at_rh(light_eye, light_eye - Vec3::Y, Vec3::Z);
+        let radius = self.light_radius;
+        uniform[32..36].copy_from_slice(&[self.light_range, radius, radius * (2.0 / 3.0), 0.025]);
+        let light_matrix =
+            Mat4::orthographic_rh(-radius, radius, -radius, radius, 0.0, self.light_range)
+                * Mat4::look_at_rh(light_eye, light_eye - Vec3::Y, Vec3::Z);
         uniform[36..52].copy_from_slice(&light_matrix.to_cols_array());
-        uniform[52..56].copy_from_slice(&[
-            SHADOW_SIZE as f32,
-            0.00002,
-            self.shadow_strength,
-            SHADOW_NEAR,
-        ]);
+        uniform[52..56].copy_from_slice(&[SHADOW_SIZE as f32, 0.00002, self.shadow_strength, 0.0]);
         self.camera_buffer.write(device, &uniform, 0);
         let _skeleton = self.skeleton.latest(now_ms);
     }
