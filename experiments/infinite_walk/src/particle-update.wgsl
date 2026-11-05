@@ -17,6 +17,8 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     if id.x >= motion.counts.x { return; }
     var p = particles_in[id.x];
     let dt = motion.step.x;
+    // Reserve the full billboard radius so fading particles never grow through the floor.
+    let ground_y = motion.life.z + motion.step.y * 0.5;
     // Use the same copy of the forest as the spawn pass when the walk loops.
     let position = wrapped_position(p.position.xyz);
     let age = p.velocity.w + dt * select(motion.life.w, 1.0, inside_light_cylinder(light_space(position)));
@@ -34,6 +36,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
             p.seed = seed;
             p.force_scale = mix(0.5, 1.5, filament_random01(seed + 2u));
         }
+        p.position.y = max(p.position.y, ground_y);
         particles_out[id.x] = p;
         return;
     }
@@ -42,10 +45,17 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     // Filaments stay in local space so following the light never reseeds their rings.
     let field = filament_velocity(position - origin + p.velocity.xyz * dt * 0.5);
     let target_velocity = (field + vec3(0.0, motion.step.z, 0.0)) * (p.force_scale * motion.force_multiplier);
-    let velocity = filament_limit_velocity(mix(p.velocity.xyz, target_velocity, 1.0 - exp(-motion.step.w * dt)), 1.2);
+    let response = 1.0 - exp(-motion.step.w * dt);
+    // Integrate gravity with the same exponential drag, independently of the flow multiplier.
+    let gravity_impulse = vec3(0.0, motion.gravity * response / motion.step.w, 0.0);
+    let velocity = filament_limit_velocity(mix(p.velocity.xyz, target_velocity, response) - gravity_impulse, 1.2);
     let fade = smoothstep(0.0, min(0.3, p.life * 0.2), age)
         * (1.0 - smoothstep(p.life * 0.8, p.life, age));
     p.position = vec4(position + (p.velocity.xyz + velocity) * (dt * 0.5), motion.step.y * fade);
     p.velocity = vec4(velocity, age);
+    if p.position.y <= ground_y {
+        p.position.y = ground_y;
+        p.velocity.y = max(p.velocity.y, 0.0);
+    }
     particles_out[id.x] = p;
 }

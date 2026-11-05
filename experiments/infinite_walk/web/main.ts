@@ -122,7 +122,8 @@ const particles = {
   outsideDecay: 3.8,
   lift: 0,
   forceMultiplier: 0.98,
-  drag: 1,
+  drag: 3.6,
+  gravity: 0.43,
   groundY: -0.11,
 };
 function updateParticles() {
@@ -138,6 +139,7 @@ function updateParticles() {
     particles.count,
     particles.outsideDecay,
     particles.forceMultiplier,
+    particles.gravity,
   );
 }
 const particleControls = particlesTab.addFolder({ title: "Drifting particles" });
@@ -183,20 +185,23 @@ motionControls.addBinding(particles, "lift", {
   step: 0.01,
 });
 motionControls.addBinding(particles, "drag", { label: "Drag", min: 0.1, max: 8, step: 0.1 });
+motionControls.addBinding(particles, "gravity", { label: "Gravity", min: 0, max: 2, step: 0.01 });
 for (const folder of [particleControls, lifeControls, motionControls]) {
   folder.on("change", updateParticles);
 }
 
 const filament = {
   debug: false,
-  rings: 12,
+  autoReset: false,
+  resetInterval: 3.9,
+  rings: 6,
   updraft: 0.24,
-  drift: 0.01,
-  radius: 0.75,
+  drift: 0.02,
+  radius: 0.54,
   core: 0.031,
   strength: 0.27,
-  circulation: 0.045,
-  lifetime: 6.8,
+  circulation: 0.154,
+  lifetime: 3.3,
 };
 filamentTab
   .addBinding(filament, "debug", { label: "Debug view" })
@@ -205,6 +210,13 @@ filamentTab
   .addBinding(particles, "groundY", { label: "Ground Y", min: -2, max: 3, step: 0.01 })
   .on("change", updateParticles);
 const rings = filamentTab.addFolder({ title: "Rings" });
+rings.addBinding(filament, "autoReset", { label: "Interval reset" });
+rings.addBinding(filament, "resetInterval", {
+  label: "Reset interval (s)",
+  min: 0,
+  max: 20,
+  step: 0.1,
+});
 rings.addBinding(filament, "rings", { label: "Ring count", min: 1, max: 24, step: 1 });
 rings.addBinding(filament, "radius", {
   label: "Ring radius",
@@ -231,7 +243,7 @@ flow.addBinding(filament, "strength", { label: "Vortex", min: 0, max: 5, step: 0
 flow.addBinding(filament, "circulation", {
   label: "Circulation",
   min: 0,
-  max: 0.05,
+  max: 0.2,
   step: 0.001,
 });
 function updateFilament() {
@@ -244,6 +256,8 @@ function updateFilament() {
     filament.circulation,
     filament.lifetime,
     filament.rings,
+    filament.autoReset,
+    filament.resetInterval,
   );
 }
 rings.on("change", updateFilament);

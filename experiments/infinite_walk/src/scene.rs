@@ -39,6 +39,8 @@ pub struct Scene {
     pub particle_settings: ParticleSettings,
     pub filament_settings: FilamentSettings,
     pub filament_rings: u32,
+    pub filament_auto_reset: bool,
+    pub filament_reset_interval: f32,
     filament_reset_pending: bool,
     pub show_filament_debug: bool,
     shadow_pipeline: wgpu::RenderPipeline,
@@ -368,7 +370,9 @@ impl Scene {
             particles: None,
             particle_settings: ParticleSettings::default(),
             filament_settings: particles::filament_defaults(),
-            filament_rings: 12,
+            filament_rings: 6,
+            filament_auto_reset: false,
+            filament_reset_interval: particles::DEFAULT_FILAMENT_RESET_INTERVAL,
             filament_reset_pending: false,
             show_filament_debug: false,
             shadow_pipeline,
@@ -738,6 +742,8 @@ impl Scene {
                 self.particle_settings,
                 self.filament_settings,
                 self.filament_rings,
+                self.filament_auto_reset,
+                self.filament_reset_interval,
                 std::mem::take(&mut self.filament_reset_pending),
             )?;
         }

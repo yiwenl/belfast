@@ -7,7 +7,7 @@ const MAX_COUNT: u32 = 500_000;
 pub const STRIDE: u64 = 48;
 pub const MAX_RINGS: u32 = 24;
 const VERTICES_PER_RING: u32 = 12;
-const FILAMENT_RESET_SECONDS: std::ops::RangeInclusive<f32> = 2.0..=4.0;
+pub const DEFAULT_FILAMENT_RESET_INTERVAL: f32 = 3.9;
 pub const FOREST_FLOOR_Y: f32 = -0.11;
 const CAMERA: &str = include_str!("camera.wgsl");
 const STATE: &str = include_str!("particle-state.wgsl");
@@ -24,6 +24,7 @@ pub struct ParticleSettings {
     pub lift: f32,
     pub force_multiplier: f32,
     pub drag: f32,
+    pub gravity: f32,
     pub ground_y: f32,
 }
 
@@ -39,7 +40,8 @@ impl Default for ParticleSettings {
             outside_decay: 3.8,
             lift: 0.0,
             force_multiplier: 0.98,
-            drag: 1.0,
+            drag: 3.6,
+            gravity: 0.43,
             ground_y: FOREST_FLOOR_Y,
         }
     }
@@ -58,6 +60,7 @@ impl ParticleSettings {
             (self.lift, 0.0, 1.0),
             (self.force_multiplier, 0.0, 2.0),
             (self.drag, 0.1, 8.0),
+            (self.gravity, 0.0, 2.0),
             (self.ground_y, -2.0, 3.0),
         ] {
             if !(min..=max).contains(&value) {
@@ -70,13 +73,13 @@ impl ParticleSettings {
 
 pub fn filament_defaults() -> FilamentSettings {
     FilamentSettings {
-        ring_radius: 0.75,
+        ring_radius: 0.54,
         core_radius: 0.031,
         updraft: 0.24,
-        xz_drift: 0.01,
+        xz_drift: 0.02,
         strength: 0.27,
-        circulation: 0.045,
-        lifetime: 6.8,
+        circulation: 0.154,
+        lifetime: 3.3,
         ..Default::default()
     }
 }
@@ -88,7 +91,7 @@ struct Motion {
     life: [f32; 4],
     counts: [u32; 2],
     force_multiplier: f32,
-    padding: u32,
+    gravity: f32,
 }
 
 pub struct Particles {
@@ -96,6 +99,7 @@ pub struct Particles {
     active_count: u32,
     current: usize,
     filaments: FilamentSimulation,
+    filament_reset_interval: f32,
     seconds_until_filament_reset: f32,
     spawns: Buffer,
     source_count: u32,
@@ -259,7 +263,8 @@ impl Particles {
             active_count: 0,
             current: 0,
             filaments,
-            seconds_until_filament_reset: rand::random_range(FILAMENT_RESET_SECONDS),
+            filament_reset_interval: DEFAULT_FILAMENT_RESET_INTERVAL,
+            seconds_until_filament_reset: DEFAULT_FILAMENT_RESET_INTERVAL + rand::random::<f32>(),
             spawns,
             source_count,
             select_spawns,
@@ -280,10 +285,18 @@ impl Particles {
         settings: ParticleSettings,
         filament: FilamentSettings,
         ring_count: u32,
+        auto_reset: bool,
+        reset_interval: f32,
         reset_filaments: bool,
     ) -> Result<(), String> {
+        if reset_interval != self.filament_reset_interval {
+            self.filament_reset_interval = reset_interval;
+            self.seconds_until_filament_reset = reset_interval + rand::random::<f32>();
+        }
         let dt = if settings.animate {
-            self.seconds_until_filament_reset -= elapsed_seconds;
+            if auto_reset {
+                self.seconds_until_filament_reset -= elapsed_seconds;
+            }
             elapsed_seconds.clamp(0.0, 1.0 / 30.0)
         } else {
             0.0
@@ -297,12 +310,12 @@ impl Particles {
                 life: [
                     settings.lifetime,
                     settings.life_variation,
-                    0.0,
+                    settings.ground_y,
                     settings.outside_decay,
                 ],
                 counts: [settings.count, self.active_count],
                 force_multiplier: settings.force_multiplier,
-                padding: 0,
+                gravity: settings.gravity,
             }],
             0,
         );
@@ -311,9 +324,9 @@ impl Particles {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("WalkParticleSimulation"),
             });
-        if reset_filaments || self.seconds_until_filament_reset <= 0.0 {
+        if reset_filaments || (auto_reset && self.seconds_until_filament_reset <= 0.0) {
             self.filaments.reset(&mut encoder);
-            self.seconds_until_filament_reset = rand::random_range(FILAMENT_RESET_SECONDS);
+            self.seconds_until_filament_reset = reset_interval + rand::random::<f32>();
         } else {
             self.filaments.step(device, &mut encoder, dt)?;
         }

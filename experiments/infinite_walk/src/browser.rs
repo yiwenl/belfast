@@ -273,6 +273,7 @@ impl ExperimentApp {
         count: Option<u32>,
         outside_decay: Option<f32>,
         force_multiplier: Option<f32>,
+        gravity: Option<f32>,
     ) -> Result<(), JsValue> {
         let settings = ParticleSettings {
             count: count.unwrap_or(self.scene.particle_settings.count),
@@ -286,6 +287,7 @@ impl ExperimentApp {
                 .unwrap_or(self.scene.particle_settings.force_multiplier),
             lift,
             drag,
+            gravity: gravity.unwrap_or(self.scene.particle_settings.gravity),
             ground_y,
         };
         settings.validate().map_err(js_error)?;
@@ -304,8 +306,11 @@ impl ExperimentApp {
         circulation: f32,
         lifetime: f32,
         rings: Option<u32>,
+        auto_reset: Option<bool>,
+        reset_interval: Option<f32>,
     ) -> Result<(), JsValue> {
         let rings = rings.unwrap_or(self.scene.filament_rings);
+        let reset_interval = reset_interval.unwrap_or(self.scene.filament_reset_interval);
         if !(1..=crate::particles::MAX_RINGS).contains(&rings) {
             return Err(js_error("Invalid filament ring count"));
         }
@@ -315,8 +320,9 @@ impl ExperimentApp {
             (radius, 0.05, 2.0),
             (core, 0.005, 0.3),
             (strength, 0.0, 5.0),
-            (circulation, 0.0, 0.05),
+            (circulation, 0.0, 0.2),
             (lifetime, 1.0, 20.0),
+            (reset_interval, 0.0, 20.0),
         ] {
             if !(min..=max).contains(&value) {
                 return Err(js_error("Invalid filament settings"));
@@ -335,6 +341,8 @@ impl ExperimentApp {
         settings.validate().map_err(js_error)?;
         self.scene.filament_settings = settings;
         self.scene.filament_rings = rings;
+        self.scene.filament_auto_reset = auto_reset.unwrap_or(self.scene.filament_auto_reset);
+        self.scene.filament_reset_interval = reset_interval;
         Ok(())
     }
 

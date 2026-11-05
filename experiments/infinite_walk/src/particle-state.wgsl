@@ -9,10 +9,10 @@ struct Particle {
 
 struct Motion {
     step: vec4<f32>, // dt, size, upward velocity, drag
-    life: vec4<f32>, // lifetime, lifetime variation, padding, outside decay multiplier
+    life: vec4<f32>, // lifetime, lifetime variation, ground Y, outside decay multiplier
     counts: vec2<u32>, // active particles, previous active particles
     force_multiplier: f32,
-    padding: u32,
+    gravity: f32, // downward acceleration in world units per second squared
 }
 
 struct SourcePoint {
