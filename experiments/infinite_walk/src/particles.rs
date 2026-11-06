@@ -334,7 +334,6 @@ impl Particles {
         ring_count: u32,
         auto_reset: bool,
         reset_interval: f32,
-        reset_filaments: bool,
         pointer: PointerInteraction,
     ) -> Result<(), String> {
         if reset_interval != self.filament_reset_interval {
@@ -429,7 +428,7 @@ impl Particles {
         } else {
             None
         };
-        if reset_filaments || (auto_reset && self.seconds_until_filament_reset <= 0.0) {
+        if auto_reset && self.seconds_until_filament_reset <= 0.0 {
             self.filaments.reset(&mut encoder);
             self.seconds_until_filament_reset = reset_interval + rand::random::<f32>();
         } else {

@@ -8,7 +8,6 @@ const AUTO_LAP_SECONDS: f64 = 80.0;
 pub struct Walk {
     target_phase: f64,
     remaining: f64,
-    moving: bool,
     auto_backward: bool,
 }
 
@@ -30,10 +29,9 @@ impl Walk {
         self.remaining += distance;
     }
 
-    /// Returns true once, on the frame the camera comes to rest.
-    pub fn advance(&mut self, seconds: f32) -> bool {
+    pub fn advance(&mut self, seconds: f32) {
         if !seconds.is_finite() || seconds <= 0.0 {
-            return false;
+            return;
         }
         let seconds = f64::from(seconds.min(0.1));
         if self.auto_backward {
@@ -42,12 +40,7 @@ impl Walk {
         self.remaining *= (-12.0 * seconds).exp();
         if self.remaining.abs() < 1e-9 {
             self.remaining = 0.0;
-            if !self.auto_backward {
-                return std::mem::take(&mut self.moving);
-            }
         }
-        self.moving = true;
-        false
     }
 
     pub fn position(&self) -> [f32; 3] {
