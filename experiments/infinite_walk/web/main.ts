@@ -1,7 +1,7 @@
 import { Pane } from "tweakpane";
 import init, { ExperimentApp } from "../pkg/experiment";
 import { createFpsMeter } from "./fps";
-import { bindWalkInput } from "./input";
+import { bindPointerInput, bindWalkInput } from "./input";
 import { createSkeletonAdapter } from "./kinetic";
 import "./style.css";
 
@@ -10,6 +10,7 @@ const status = document.querySelector<HTMLElement>("#status")!;
 const errorOutput = document.querySelector<HTMLElement>("#error")!;
 let app: ExperimentApp | undefined;
 let detachInput: (() => void) | undefined;
+let pointerInput: ReturnType<typeof bindPointerInput> | undefined;
 let animationFrame = 0;
 let savePngRequested = false;
 let disposed = false;
@@ -151,6 +152,11 @@ particleControls.addBinding(particles, "size", {
   max: 0.05,
   step: 0.001,
 });
+const pointer = { radius: 1.19, strength: 6 };
+const pointerControls = particlesTab.addFolder({ title: "Pointer fluid" });
+pointerControls.addBinding(pointer, "radius", { label: "Radius", min: 0.05, max: 3, step: 0.01 });
+pointerControls.addBinding(pointer, "strength", { label: "Strength", min: 0, max: 10, step: 0.1 });
+pointerControls.on("change", () => app?.setPointerForce(pointer.radius, pointer.strength));
 const lifeControls = particlesTab.addFolder({ title: "Lifetime" });
 lifeControls.addBinding(particles, "lifetime", {
   label: "Life (s)",
@@ -184,7 +190,7 @@ motionControls.addBinding(particles, "lift", {
   max: 1,
   step: 0.01,
 });
-motionControls.addBinding(particles, "drag", { label: "Drag", min: 0.1, max: 8, step: 0.1 });
+motionControls.addBinding(particles, "drag", { label: "Fall drag", min: 0.1, max: 8, step: 0.1 });
 motionControls.addBinding(particles, "gravity", { label: "Gravity", min: 0, max: 2, step: 0.01 });
 for (const folder of [particleControls, lifeControls, motionControls]) {
   folder.on("change", updateParticles);
@@ -274,6 +280,7 @@ function dispose() {
   fps.dispose();
   pane.dispose();
   detachInput?.();
+  pointerInput?.dispose();
   app?.free();
   app = undefined;
   window.removeEventListener("pagehide", onPageHide);
@@ -365,6 +372,7 @@ async function start() {
     if (disposed) return;
     created.loadPointCloud(bytes);
     detachInput = bindWalkInput(canvas, created);
+    pointerInput = bindPointerInput(canvas, created);
     window.addEventListener("keydown", onKeyDown, { signal: loading.signal });
     pane.disabled = false;
 
@@ -381,6 +389,7 @@ async function start() {
         } else {
           created.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
         }
+        pointerInput?.update();
         // Use the current clock so input received earlier in this RAF is not dated in the future.
         const rendered = created.frame(performance.now());
         if (rendered && savePngRequested) {

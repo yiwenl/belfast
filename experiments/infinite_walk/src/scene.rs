@@ -1,12 +1,12 @@
 use belfast::{
-    filament::FilamentSettings, BelfastResult, Buffer, BufferUsage, Device, PerspectiveCamera,
-    Texture, TextureOptions,
+    filament::FilamentSettings, BallHelper, BallHelperOptions, BelfastResult, BindGroup, Buffer,
+    BufferUsage, Device, PerspectiveCamera, Texture, TextureOptions,
 };
 use glam::{Mat4, Vec3};
 
 use crate::{
     input::SkeletonInput,
-    particles::{self, ParticleSettings, Particles},
+    particles::{self, ParticleSettings, Particles, PointerInteraction},
     point_cloud::{Point, PointCloud},
     walk::{Walk, DRIFT_X, LENGTH},
 };
@@ -20,6 +20,7 @@ pub const SHADER: &str = concat!(
 );
 const SHADOW_SIZE: u32 = 2048;
 const LIGHT_TILT_DEGREES: f32 = 15.0;
+const POINTER_RADIUS: f32 = 0.06;
 
 struct FrameTargets {
     color: wgpu::TextureView,
@@ -50,7 +51,10 @@ pub struct Scene {
     shadow_strength: f32,
     show_shadow_map: bool,
     camera_buffer: Buffer,
-    camera_bind_group: wgpu::BindGroup,
+    camera_bind_group: BindGroup,
+    pointer_ndc: Option<[f32; 2]>,
+    pointer_interaction: PointerInteraction,
+    pointer_marker: BallHelper,
     points: Option<Buffer>,
     point_count: u32,
     point_size: f32,
@@ -340,14 +344,38 @@ impl Scene {
                 });
         let camera_buffer =
             Buffer::create(device, 304, BufferUsage::uniform(), "InfiniteWalkCamera");
-        let camera_bind_group = device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("InfiniteWalkCamera"),
-            layout: &layout,
-            entries: &[wgpu::BindGroupEntry {
+        let camera_bind_group = BindGroup::create(
+            device,
+            &layout,
+            &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: camera_buffer.gpu().as_entire_binding(),
             }],
-        });
+            "InfiniteWalkCamera",
+        );
+        let pointer_layout = device
+            .gpu()
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("WalkPointerLayout"),
+                bind_group_layouts: &[Some(&layout)],
+                immediate_size: 0,
+            });
+        let pointer_marker = BallHelper::new(
+            device,
+            BallHelperOptions {
+                label: "WalkPointer",
+                radius: POINTER_RADIUS,
+                color: [1.0, 0.0, 0.0, 1.0],
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth32Float,
+                    depth_write_enabled: Some(true),
+                    depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                    stencil: Default::default(),
+                    bias: Default::default(),
+                }),
+                ..BallHelperOptions::new(device.format(), &pointer_layout)
+            },
+        )?;
         // Night fog (#131414). An sRGB render target encodes the clear color on write.
         let [r, g, b] = [0x09_u8, 0x09, 0x08].map(|byte| {
             let value = f64::from(byte) / 255.0;
@@ -383,6 +411,9 @@ impl Scene {
             show_shadow_map: false,
             camera_buffer,
             camera_bind_group,
+            pointer_ndc: None,
+            pointer_interaction: PointerInteraction::default(),
+            pointer_marker,
             points: None,
             point_count: 0,
             point_size: 0.01,
@@ -421,6 +452,31 @@ impl Scene {
         self.particles = Some(particles);
         self.point_count = count;
         Ok(count)
+    }
+
+    pub fn set_pointer(&mut self, x: f32, y: f32) -> Result<(), String> {
+        if ![x, y]
+            .into_iter()
+            .all(|value| (-1.0..=1.0).contains(&value))
+        {
+            return Err("Pointer coordinates must be finite and between -1 and 1".into());
+        }
+        self.pointer_ndc = Some([x, y]);
+        Ok(())
+    }
+
+    pub fn clear_pointer(&mut self) {
+        self.pointer_ndc = None;
+        self.pointer_interaction.position = None;
+    }
+
+    pub fn set_pointer_force(&mut self, radius: f32, strength: f32) -> Result<(), String> {
+        if !(0.05..=3.0).contains(&radius) || !(0.0..=10.0).contains(&strength) {
+            return Err("Pointer radius must be 0.05..3 and strength 0..10".into());
+        }
+        self.pointer_interaction.radius = radius;
+        self.pointer_interaction.strength = strength;
+        Ok(())
     }
 
     pub fn set_point_size(&mut self, size: f32) -> Result<(), String> {
@@ -571,8 +627,9 @@ impl Scene {
         let mut uniform = [0.0_f32; 76];
         let projection = self.camera.projection_matrix();
         let view_projection = Mat4::from_cols_array(&self.camera.view_projection_matrix());
+        let inverse_view_projection = view_projection.inverse();
         uniform[..16].copy_from_slice(&view_projection.to_cols_array());
-        uniform[56..72].copy_from_slice(&view_projection.inverse().to_cols_array());
+        uniform[56..72].copy_from_slice(&inverse_view_projection.to_cols_array());
         // Wrap each wind phase in f64 so long-running sessions retain smooth motion.
         for (i, speed) in [-0.08, -0.015, -0.035].into_iter().enumerate() {
             uniform[72 + i] = (now_ms * 0.001 * speed).rem_euclid(16.0) as f32;
@@ -598,6 +655,31 @@ impl Scene {
         // Horizontal shift per unit of height keeps the floor target fixed as the light moves.
         let toward_lamp = Vec3::Y + camera_right * LIGHT_TILT_DEGREES.to_radians().tan();
         let light_eye = floor_target + toward_lamp * (eye[1] + self.light_height - floor_target.y);
+        let plane_center = light_eye - toward_lamp.normalize() * (self.light_range * 0.5);
+        self.pointer_interaction.origin = plane_center.to_array();
+        let plane_normal =
+            (Vec3::from_array(self.camera.look_at_target()) - Vec3::from_array(eye)).normalize();
+        self.pointer_interaction.position = self.pointer_ndc.and_then(|[x, y]| {
+            // WebGPU uses 0..1 clip depth. Recast each frame as the camera and light move.
+            let near = inverse_view_projection.project_point3(Vec3::new(x, y, 0.0));
+            let far = inverse_view_projection.project_point3(Vec3::new(x, y, 1.0));
+            let ray = far - near;
+            let denominator = ray.dot(plane_normal);
+            if denominator.abs() < 0.000001 {
+                return None;
+            }
+            let t = (plane_center - near).dot(plane_normal) / denominator;
+            (0.0..=1.0)
+                .contains(&t)
+                .then_some(near + ray * t)
+                .filter(|hit| hit.is_finite())
+                .map(|hit| hit.to_array())
+        });
+        if let Some(hit) = self.pointer_interaction.position {
+            self.pointer_marker
+                .set(hit, POINTER_RADIUS, [1.0, 0.0, 0.0, 1.0])
+                .expect("Pointer hit and marker parameters are finite");
+        }
         let filament_origin =
             floor_target + toward_lamp * (self.particle_settings.ground_y - floor_target.y);
         uniform[28..32].copy_from_slice(&filament_origin.extend(self.light_intensity).to_array());
@@ -634,14 +716,14 @@ impl Scene {
             if self.show_shadow_map || (self.shadow_strength > 0.0 && self.light_intensity > 0.0) {
                 if let Some(points) = &self.points {
                     pass.set_pipeline(&self.shadow_pipeline);
-                    pass.set_bind_group(0, &self.camera_bind_group, &[]);
+                    self.camera_bind_group.bind(&mut pass, 0);
                     pass.set_vertex_buffer(0, points.gpu().slice(..));
                     pass.draw(0..12, 0..self.point_count);
                 }
                 if self.particle_settings.visible {
                     if let Some(particles) = &self.particles {
                         pass.set_pipeline(&self.particle_shadow_pipeline);
-                        pass.set_bind_group(0, &self.camera_bind_group, &[]);
+                        self.camera_bind_group.bind(&mut pass, 0);
                         pass.set_vertex_buffer(0, particles.buffer().gpu().slice(..));
                         pass.draw(0..6, 0..particles.count());
                     }
@@ -678,7 +760,7 @@ impl Scene {
             });
             if let Some(points) = &self.points {
                 pass.set_pipeline(&self.pipeline);
-                pass.set_bind_group(0, &self.camera_bind_group, &[]);
+                self.camera_bind_group.bind(&mut pass, 0);
                 pass.set_bind_group(1, &self.shadow_binding, &[]);
                 pass.set_vertex_buffer(0, points.gpu().slice(..));
                 pass.draw(0..12, 0..self.point_count);
@@ -686,7 +768,7 @@ impl Scene {
             if let Some(particles) = &self.particles {
                 if self.particle_settings.visible {
                     pass.set_pipeline(&self.particle_pipeline);
-                    pass.set_bind_group(0, &self.camera_bind_group, &[]);
+                    self.camera_bind_group.bind(&mut pass, 0);
                     pass.set_bind_group(1, &self.shadow_binding, &[]);
                     pass.set_vertex_buffer(0, particles.buffer().gpu().slice(..));
                     pass.draw(0..6, 0..particles.count());
@@ -694,6 +776,9 @@ impl Scene {
                 if self.show_filament_debug {
                     particles.draw_debug(&mut pass);
                 }
+            }
+            if self.pointer_interaction.position.is_some() {
+                self.pointer_marker.draw(&mut pass, &self.camera_bind_group);
             }
         }
         if fog_active || self.show_shadow_map {
@@ -714,7 +799,7 @@ impl Scene {
                 })],
                 ..Default::default()
             });
-            pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            self.camera_bind_group.bind(&mut pass, 0);
             pass.set_bind_group(1, &self.shadow_binding, &[]);
             if fog_active {
                 pass.set_pipeline(&self.fog_pipeline);
@@ -745,6 +830,7 @@ impl Scene {
                 self.filament_auto_reset,
                 self.filament_reset_interval,
                 std::mem::take(&mut self.filament_reset_pending),
+                self.pointer_interaction,
             )?;
         }
         Ok(())

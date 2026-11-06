@@ -42,7 +42,10 @@ impl ExperimentApp {
         let (gpu, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("ExperimentDevice"),
-                required_limits: wgpu::Limits::downlevel_defaults(),
+                required_limits: wgpu::Limits {
+                    max_storage_buffers_per_shader_stage: 5,
+                    ..wgpu::Limits::downlevel_defaults()
+                },
                 ..Default::default()
             })
             .await
@@ -181,6 +184,23 @@ impl ExperimentApp {
 
     pub fn scroll(&mut self, delta: f32) {
         self.scene.walk.scroll(delta);
+    }
+
+    #[wasm_bindgen(js_name = setPointer)]
+    pub fn set_pointer(&mut self, x: f32, y: f32) -> Result<(), JsValue> {
+        self.scene.set_pointer(x, y).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = clearPointer)]
+    pub fn clear_pointer(&mut self) {
+        self.scene.clear_pointer();
+    }
+
+    #[wasm_bindgen(js_name = setPointerForce)]
+    pub fn set_pointer_force(&mut self, radius: f32, strength: f32) -> Result<(), JsValue> {
+        self.scene
+            .set_pointer_force(radius, strength)
+            .map_err(js_error)
     }
 
     #[wasm_bindgen(js_name = toggleAutoBackward)]

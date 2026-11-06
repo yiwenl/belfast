@@ -1,16 +1,38 @@
 use belfast::{
     filament::{FilamentSettings, FilamentSimulation, WGSL_FILAMENT},
+    fluid::{FluidSettings, FluidSimulation, FluidSplat, MAX_SPLATS},
     BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device, Draw, DrawOptions, Mesh,
 };
+use glam::Vec2;
 
 const MAX_COUNT: u32 = 500_000;
 pub const STRIDE: u64 = 48;
 pub const MAX_RINGS: u32 = 24;
 const VERTICES_PER_RING: u32 = 12;
+const FLUID_SIZE: u32 = 128;
 pub const DEFAULT_FILAMENT_RESET_INTERVAL: f32 = 3.9;
 pub const FOREST_FLOOR_Y: f32 = -0.11;
 const CAMERA: &str = include_str!("camera.wgsl");
 const STATE: &str = include_str!("particle-state.wgsl");
+
+#[derive(Clone, Copy)]
+pub struct PointerInteraction {
+    pub position: Option<[f32; 3]>,
+    pub origin: [f32; 3],
+    pub radius: f32,
+    pub strength: f32,
+}
+
+impl Default for PointerInteraction {
+    fn default() -> Self {
+        Self {
+            position: None,
+            origin: [0.0; 3],
+            radius: 1.19,
+            strength: 6.0,
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct ParticleSettings {
@@ -92,6 +114,8 @@ struct Motion {
     counts: [u32; 2],
     force_multiplier: f32,
     gravity: f32,
+    fluid_origin: [f32; 4],
+    fluid: [f32; 4],
 }
 
 pub struct Particles {
@@ -99,6 +123,11 @@ pub struct Particles {
     active_count: u32,
     current: usize,
     filaments: FilamentSimulation,
+    fluid: FluidSimulation,
+    fluid_enabled: bool,
+    fluid_radius: f32,
+    fluid_time: f64,
+    previous_pointer: Option<Vec2>,
     filament_reset_interval: f32,
     seconds_until_filament_reset: f32,
     spawns: Buffer,
@@ -149,6 +178,14 @@ impl Particles {
         );
         let filaments =
             FilamentSimulation::new(device, MAX_RINGS, VERTICES_PER_RING, filament_defaults())?;
+        let fluid = FluidSimulation::new(
+            device,
+            FLUID_SIZE,
+            FluidSettings {
+                velocity_dissipation: 0.96,
+                ..Default::default()
+            },
+        )?;
         let motion = Buffer::create(
             device,
             std::mem::size_of::<Motion>() as u64,
@@ -182,7 +219,8 @@ impl Particles {
         let advect = Compute::new(
             device,
             &format!(
-                "{CAMERA}\n{STATE}\n{WGSL_FILAMENT}\n{}",
+                "{CAMERA}\n{STATE}\n{WGSL_FILAMENT}\n{}\n{}",
+                include_str!("particle-pointer.wgsl"),
                 include_str!("particle-update.wgsl")
             ),
             ComputeOptions::new("WalkParticleAdvection"),
@@ -219,6 +257,10 @@ impl Particles {
                     wgpu::BindGroupEntry {
                         binding: 6,
                         resource: motion.gpu().as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 7,
+                        resource: fluid.field().gpu().as_entire_binding(),
                     },
                 ],
                 "WalkParticleBinding",
@@ -263,6 +305,11 @@ impl Particles {
             active_count: 0,
             current: 0,
             filaments,
+            fluid,
+            fluid_enabled: false,
+            fluid_radius: 0.0,
+            fluid_time: 0.0,
+            previous_pointer: None,
             filament_reset_interval: DEFAULT_FILAMENT_RESET_INTERVAL,
             seconds_until_filament_reset: DEFAULT_FILAMENT_RESET_INTERVAL + rand::random::<f32>(),
             spawns,
@@ -288,6 +335,7 @@ impl Particles {
         auto_reset: bool,
         reset_interval: f32,
         reset_filaments: bool,
+        pointer: PointerInteraction,
     ) -> Result<(), String> {
         if reset_interval != self.filament_reset_interval {
             self.filament_reset_interval = reset_interval;
@@ -303,6 +351,17 @@ impl Particles {
         };
         self.filaments.set_settings(filament)?;
         self.filaments.set_ring_count(ring_count)?;
+        self.fluid_time += f64::from(dt);
+        let fluid_enabled = pointer.strength > 0.0;
+        let center = pointer.origin;
+        let domain = (pointer.radius * 4.0).max(12.0);
+        let current_pointer = pointer
+            .position
+            .map(|position| {
+                Vec2::new(position[0] - center[0], position[1] - center[1]) / domain
+                    + Vec2::splat(0.5)
+            })
+            .filter(|uv| uv.is_finite() && uv.cmpge(Vec2::ZERO).all() && uv.cmple(Vec2::ONE).all());
         self.motion.write(
             device,
             &[Motion {
@@ -316,6 +375,13 @@ impl Particles {
                 counts: [settings.count, self.active_count],
                 force_multiplier: settings.force_multiplier,
                 gravity: settings.gravity,
+                fluid_origin: [center[0], center[1], center[2], pointer.radius],
+                fluid: [
+                    if fluid_enabled { 1.0 } else { 0.0 },
+                    domain,
+                    (self.fluid_time * 0.6).rem_euclid(16.0) as f32,
+                    FLUID_SIZE as f32,
+                ],
             }],
             0,
         );
@@ -324,6 +390,45 @@ impl Particles {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("WalkParticleSimulation"),
             });
+        if fluid_enabled != self.fluid_enabled || pointer.radius != self.fluid_radius {
+            self.fluid.reset(&mut encoder);
+            self.previous_pointer = None;
+        }
+        self.fluid_enabled = fluid_enabled;
+        self.fluid_radius = pointer.radius;
+        if fluid_enabled && dt > 0.0 {
+            let mut splats = Vec::new();
+            if let Some((current, previous)) = current_pointer.zip(self.previous_pointer) {
+                let delta = current - previous;
+                let distance = delta.length();
+                if distance > 0.000001 {
+                    // A one-cell footprint keeps small brushes visible at this grid resolution.
+                    let radius = (pointer.radius / domain).max(1.0 / FLUID_SIZE as f32);
+                    let count = (distance / (radius * 0.5))
+                        .ceil()
+                        .clamp(1.0, MAX_SPLATS as f32) as usize;
+                    // Displacement is already integrated over the frame; do not multiply it by dt again.
+                    let impulse = delta.clamp_length_max(0.2) * pointer.strength / count as f32;
+                    for i in 0..count {
+                        splats.push(FluidSplat {
+                            position: previous
+                                .lerp(current, (i as f32 + 0.5) / count as f32)
+                                .to_array(),
+                            velocity: impulse.to_array(),
+                            radius,
+                            density: (distance * 8.0).min(2.0) / count as f32,
+                        });
+                    }
+                }
+            }
+            // Keep existing flow evolving after the pointer stops or leaves the canvas.
+            self.fluid.step(device, &mut encoder, dt, &splats)?;
+        }
+        self.previous_pointer = if fluid_enabled && dt > 0.0 {
+            current_pointer
+        } else {
+            None
+        };
         if reset_filaments || (auto_reset && self.seconds_until_filament_reset <= 0.0) {
             self.filaments.reset(&mut encoder);
             self.seconds_until_filament_reset = reset_interval + rand::random::<f32>();
