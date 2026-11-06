@@ -15,7 +15,7 @@ struct Camera {
     // Shadow map size, depth bias, strength, fog density per world unit.
     shadow: vec4<f32>,
     inverse_view_projection: mat4x4<f32>,
-    fog_noise_offset: vec4<f32>, // periodic wind displacement in noise cells, padding
+    fog_noise_offset: vec4<f32>, // periodic wind displacement in noise cells, cells per lap
 }
 @group(0) @binding(0) var<uniform> camera: Camera;
 

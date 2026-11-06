@@ -67,7 +67,7 @@ impl ExperimentApp {
         if capabilities.formats.is_empty() && capabilities.format_capabilities.is_empty() {
             return Err(js_error("Canvas has no supported WebGPU surface format"));
         }
-        let color = belfast::pick_surface_color(&capabilities, false);
+        let color = belfast::pick_surface_color(&capabilities, true);
         let alpha_mode = capabilities
             .alpha_modes
             .first()
@@ -97,6 +97,11 @@ impl ExperimentApp {
             last_frame_ms: None,
             gpu_error,
         })
+    }
+
+    #[wasm_bindgen(js_name = hdrEnabled)]
+    pub fn hdr_enabled(&self) -> bool {
+        self.device.hdr()
     }
 
     /// CSS dimensions; pointer coordinates and viewport dimensions also use CSS pixels.
@@ -263,6 +268,13 @@ impl ExperimentApp {
     #[wasm_bindgen(js_name = setFogHalfHeight)]
     pub fn set_fog_half_height(&mut self, height: f32) -> Result<(), JsValue> {
         self.scene.set_fog_half_height(height).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setFogNoiseFrequency)]
+    pub fn set_fog_noise_frequency(&mut self, frequency: f32) -> Result<(), JsValue> {
+        self.scene
+            .set_fog_noise_frequency(frequency)
+            .map_err(js_error)
     }
 
     #[wasm_bindgen(js_name = setLight)]

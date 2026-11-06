@@ -22,11 +22,12 @@ const resolutions = {
 } as const;
 const settings = {
   fps: "—",
+  output: "—",
   resolution: "hd" as keyof typeof resolutions,
   pointSize: 0.01,
   copyOffset: 0.011,
-  cameraY: 0.75,
-  cameraPitch: 4,
+  cameraY: 1.24,
+  cameraPitch: -13,
   whiteParticles: false,
   fov: 88,
 };
@@ -38,6 +39,7 @@ const [sceneTab, lightTab, particlesTab, filamentTab] = pane.addTab({
 }).pages;
 
 const display = sceneTab.addFolder({ title: "Display" });
+const outputStatus = display.addBinding(settings, "output", { label: "Output", readonly: true });
 display
   .addBinding(settings, "resolution", {
     label: "Resolution",
@@ -86,18 +88,18 @@ camera
 camera
   .addBinding(settings, "fov", { label: "FOV (°)", min: 10, max: 120, step: 1 })
   .on("change", ({ value }) => app?.setFov(value));
-const light = { forward: 2.9, height: 4.2, intensity: 30, range: 7.6, radius: 1.45 };
+const light = { forward: 2.9, height: 4.2, intensity: 100, range: 7.6, radius: 1.45 };
 
 const lighting = lightTab.addFolder({ title: "Cylinder light" });
 lighting.addBinding(light, "forward", { label: "Forward", min: 0, max: 10, step: 0.1 });
 lighting.addBinding(light, "height", { label: "Height", min: 0.1, max: 5, step: 0.1 });
-lighting.addBinding(light, "intensity", { label: "Intensity", min: 0, max: 30, step: 0.1 });
+lighting.addBinding(light, "intensity", { label: "Intensity", min: 0, max: 300, step: 0.1 });
 lighting.addBinding(light, "range", { label: "Range", min: 0.2, max: 10, step: 0.1 });
 lighting.addBinding(light, "radius", { label: "Radius", min: 0.05, max: 5, step: 0.01 });
 lighting.on("change", () =>
   app?.setLight(light.forward, light.height, light.intensity, light.range, light.radius),
 );
-const shadows = { strength: 0.99, showMap: false };
+const shadows = { strength: 0.97, showMap: false };
 const shadowControls = lightTab.addFolder({ title: "Shadows" });
 shadowControls
   .addBinding(shadows, "strength", { label: "Strength", min: 0, max: 1, step: 0.01 })
@@ -105,7 +107,7 @@ shadowControls
 shadowControls
   .addBinding(shadows, "showMap", { label: "Show shadow map" })
   .on("change", ({ value }) => app?.setShowShadowMap(value));
-const fog = { density: 0.22, halfHeight: 0.45 };
+const fog = { density: 0.22, halfHeight: 0.45, noiseFrequency: 16 };
 const fogControls = lightTab.addFolder({ title: "Volumetric fog" });
 fogControls
   .addBinding(fog, "density", { label: "Density", min: 0, max: 0.5, step: 0.01 })
@@ -113,6 +115,9 @@ fogControls
 fogControls
   .addBinding(fog, "halfHeight", { label: "Ground half-height", min: 0.05, max: 3, step: 0.05 })
   .on("change", ({ value }) => app?.setFogHalfHeight(value));
+fogControls
+  .addBinding(fog, "noiseFrequency", { label: "Noise frequency", min: 2, max: 64, step: 1 })
+  .on("change", ({ value }) => app?.setFogNoiseFrequency(value));
 const particles = {
   count: 250_000,
   visible: true,
@@ -363,6 +368,8 @@ async function start() {
       return;
     }
     app = created;
+    settings.output = created.hdrEnabled() ? "HDR" : "SDR";
+    outputStatus.refresh();
     status.textContent = "Loading point cloud…";
     const response = await fetch(`${import.meta.env.BASE_URL}forest.ply`, {
       signal: loading.signal,

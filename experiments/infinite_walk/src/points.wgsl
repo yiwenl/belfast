@@ -65,12 +65,11 @@ fn billboard_vertex(vertex: u32, center: vec3<f32>, color: vec4<f32>, size: f32)
     var illumination = camera.light_shape.w;
     let beam = light_space(center);
     if inside_light_cylinder(beam) {
-        var direct = beam_edge(beam.xy) * light_at_depth(beam.z);
+        illumination += beam_edge(beam.xy) * light_at_depth(beam.z);
         if camera.shadow.z > 0.0 {
             // shortcut: receive at particle centers; use surface geometry for per-pixel shadow detail.
-            direct *= shadow_visibility(beam);
+            illumination *= shadow_visibility(beam);
         }
-        illumination += direct;
     }
     let albedo = select(color.rgb, vec3(1.0), camera.appearance.x > 0.5);
     out.color = srgb_to_linear(albedo) * illumination;

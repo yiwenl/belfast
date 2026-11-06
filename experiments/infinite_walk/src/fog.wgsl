@@ -7,8 +7,11 @@ fn unproject(ndc: vec2<f32>, depth: f32) -> vec3<f32> {
 }
 
 fn fog_hash(cell: vec3<i32>) -> f32 {
-    let c = bitcast<vec3<u32>>(cell) & vec3(15u);
-    var hash = c.x + 16u * c.y + 256u * c.z;
+    let period = i32(camera.fog_noise_offset.w);
+    let wrapped = cell % vec3(period);
+    let c = vec3<u32>(select(wrapped, wrapped + vec3(period), wrapped < vec3(0)));
+    let stride = u32(period);
+    var hash = c.x + stride * c.y + stride * stride * c.z;
     hash = (hash ^ (hash >> 16u)) * 0x7feb352du;
     hash = (hash ^ (hash >> 15u)) * 0x846ca68bu;
     hash = hash ^ (hash >> 16u);
@@ -37,8 +40,9 @@ fn fog_noise_space(world: vec3<f32>) -> vec3<f32> {
     let path_length = length(path);
     let forward = path / path_length;
     let right = vec2(-forward.y, forward.x);
-    // Exactly 16 cells per lap keep the noise continuous when the camera rebases.
-    return vec3(dot(world.xz, right), world.y, dot(world.xz, forward)) * (16.0 / path_length);
+    // A whole number of periodic cells keeps the noise continuous when the camera rebases.
+    return vec3(dot(world.xz, right), world.y, dot(world.xz, forward))
+        * (camera.fog_noise_offset.w / path_length);
 }
 
 @fragment

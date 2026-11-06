@@ -71,6 +71,7 @@ pub struct Scene {
     fog_pipeline: wgpu::RenderPipeline,
     fog_density: f32,
     fog_half_height: f32,
+    fog_noise_frequency: f32,
     targets: Option<FrameTargets>,
 }
 
@@ -405,7 +406,7 @@ impl Scene {
             shadow_preview_pipeline,
             shadow_map,
             shadow_binding,
-            shadow_strength: 0.99,
+            shadow_strength: 0.97,
             show_shadow_map: false,
             camera_buffer,
             camera_bind_group,
@@ -417,11 +418,11 @@ impl Scene {
             point_size: 0.01,
             copy_offset: 0.011,
             white_particles: false,
-            camera_y: 0.75,
-            camera_pitch_radians: 4.0_f32.to_radians(),
+            camera_y: 1.24,
+            camera_pitch_radians: (-13.0_f32).to_radians(),
             light_forward: 2.9,
             light_height: 4.2,
-            light_intensity: 30.0,
+            light_intensity: 100.0,
             light_range: 7.6,
             light_radius: 1.45,
             viewport: [0, 0],
@@ -429,6 +430,7 @@ impl Scene {
             fog_pipeline,
             fog_density: 0.22,
             fog_half_height: 0.45,
+            fog_noise_frequency: 16.0,
             targets: None,
         })
     }
@@ -537,6 +539,14 @@ impl Scene {
         Ok(())
     }
 
+    pub fn set_fog_noise_frequency(&mut self, frequency: f32) -> Result<(), String> {
+        if !(2.0..=64.0).contains(&frequency) || frequency.fract() != 0.0 {
+            return Err("Fog noise frequency must be an integer between 2 and 64".into());
+        }
+        self.fog_noise_frequency = frequency;
+        Ok(())
+    }
+
     pub fn set_show_shadow_map(&mut self, enabled: bool) {
         self.show_shadow_map = enabled;
     }
@@ -551,7 +561,7 @@ impl Scene {
     ) -> Result<(), String> {
         if !(0.0..=10.0).contains(&forward)
             || !(0.1..=5.0).contains(&height)
-            || !(0.0..=30.0).contains(&intensity)
+            || !(0.0..=300.0).contains(&intensity)
             || !(0.2..=10.0).contains(&range)
             || !(0.05..=5.0).contains(&radius)
         {
@@ -629,9 +639,12 @@ impl Scene {
         uniform[..16].copy_from_slice(&view_projection.to_cols_array());
         uniform[56..72].copy_from_slice(&inverse_view_projection.to_cols_array());
         // Wrap each wind phase in f64 so long-running sessions retain smooth motion.
+        let noise_cells = f64::from(self.fog_noise_frequency);
         for (i, speed) in [-0.08, -0.015, -0.035].into_iter().enumerate() {
-            uniform[72 + i] = (now_ms * 0.001 * speed).rem_euclid(16.0) as f32;
+            uniform[72 + i] =
+                (now_ms * 0.001 * speed * noise_cells / 16.0).rem_euclid(noise_cells) as f32;
         }
+        uniform[75] = self.fog_noise_frequency;
         uniform[16..20].copy_from_slice(&[
             projection[0],
             projection[5],
