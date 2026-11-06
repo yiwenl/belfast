@@ -152,7 +152,7 @@ particleControls.addBinding(particles, "size", {
   max: 0.05,
   step: 0.001,
 });
-const pointer = { radius: 1.19, strength: 6 };
+const pointer = { radius: 0.66, strength: 7.2 };
 const pointerControls = particlesTab.addFolder({ title: "Pointer fluid" });
 pointerControls.addBinding(pointer, "radius", { label: "Radius", min: 0.05, max: 3, step: 0.01 });
 pointerControls.addBinding(pointer, "strength", { label: "Strength", min: 0, max: 10, step: 0.1 });
@@ -204,7 +204,7 @@ const filament = {
   updraft: 0.24,
   drift: 0.02,
   radius: 0.54,
-  core: 0.031,
+  core: 0.136,
   strength: 0.27,
   circulation: 0.154,
   lifetime: 3.3,

@@ -28,8 +28,8 @@ impl Default for PointerInteraction {
         Self {
             position: None,
             origin: [0.0; 3],
-            radius: 1.19,
-            strength: 6.0,
+            radius: 0.66,
+            strength: 7.2,
         }
     }
 }
@@ -96,7 +96,7 @@ impl ParticleSettings {
 pub fn filament_defaults() -> FilamentSettings {
     FilamentSettings {
         ring_radius: 0.54,
-        core_radius: 0.031,
+        core_radius: 0.136,
         updraft: 0.24,
         xz_drift: 0.02,
         strength: 0.27,
