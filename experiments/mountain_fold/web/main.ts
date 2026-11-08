@@ -17,6 +17,7 @@ const values = {
   branches: 8,
   direction: -12,
   noise: 0.12,
+  noiseFloor: 0.18,
   inertia: 0.15,
   capacity: 5,
   erosion: 0.3,
@@ -41,6 +42,8 @@ const values = {
   density: 192,
   contrast: 1,
   lineWidth: 1,
+  lineWobble: 0.015,
+  wobbleScale: 0.6,
   lineColor: "#99928a",
   backgroundColor: "#ede5db",
   heightmap: false,
@@ -121,6 +124,8 @@ function applyView() {
       ((background >> 8) & 255) / 255,
       (background & 255) / 255,
       values.baseThickness,
+      values.lineWobble,
+      values.wobbleScale,
     ]),
   );
   app?.setPaused(values.paused);
@@ -181,6 +186,7 @@ function createPane() {
     ["branches", "Branches", 0, 12, 1],
     ["direction", "Direction", -180, 180, 1],
     ["noise", "Surface noise", 0, 0.35, 0.005],
+    ["noiseFloor", "Noise floor", 0, 0.4, 0.01],
   ] as const)
     mountain.addBinding(values, key, { label, min, max, step }).on("change", (event) => {
       if (event.last) reset();
@@ -257,6 +263,12 @@ function createPane() {
     .addBinding(values, "lineWidth", { label: "Preview width", min: 0.5, max: 2, step: 0.1 })
     .on("change", applyView);
   render.addBinding(values, "lineColor", { label: "Line color" }).on("change", applyView);
+  render
+    .addBinding(values, "lineWobble", { label: "Hand wobble", min: 0, max: 0.08, step: 0.001 })
+    .on("change", applyView);
+  render
+    .addBinding(values, "wobbleScale", { label: "Wobble scale", min: 0.2, max: 2, step: 0.05 })
+    .on("change", applyView);
   const camera = pane.addFolder({ title: "Camera", expanded: false });
   const projection = camera.addBinding(values, "orthographic", { label: "Orthographic" });
   const fov = camera

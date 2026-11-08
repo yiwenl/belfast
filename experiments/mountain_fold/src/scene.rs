@@ -27,6 +27,7 @@ struct ViewUniform {
     counts: [u32; 4],
     line_color: [f32; 4],
     base: [f32; 4],
+    stroke: [f32; 4],
 }
 
 pub struct Scene {
@@ -78,6 +79,9 @@ pub struct Scene {
     pub contour_strength: f32,
     pub contrast: f32,
     pub line_width: f32,
+    pub line_wobble: f32,
+    pub wobble_scale: f32,
+    line_seed: u32,
     pub line_color: [f32; 4],
     pub background_color: wgpu::Color,
     pub shadows: bool,
@@ -536,6 +540,9 @@ impl Scene {
             contour_strength: 0.2,
             contrast: 1.0,
             line_width: 1.0,
+            line_wobble: 0.015,
+            wobble_scale: 0.6,
+            line_seed: 0,
             line_color: [153.0 / 255.0, 146.0 / 255.0, 138.0 / 255.0, 1.0],
             background_color: wgpu::Color {
                 r: 237.0 / 255.0,
@@ -553,6 +560,7 @@ impl Scene {
     }
 
     pub fn reset(&mut self, device: &Device, heights: &[f32], seeds: &[u32]) {
+        self.line_seed = seeds[0];
         let data: Vec<[f32; 4]> = heights.iter().map(|h| [*h, *h, 0.0, 0.0]).collect();
         self.terrain.write(device, &data, 0);
         let mut state = vec![[0u32; 16]; DROPLETS as usize];
@@ -652,9 +660,10 @@ impl Scene {
                 if self.show_initial { 1.0 } else { 0.0 },
                 self.debug_mode,
             ],
-            counts: [self.line_count, SAMPLES, 0, 0],
+            counts: [self.line_count, SAMPLES, self.line_seed, 0],
             line_color: self.line_color,
             base: [self.base_thickness, 0.0, 0.0, 0.0],
+            stroke: [self.line_wobble, self.wobble_scale, 0.0, 0.0],
         };
         self.view_uniform.write(device, &[uniform], 0);
     }

@@ -11,6 +11,7 @@ export interface TerrainSettings {
   branches: number;
   direction: number;
   noise: number;
+  noiseFloor: number;
 }
 type Point = [number, number, number];
 
@@ -88,7 +89,20 @@ export function generateTerrain(settings: TerrainSettings) {
         detail += (noise(x * frequency + 30, z * frequency + 30) - 0.5) / 2 ** octave;
       }
       const mountain = Math.max(0, ridge + detail * settings.noise * Math.min(1, ridge * 8));
-      heights[i + j * GRID] = ((0.015 + mountain * settings.height) * (GRID - 1)) / WORLD_SIZE;
+      const mountainHeight = mountain * settings.height;
+      let floor = 0;
+      if (settings.noiseFloor > 0 && mountainHeight < 0.6) {
+        let nx = px * 1.5 + 43,
+          nz = pz * 1.5 + 79;
+        for (let octave = 0; octave < 7; octave++) {
+          floor += noise(nx, nz) / 2 ** (octave + 1);
+          [nx, nz] = [nx * 1.6 - nz * 1.2, nx * 1.2 + nz * 1.6];
+        }
+        // Positive seeded relief avoids flat clamped valleys; fade it into the foothills.
+        const t = mountainHeight / 0.6;
+        floor *= settings.noiseFloor * (1 - t * t * (3 - 2 * t));
+      }
+      heights[i + j * GRID] = ((0.015 + mountainHeight + floor) * (GRID - 1)) / WORLD_SIZE;
     }
   }
   const seeds = Uint32Array.from(

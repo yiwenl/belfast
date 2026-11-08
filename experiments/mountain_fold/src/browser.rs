@@ -246,7 +246,7 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setView)]
     pub fn set_view(&mut self, values: &[f32]) -> Result<(), JsValue> {
-        if values.len() != 25 || values.iter().any(|v| !v.is_finite()) {
+        if values.len() != 27 || values.iter().any(|v| !v.is_finite()) {
             return Err(js_error("Invalid view settings"));
         }
         self.scene.light_yaw = values[0];
@@ -280,6 +280,8 @@ impl ExperimentApp {
             a: 1.0,
         };
         self.scene.base_thickness = values[24].clamp(0.0, 6.0);
+        self.scene.line_wobble = values[25].clamp(0.0, 0.08);
+        self.scene.wobble_scale = values[26].clamp(0.2, 2.0);
         Ok(())
     }
 
