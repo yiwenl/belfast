@@ -246,7 +246,7 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setView)]
     pub fn set_view(&mut self, values: &[f32]) -> Result<(), JsValue> {
-        if values.len() != 18 || values.iter().any(|v| !v.is_finite()) {
+        if values.len() != 24 || values.iter().any(|v| !v.is_finite()) {
             return Err(js_error("Invalid view settings"));
         }
         self.scene.light_yaw = values[0];
@@ -267,6 +267,18 @@ impl ExperimentApp {
         self.scene.contour_spacing = values[15].clamp(0.02, 0.5);
         self.scene.contour_strength = values[16].clamp(0.0, 0.4);
         self.scene.layer_spacing = values[17].clamp(0.0, 10.0);
+        self.scene.line_color = [
+            values[18].clamp(0.0, 1.0),
+            values[19].clamp(0.0, 1.0),
+            values[20].clamp(0.0, 1.0),
+            1.0,
+        ];
+        self.scene.background_color = wgpu::Color {
+            r: f64::from(values[21].clamp(0.0, 1.0)),
+            g: f64::from(values[22].clamp(0.0, 1.0)),
+            b: f64::from(values[23].clamp(0.0, 1.0)),
+            a: 1.0,
+        };
         Ok(())
     }
 
@@ -339,7 +351,7 @@ impl ExperimentApp {
             ..Default::default()
         })
         .map_err(js_error)?;
-        self.set_camera(43.0, 28.0, 30.0);
+        self.set_camera(45.64277, 28.363918, 30.0);
         self.set_projection(self.scene.orthographic, 42.0, 9.0)?;
         Ok(())
     }

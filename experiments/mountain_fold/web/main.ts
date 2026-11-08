@@ -41,12 +41,14 @@ const values = {
   density: 192,
   contrast: 1,
   lineWidth: 1,
+  lineColor: "#99928a",
+  backgroundColor: "#ede5db",
   heightmap: false,
   layerSpacing: 8,
   debugView: 0,
   debugGain: 1.6,
-  yaw: 43,
-  pitch: 28,
+  yaw: 45.64276885986328,
+  pitch: 28.36391830444336,
   distance: 30,
   orthographic: true,
   fov: 42,
@@ -88,6 +90,9 @@ function fail(error: unknown) {
   }
 }
 function applyView() {
+  const color = Number.parseInt(values.lineColor.slice(1), 16);
+  const background = Number.parseInt(values.backgroundColor.slice(1), 16);
+  document.documentElement.style.backgroundColor = values.backgroundColor;
   app?.setView(
     new Float32Array([
       values.lightYaw,
@@ -108,6 +113,12 @@ function applyView() {
       values.contourSpacing,
       values.contourStrength,
       values.layerSpacing,
+      ((color >> 16) & 255) / 255,
+      ((color >> 8) & 255) / 255,
+      (color & 255) / 255,
+      ((background >> 16) & 255) / 255,
+      ((background >> 8) & 255) / 255,
+      (background & 255) / 255,
     ]),
   );
   app?.setPaused(values.paused);
@@ -184,6 +195,7 @@ function createPane() {
     .addBinding(values, "layerSpacing", { label: "Layer spacing", min: 0, max: 10, step: 0.1 })
     .on("change", applyView);
   scene.addBinding(values, "heightmap", { label: "Height map" }).on("change", applyView);
+  scene.addBinding(values, "backgroundColor", { label: "Background" }).on("change", applyView);
 
   const simulation = pane.addFolder({ title: "Erosion" });
   simulation.addBinding(values, "paused", { label: "Paused" }).on("change", applyView);
@@ -239,6 +251,7 @@ function createPane() {
   render
     .addBinding(values, "lineWidth", { label: "Preview width", min: 0.5, max: 2, step: 0.1 })
     .on("change", applyView);
+  render.addBinding(values, "lineColor", { label: "Line color" }).on("change", applyView);
   const camera = pane.addFolder({ title: "Camera", expanded: false });
   const projection = camera.addBinding(values, "orthographic", { label: "Orthographic" });
   const fov = camera
@@ -286,8 +299,8 @@ function createPane() {
     applyProjection();
   });
   camera.addButton({ title: "Reset camera" }).on("click", () => {
-    values.yaw = 43;
-    values.pitch = 28;
+    values.yaw = 45.64276885986328;
+    values.pitch = 28.36391830444336;
     values.distance = 30;
     values.fov = 42;
     values.orthoBound = 9;

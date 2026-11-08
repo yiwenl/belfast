@@ -52,7 +52,7 @@ fn line_vertex(@builtin(vertex_index) vertex: u32, @builtin(instance_index) inst
     return vec4(clip.xy + offset * clip.w, clip.z, clip.w);
 }
 @fragment
-fn line_fragment() -> @location(0) vec4<f32> { return vec4(1.0); }
+fn line_fragment() -> @location(0) vec4<f32> { return view.line_color; }
 
 @vertex
 fn debug_vertex(@builtin(vertex_index) id: u32) -> Vertex {

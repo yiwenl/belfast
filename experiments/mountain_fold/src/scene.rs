@@ -23,6 +23,7 @@ struct ViewUniform {
     grid: [f32; 4],
     screen: [f32; 4],
     counts: [u32; 4],
+    line_color: [f32; 4],
 }
 
 pub struct Scene {
@@ -73,6 +74,8 @@ pub struct Scene {
     pub contour_strength: f32,
     pub contrast: f32,
     pub line_width: f32,
+    pub line_color: [f32; 4],
+    pub background_color: wgpu::Color,
     pub shadows: bool,
 }
 
@@ -477,8 +480,8 @@ impl Scene {
             rotate_sensitivity: 0.006,
             ..Default::default()
         })?;
-        control.snap_yaw(43.0_f32.to_radians());
-        control.snap_pitch(28.0_f32.to_radians());
+        control.snap_yaw(45.64277_f32.to_radians());
+        control.snap_pitch(28.363918_f32.to_radians());
         control.update(0.0, &mut camera);
         let scene = Self {
             camera,
@@ -528,6 +531,13 @@ impl Scene {
             contour_strength: 0.2,
             contrast: 1.0,
             line_width: 1.0,
+            line_color: [153.0 / 255.0, 146.0 / 255.0, 138.0 / 255.0, 1.0],
+            background_color: wgpu::Color {
+                r: 237.0 / 255.0,
+                g: 229.0 / 255.0,
+                b: 219.0 / 255.0,
+                a: 1.0,
+            },
             shadows: true,
         };
         scene.set_erosion(
@@ -638,6 +648,7 @@ impl Scene {
                 self.debug_mode,
             ],
             counts: [self.line_count, SAMPLES, 0, 0],
+            line_color: self.line_color,
         };
         self.view_uniform.write(device, &[uniform], 0);
     }
@@ -718,12 +729,7 @@ impl Scene {
                     depth_slice: None,
                     resolve_target: Some(target),
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.086,
-                            g: 0.086,
-                            b: 0.086,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(self.background_color),
                         store: wgpu::StoreOp::Discard,
                     },
                 })],

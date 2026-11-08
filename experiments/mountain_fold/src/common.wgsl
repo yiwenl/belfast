@@ -7,6 +7,7 @@ struct View {
     grid: vec4<f32>,
     screen: vec4<f32>,
     counts: vec4<u32>,
+    line_color: vec4<f32>,
 };
 struct Segment { a: vec4<f32>, b: vec4<f32>, info: vec4<f32> };
 @group(0) @binding(0) var<uniform> view: View;
