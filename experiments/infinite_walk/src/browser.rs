@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc, Mutex,
+};
 
 use belfast::Device;
 use wasm_bindgen::prelude::*;
@@ -22,6 +25,7 @@ pub struct ExperimentApp {
     drawable: bool,
     last_frame_ms: Option<f64>,
     gpu_error: Arc<Mutex<Option<String>>>,
+    completed_frames: Option<Arc<AtomicU32>>,
 }
 
 #[wasm_bindgen]
@@ -96,6 +100,7 @@ impl ExperimentApp {
             drawable: false,
             last_frame_ms: None,
             gpu_error,
+            completed_frames: None,
         })
     }
 
@@ -181,10 +186,28 @@ impl ExperimentApp {
             .create_view(&wgpu::TextureViewDescriptor::default());
         self.scene.render(&self.device, &view);
         self.device.queue().present(frame);
+        if let Some(completed) = &self.completed_frames {
+            let completed = completed.clone();
+            self.device.queue().on_submitted_work_done(move || {
+                completed.fetch_add(1, Ordering::Relaxed);
+            });
+        }
         if reconfigure {
             self.surface.configure(self.device.gpu(), &self.config);
         }
         Ok(!reconfigure)
+    }
+
+    #[wasm_bindgen(js_name = trackFrameCompletions)]
+    pub fn track_frame_completions(&mut self) {
+        self.completed_frames = Some(Arc::new(AtomicU32::new(0)));
+    }
+
+    #[wasm_bindgen(js_name = completedFrameCount)]
+    pub fn completed_frame_count(&self) -> u32 {
+        self.completed_frames
+            .as_ref()
+            .map_or(0, |count| count.load(Ordering::Relaxed))
     }
 
     pub fn scroll(&mut self, delta: f32) {
@@ -199,6 +222,11 @@ impl ExperimentApp {
     #[wasm_bindgen(js_name = clearPointer)]
     pub fn clear_pointer(&mut self) {
         self.scene.clear_pointer();
+    }
+
+    #[wasm_bindgen(js_name = setShowPointerBall)]
+    pub fn set_show_pointer_ball(&mut self, visible: bool) {
+        self.scene.set_show_pointer_ball(visible);
     }
 
     #[wasm_bindgen(js_name = setPointerForce)]
@@ -226,6 +254,16 @@ impl ExperimentApp {
     #[wasm_bindgen(js_name = setCopyOffset)]
     pub fn set_copy_offset(&mut self, offset: f32) -> Result<(), JsValue> {
         self.scene.set_copy_offset(offset).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setBackdropYOffset)]
+    pub fn set_backdrop_y_offset(&mut self, offset: f32) -> Result<(), JsValue> {
+        self.scene.set_backdrop_y_offset(offset).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = setBackdropPointSize)]
+    pub fn set_backdrop_point_size(&mut self, size: f32) -> Result<(), JsValue> {
+        self.scene.set_backdrop_point_size(size).map_err(js_error)
     }
 
     #[wasm_bindgen(js_name = setCameraPitch)]
@@ -388,6 +426,13 @@ impl ExperimentApp {
         self.scene
             .load_point_cloud(&self.device, bytes)
             .map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = loadBackdrop)]
+    pub fn load_backdrop(&mut self, bytes: &[u8]) -> Result<u32, JsValue> {
+        self.scene
+            .load_backdrop(&self.device, bytes)
+            .map_err(|error| JsValue::from_str(&error))
     }
 
     #[wasm_bindgen(js_name = setSkeleton)]

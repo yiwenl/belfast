@@ -34,6 +34,12 @@ pub struct Scene {
     pub skeleton: SkeletonInput,
     background: wgpu::Color,
     pipeline: wgpu::RenderPipeline,
+    backdrop_pipeline: wgpu::RenderPipeline,
+    backdrop: Option<Buffer>,
+    backdrop_count: u32,
+    backdrop_y_offset: f32,
+    backdrop_point_size: f32,
+    billboard_indices: Buffer,
     particle_pipeline: wgpu::RenderPipeline,
     particle_shadow_pipeline: wgpu::RenderPipeline,
     particles: Option<Particles>,
@@ -54,6 +60,7 @@ pub struct Scene {
     pointer_ndc: Option<[f32; 2]>,
     pointer_interaction: PointerInteraction,
     pointer_marker: BallHelper,
+    show_pointer_ball: bool,
     points: Option<Buffer>,
     point_count: u32,
     point_size: f32,
@@ -211,6 +218,17 @@ impl Scene {
             cache: None,
         };
         let pipeline = device.gpu().create_render_pipeline(&pipeline_options);
+        let backdrop_pipeline =
+            device
+                .gpu()
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: Some("InfiniteWalkBackdrop"),
+                    vertex: wgpu::VertexState {
+                        entry_point: Some("vs_backdrop"),
+                        ..pipeline_options.vertex.clone()
+                    },
+                    ..pipeline_options.clone()
+                });
         let particle_pipeline =
             device
                 .gpu()
@@ -343,7 +361,7 @@ impl Scene {
                     ..shadow_options
                 });
         let camera_buffer =
-            Buffer::create(device, 304, BufferUsage::uniform(), "InfiniteWalkCamera");
+            Buffer::create(device, 320, BufferUsage::uniform(), "InfiniteWalkCamera");
         let camera_bind_group = BindGroup::create(
             device,
             &layout,
@@ -376,8 +394,8 @@ impl Scene {
                 ..BallHelperOptions::new(device.format(), &pointer_layout)
             },
         )?;
-        // Night fog (#131414). An sRGB render target encodes the clear color on write.
-        let [r, g, b] = [0x09_u8, 0x09, 0x08].map(|byte| {
+        // Deep teal night haze. Keep this in sync with the backdrop's far-distance color.
+        let [r, g, b] = [0x09_u8, 0x13, 0x15].map(|byte| {
             let value = f64::from(byte) / 255.0;
             if !device.format().is_srgb() {
                 value
@@ -393,6 +411,19 @@ impl Scene {
             walk: Walk::default(),
             skeleton: SkeletonInput::default(),
             pipeline,
+            backdrop_pipeline,
+            backdrop: None,
+            backdrop_count: 0,
+            backdrop_y_offset: 0.0,
+            backdrop_point_size: 0.065,
+            // Share each billboard's four vertices across its two triangles. Lighting
+            // and shadow filtering now run four times per point instead of six.
+            billboard_indices: Buffer::from_data(
+                device,
+                &[0_u16, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11],
+                BufferUsage::index(),
+                "InfiniteWalkBillboardIndices",
+            ),
             particle_pipeline,
             particle_shadow_pipeline,
             particles: None,
@@ -413,6 +444,7 @@ impl Scene {
             pointer_ndc: None,
             pointer_interaction: PointerInteraction::default(),
             pointer_marker,
+            show_pointer_ball: false,
             points: None,
             point_count: 0,
             point_size: 0.01,
@@ -436,7 +468,8 @@ impl Scene {
     }
 
     pub fn load_point_cloud(&mut self, device: &Device, bytes: &[u8]) -> Result<u32, String> {
-        let cloud = PointCloud::parse(bytes)?;
+        let mut cloud = PointCloud::parse(bytes)?;
+        cloud.tint_ground();
         let count = cloud.points.len() as u32;
         if u64::from(count) * size_of::<Point>() as u64 > device.gpu().limits().max_buffer_size {
             return Err("Point cloud exceeds this GPU's vertex buffer limit".into());
@@ -454,6 +487,21 @@ impl Scene {
         Ok(count)
     }
 
+    pub fn load_backdrop(&mut self, device: &Device, bytes: &[u8]) -> Result<u32, String> {
+        let cloud = PointCloud::parse(bytes)?;
+        if cloud.points.len() > 80_000 {
+            return Err("Backdrop exceeds the 80,000-point budget; run prepare:backdrop".into());
+        }
+        self.backdrop_count = cloud.points.len() as u32;
+        self.backdrop = Some(Buffer::from_data(
+            device,
+            &cloud.points,
+            BufferUsage::vertex_storage(),
+            "InfiniteWalkBackdrop",
+        ));
+        Ok(self.backdrop_count)
+    }
+
     pub fn set_pointer(&mut self, x: f32, y: f32) -> Result<(), String> {
         if ![x, y]
             .into_iter()
@@ -468,6 +516,10 @@ impl Scene {
     pub fn clear_pointer(&mut self) {
         self.pointer_ndc = None;
         self.pointer_interaction.position = None;
+    }
+
+    pub fn set_show_pointer_ball(&mut self, visible: bool) {
+        self.show_pointer_ball = visible;
     }
 
     pub fn set_pointer_force(&mut self, radius: f32, strength: f32) -> Result<(), String> {
@@ -503,11 +555,27 @@ impl Scene {
         Ok(())
     }
 
+    pub fn set_backdrop_y_offset(&mut self, offset: f32) -> Result<(), String> {
+        if !(-3.0..=3.0).contains(&offset) {
+            return Err("Backdrop Y offset must be between -3 and 3 world units".into());
+        }
+        self.backdrop_y_offset = offset;
+        Ok(())
+    }
+
     pub fn set_camera_pitch(&mut self, degrees: f32) -> Result<(), String> {
         if !(-85.0..=85.0).contains(&degrees) {
             return Err("Camera pitch must be between -85 and 85 degrees".into());
         }
         self.camera_pitch_radians = degrees.to_radians();
+        Ok(())
+    }
+
+    pub fn set_backdrop_point_size(&mut self, size: f32) -> Result<(), String> {
+        if !(0.001..=0.25).contains(&size) {
+            return Err("Backdrop particle size must be between 0.001 and 0.25 world units".into());
+        }
+        self.backdrop_point_size = size;
         Ok(())
     }
 
@@ -632,7 +700,7 @@ impl Scene {
         let target_y = eye[1] + path_length * self.camera_pitch_radians.tan();
         self.camera
             .look_at(eye, [eye[0] + DRIFT_X, target_y, eye[2] - LENGTH]);
-        let mut uniform = [0.0_f32; 76];
+        let mut uniform = [0.0_f32; 80];
         let projection = self.camera.projection_matrix();
         let view_projection = Mat4::from_cols_array(&self.camera.view_projection_matrix());
         let inverse_view_projection = view_projection.inverse();
@@ -645,6 +713,8 @@ impl Scene {
                 (now_ms * 0.001 * speed * noise_cells / 16.0).rem_euclid(noise_cells) as f32;
         }
         uniform[75] = self.fog_noise_frequency;
+        uniform[76] = self.backdrop_y_offset;
+        uniform[77] = self.backdrop_point_size;
         uniform[16..20].copy_from_slice(&[
             projection[0],
             projection[5],
@@ -724,19 +794,23 @@ impl Scene {
             let mut pass = self
                 .shadow_map
                 .begin_depth_pass(&mut encoder, wgpu::LoadOp::Clear(1.0));
+            pass.set_index_buffer(
+                self.billboard_indices.gpu().slice(..),
+                wgpu::IndexFormat::Uint16,
+            );
             if self.show_shadow_map || (self.shadow_strength > 0.0 && self.light_intensity > 0.0) {
                 if let Some(points) = &self.points {
                     pass.set_pipeline(&self.shadow_pipeline);
                     self.camera_bind_group.bind(&mut pass, 0);
                     pass.set_vertex_buffer(0, points.gpu().slice(..));
-                    pass.draw(0..12, 0..self.point_count);
+                    pass.draw_indexed(0..12, 0, 0..self.point_count);
                 }
                 if self.particle_settings.visible {
                     if let Some(particles) = &self.particles {
                         pass.set_pipeline(&self.particle_shadow_pipeline);
                         self.camera_bind_group.bind(&mut pass, 0);
                         pass.set_vertex_buffer(0, particles.buffer().gpu().slice(..));
-                        pass.draw(0..6, 0..particles.count());
+                        pass.draw_indexed(0..6, 0, 0..particles.count());
                     }
                 }
             }
@@ -769,12 +843,27 @@ impl Scene {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
+            if let Some(backdrop) = &self.backdrop {
+                pass.set_index_buffer(
+                    self.billboard_indices.gpu().slice(..),
+                    wgpu::IndexFormat::Uint16,
+                );
+                pass.set_pipeline(&self.backdrop_pipeline);
+                self.camera_bind_group.bind(&mut pass, 0);
+                pass.set_bind_group(1, &self.shadow_binding, &[]);
+                pass.set_vertex_buffer(0, backdrop.gpu().slice(..));
+                pass.draw_indexed(0..18, 0, 0..self.backdrop_count);
+            }
             if let Some(points) = &self.points {
+                pass.set_index_buffer(
+                    self.billboard_indices.gpu().slice(..),
+                    wgpu::IndexFormat::Uint16,
+                );
                 pass.set_pipeline(&self.pipeline);
                 self.camera_bind_group.bind(&mut pass, 0);
                 pass.set_bind_group(1, &self.shadow_binding, &[]);
                 pass.set_vertex_buffer(0, points.gpu().slice(..));
-                pass.draw(0..12, 0..self.point_count);
+                pass.draw_indexed(0..12, 0, 0..self.point_count);
             }
             if let Some(particles) = &self.particles {
                 if self.particle_settings.visible {
@@ -782,13 +871,13 @@ impl Scene {
                     self.camera_bind_group.bind(&mut pass, 0);
                     pass.set_bind_group(1, &self.shadow_binding, &[]);
                     pass.set_vertex_buffer(0, particles.buffer().gpu().slice(..));
-                    pass.draw(0..6, 0..particles.count());
+                    pass.draw_indexed(0..6, 0, 0..particles.count());
                 }
                 if self.show_filament_debug {
                     particles.draw_debug(&mut pass);
                 }
             }
-            if self.pointer_interaction.position.is_some() {
+            if self.show_pointer_ball && self.pointer_interaction.position.is_some() {
                 self.pointer_marker.draw(&mut pass, &self.camera_bind_group);
             }
         }

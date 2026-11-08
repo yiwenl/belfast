@@ -13,6 +13,18 @@ pub struct PointCloud {
 }
 
 impl PointCloud {
+    pub fn tint_ground(&mut self) {
+        for point in &mut self.points {
+            let [x, y, z] = point.position;
+            let blend = ((0.35 - y) / 0.55).clamp(0.0, 1.0) * 0.65;
+            let patch = (x * 1.7 + z * 0.8).sin() * 0.5 + 0.5;
+            let tint = [0.82 + 0.18 * patch, 0.83, 0.92 - 0.27 * patch];
+            for (channel, factor) in point.color[..3].iter_mut().zip(tint) {
+                *channel = (f32::from(*channel) * (1.0 - blend + blend * factor)).round() as u8;
+            }
+        }
+    }
+
     pub fn parse(bytes: &[u8]) -> Result<Self, String> {
         let mut end = 0;
         let mut found_end = false;
@@ -123,5 +135,26 @@ impl PointCloud {
             });
         }
         Ok(Self { points })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ground_tint_retains_texture_and_leaves_high_foliage_unchanged() {
+        let point = |height, value| Point {
+            position: [1.0, height, -2.0],
+            color: [value, value, value, 255],
+            copy_direction: [0.0; 4],
+        };
+        let mut cloud = PointCloud {
+            points: vec![point(-0.1, 180), point(-0.1, 90), point(1.0, 180)],
+        };
+        cloud.tint_ground();
+        assert_ne!(cloud.points[0].color[0], cloud.points[0].color[2]);
+        assert!(cloud.points[0].color[0] > cloud.points[1].color[0]);
+        assert_eq!(cloud.points[2].color, [180, 180, 180, 255]);
     }
 }

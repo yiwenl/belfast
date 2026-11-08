@@ -8,9 +8,9 @@ struct VertexOut {
 }
 
 fn point_corner(vertex: u32) -> vec2<f32> {
-    let corners = array<vec2<f32>, 6>(
+    let corners = array<vec2<f32>, 4>(
         vec2(-0.5, -0.5), vec2(0.5, -0.5), vec2(-0.5, 0.5),
-        vec2(-0.5, 0.5), vec2(0.5, -0.5), vec2(0.5, 0.5),
+        vec2(0.5, 0.5),
     );
     return corners[vertex];
 }
@@ -33,14 +33,22 @@ fn shadow_visibility(beam: vec3<f32>) -> f32 {
     let coords = shadow_coordinates(beam);
     let texel = 1.0 / camera.shadow.x;
     var visibility = 0.0;
-    // A fixed, wider tent filter reduces brightness jumps as particle shadows cross texels.
-    for (var y = -2; y <= 2; y++) {
-        for (var x = -2; x <= 2; x++) {
-            let weight = f32((3 - abs(x)) * (3 - abs(y)));
-            visibility += weight * textureSampleCompareLevel(
+    // Reconstruct the same 5x5 [1,2,3,2,1] tent using nine bilinear samples.
+    // Account for subtexel phase before pairing adjacent texel weights; merely
+    // averaging fixed sample offsets would change the kernel while moving.
+    let pixel = coords.xy * camera.shadow.x - vec2(0.5);
+    let base = floor(pixel) + vec2(0.5);
+    let f = fract(pixel);
+    let wx = vec3(3.0 - 2.0 * f.x, 5.0, 1.0 + 2.0 * f.x);
+    let wy = vec3(3.0 - 2.0 * f.y, 5.0, 1.0 + 2.0 * f.y);
+    let ox = vec3(-2.0 + (2.0 - f.x) / wx.x, (2.0 + f.x) / 5.0, 2.0 + f.x / wx.z);
+    let oy = vec3(-2.0 + (2.0 - f.y) / wy.x, (2.0 + f.y) / 5.0, 2.0 + f.y / wy.z);
+    for (var y = 0u; y < 3u; y++) {
+        for (var x = 0u; x < 3u; x++) {
+            visibility += wx[x] * wy[y] * textureSampleCompareLevel(
                 shadow_map,
                 shadow_sampler,
-                coords.xy + vec2(f32(x), f32(y)) * texel,
+                (base + vec2(ox[x], oy[y])) * texel,
                 coords.z,
             );
         }
@@ -77,14 +85,44 @@ fn billboard_vertex(vertex: u32, center: vec3<f32>, color: vec4<f32>, size: f32)
 }
 
 @vertex
+fn vs_backdrop(
+    @builtin(vertex_index) vertex: u32,
+    @location(0) position: vec3<f32>,
+    @location(1) color: vec4<f32>,
+) -> VertexOut {
+    // Three depth layers share the walk's rebase, including its lateral drift.
+    let tile = f32(vertex / 4u);
+    let center = wrapped_position(position) + tile * vec3(camera.walk.w, 0.0, -camera.walk.z)
+        + vec3(0.0, camera.backdrop_y_offset, 0.0);
+    let coord = point_corner(vertex % 4u);
+    var clip = camera.view_projection * vec4(center, 1.0);
+    var out: VertexOut;
+    let distance = max(0.0, clip.w);
+    if clip.w <= 0.0 || clip.z < 0.0 {
+        clip = vec4(2.0, 2.0, 2.0, 1.0);
+    } else {
+        clip.x += coord.x * camera.backdrop_point_size * camera.billboard.x;
+        clip.y += coord.y * camera.backdrop_point_size * camera.billboard.y;
+    }
+    let haze = 1.0 - exp(-distance * 0.065);
+    let albedo = select(color.rgb, vec3(0.6), camera.appearance.x > 0.5);
+    let near_color = srgb_to_linear(albedo) * 0.32;
+    let mist = srgb_to_linear(vec3(9.0, 19.0, 21.0) / 255.0);
+    out.position = clip;
+    out.point_coord = coord;
+    out.color = mix(near_color, mist, haze);
+    return out;
+}
+
+@vertex
 fn vs_main(
     @builtin(vertex_index) vertex: u32,
     @location(0) position: vec3<f32>,
     @location(1) color: vec4<f32>,
     @location(2) copy_direction: vec3<f32>,
 ) -> VertexOut {
-    let center = forest_position(position, copy_direction, vertex >= 6u);
-    return billboard_vertex(vertex % 6u, center, color, camera.billboard.z);
+    let center = forest_position(position, copy_direction, vertex >= 4u);
+    return billboard_vertex(vertex % 4u, center, color, camera.billboard.z);
 }
 
 @vertex
@@ -142,8 +180,8 @@ fn vs_shadow(
     @location(0) position: vec3<f32>,
     @location(2) copy_direction: vec3<f32>,
 ) -> ShadowVertex {
-    let center = forest_position(position, copy_direction, vertex >= 6u);
-    return shadow_vertex(vertex % 6u, center, camera.billboard.z);
+    let center = forest_position(position, copy_direction, vertex >= 4u);
+    return shadow_vertex(vertex % 4u, center, camera.billboard.z);
 }
 
 @vertex

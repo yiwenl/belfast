@@ -16,7 +16,15 @@ fn real_cloud_moves_and_repeats_identically_in_both_directions() {
     scene.resize(&device, 128, 64, 1.0);
     scene.camera.set_aspect(2.0).unwrap();
     scene.update(&device, 0.0, 0.0);
+    let without_backdrop = render_pixels(&device, &scene);
+    let backdrop =
+        std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/public/backdrop.ply")).unwrap();
+    assert_eq!(scene.load_backdrop(&device, &backdrop).unwrap(), 80_000);
     let start = render_pixels(&device, &scene);
+    if let Ok(path) = std::env::var("WALK_RENDER_CAPTURE") {
+        std::fs::write(path, &start).unwrap();
+    }
+    assert!(start != without_backdrop, "forest backdrop must be visible");
     assert!(
         start
             .chunks_exact(4)

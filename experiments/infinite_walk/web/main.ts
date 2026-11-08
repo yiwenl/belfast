@@ -1,6 +1,7 @@
 import { Pane } from "tweakpane";
 import init, { ExperimentApp } from "../pkg/experiment";
 import { createFpsMeter } from "./fps";
+import { createFrameBenchmark } from "./benchmark";
 import { bindPointerInput, bindWalkInput } from "./input";
 import { createSkeletonAdapter } from "./kinetic";
 import "./style.css";
@@ -26,6 +27,8 @@ const settings = {
   resolution: "hd" as keyof typeof resolutions,
   pointSize: 0.01,
   copyOffset: 0.011,
+  backdropYOffset: 0,
+  backdropPointSize: 0.065,
   cameraY: 1.24,
   cameraPitch: -13,
   whiteParticles: false,
@@ -72,6 +75,22 @@ cloud
 cloud
   .addBinding(settings, "copyOffset", { label: "Copy offset", min: 0, max: 0.25, step: 0.001 })
   .on("change", ({ value }) => app?.setCopyOffset(value));
+cloud
+  .addBinding(settings, "backdropYOffset", {
+    label: "Backdrop Y offset",
+    min: -3,
+    max: 3,
+    step: 0.01,
+  })
+  .on("change", ({ value }) => app?.setBackdropYOffset(value));
+cloud
+  .addBinding(settings, "backdropPointSize", {
+    label: "Backdrop particle size",
+    min: 0.001,
+    max: 0.25,
+    step: 0.001,
+  })
+  .on("change", ({ value }) => app?.setBackdropPointSize(value));
 
 const camera = sceneTab.addFolder({ title: "Camera" });
 camera
@@ -157,8 +176,11 @@ particleControls.addBinding(particles, "size", {
   max: 0.05,
   step: 0.001,
 });
-const pointer = { radius: 0.66, strength: 7.2 };
+const pointer = { radius: 0.66, strength: 7.2, showBall: false };
 const pointerControls = particlesTab.addFolder({ title: "Pointer fluid" });
+pointerControls
+  .addBinding(pointer, "showBall", { label: "Show pointer ball" })
+  .on("change", ({ value }) => app?.setShowPointerBall(value));
 pointerControls.addBinding(pointer, "radius", { label: "Radius", min: 0.05, max: 3, step: 0.01 });
 pointerControls.addBinding(pointer, "strength", { label: "Strength", min: 0, max: 10, step: 0.1 });
 pointerControls.on("change", () => app?.setPointerForce(pointer.radius, pointer.strength));
@@ -284,6 +306,7 @@ function dispose() {
   cancelAnimationFrame(animationFrame);
   fps.dispose();
   pane.dispose();
+  document.getElementById("benchmark-result")?.remove();
   detachInput?.();
   pointerInput?.dispose();
   app?.free();
@@ -378,10 +401,48 @@ async function start() {
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (disposed) return;
     created.loadPointCloud(bytes);
-    detachInput = bindWalkInput(canvas, created);
-    pointerInput = bindPointerInput(canvas, created);
-    window.addEventListener("keydown", onKeyDown, { signal: loading.signal });
+    const backdropResponse = await fetch(`${import.meta.env.BASE_URL}backdrop.ply`, {
+      signal: loading.signal,
+    });
+    if (!backdropResponse.ok)
+      throw new Error(
+        `Unable to load backdrop (${backdropResponse.status}); run pnpm prepare:backdrop`,
+      );
+    const backdropBytes = new Uint8Array(await backdropResponse.arrayBuffer());
+    if (disposed) return;
+    created.loadBackdrop(backdropBytes);
+    // Explicit diagnostic URL only; the normal demo has no sampling overhead or extra UI.
+    const benchmarkMode = new URLSearchParams(location.search).get("benchmark");
+    const measuring = benchmarkMode === "static" || benchmarkMode === "walk";
+    if (measuring) created.trackFrameCompletions();
+    else {
+      detachInput = bindWalkInput(canvas, created);
+      pointerInput = bindPointerInput(canvas, created);
+      window.addEventListener("keydown", onKeyDown, { signal: loading.signal });
+    }
     pane.disabled = false;
+    let stayedVisible = !document.hidden;
+    if (measuring)
+      document.addEventListener(
+        "visibilitychange",
+        () => {
+          if (document.hidden) stayedVisible = false;
+        },
+        { signal: loading.signal },
+      );
+    const benchmark = measuring
+      ? createFrameBenchmark(5000, benchmarkMode === "walk" ? 85000 : 30000)
+      : undefined;
+    if (benchmarkMode === "walk") created.toggleAutoBackward();
+    const benchmarkOutput = measuring ? document.createElement("pre") : undefined;
+    if (benchmarkOutput) {
+      benchmarkOutput.id = "benchmark-result";
+      benchmarkOutput.style.cssText =
+        "position:fixed;bottom:8px;left:8px;color:white;background:#111d;padding:8px;pointer-events:none;font:12px monospace";
+      benchmarkOutput.textContent = "Benchmark warming up, then measuring at 1920×1080…";
+      document.body.append(benchmarkOutput);
+      pane.disabled = true;
+    }
 
     // Retain the template's optional skeleton input for later particle interaction.
     const skeleton = createSkeletonAdapter(created);
@@ -399,6 +460,25 @@ async function start() {
         pointerInput?.update();
         // Use the current clock so input received earlier in this RAF is not dated in the future.
         const rendered = created.frame(performance.now());
+        const measurement = benchmark?.tick(
+          timestampMs,
+          created.completedFrameCount(),
+          stayedVisible && !document.hidden,
+        );
+        if (measurement && benchmarkOutput) {
+          benchmarkOutput.textContent = JSON.stringify(
+            {
+              ...measurement,
+              mode: benchmarkMode,
+              width: canvas.width,
+              height: canvas.height,
+              hdr: created.hdrEnabled(),
+              userAgent: navigator.userAgent,
+            },
+            null,
+            2,
+          );
+        }
         if (rendered && savePngRequested) {
           savePngRequested = false;
           downloadCanvasPng();

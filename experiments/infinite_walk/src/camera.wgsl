@@ -16,6 +16,8 @@ struct Camera {
     shadow: vec4<f32>,
     inverse_view_projection: mat4x4<f32>,
     fog_noise_offset: vec4<f32>, // periodic wind displacement in noise cells, cells per lap
+    backdrop_y_offset: f32,
+    backdrop_point_size: f32,
 }
 @group(0) @binding(0) var<uniform> camera: Camera;
 

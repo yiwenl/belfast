@@ -2,6 +2,24 @@
 
 Copied from `experiments/template`: a Rust-owned WebGPU scene with a looping forest point cloud and a wheel-controlled camera.
 
+## Forest atmosphere
+
+The outer forest uses deep teal distance haze and grouped ochre, grey lilac, moss and dusty cyan colors. Three repeating depth layers surround the original walking corridor. The original ground receives a subtle height-blended tint at load time, which also carries into particles spawned from it. White mode still overrides point colors. Indexed quads reuse four vertices per circle, including both original cloud copies and particle shadows.
+
+`pnpm prepare:backdrop` converts the local `../firefly_forest/public/forest.ply` Gaussian asset into `public/backdrop.ply`: an 80,000-point maximum, deterministic, spatially thinned RGB cloud (~1.28 MB). Both PLY assets are local and gitignored. `dev` and `build` prepare the backdrop automatically; keep the source asset available. The backdrop has its own inexpensive vertex pass and does not enlarge simulation or shadow buffers. It follows the same 13.3-unit loop and lateral drift as the path.
+
+The backdrop conversion uses `y = -sourceY + 0.5`, aligning its ground band with the original forest near `Y = -0.11`. Its lower crop is `Y = -0.15` so ground points and trunk bases remain visible; a higher crop removes these supports and makes the outer forest appear suspended.
+
+**Scene → PLY point cloud → Backdrop Y offset** shifts the backdrop vertically in world units (-3 to 3, default 0). Negative values lower it and positive values raise it, across all three repeating depth layers.
+
+**Backdrop particle size** sets the backdrop billboards' world-space diameter (0.001–0.25, default 0.065), independently of the original cloud's particle size.
+
+## Performance checks
+
+Open `http://localhost:5186/?benchmark=static` for a 5-second warmup plus 30-second stationary measurement, or `?benchmark=walk` for 85 seconds of automatic walking after warmup (longer than the 80-second lap). Both use the default exact 1920×1080 canvas and disable settings and interaction while measuring. The visible JSON counts GPU completion callbacks over elapsed time, including batched completions and stalls, and invalidates a run if the page becomes hidden. `p95CompletionBatchMs` describes gaps between observed completion batches, not per-frame GPU latency. Keep other GPU work idle. Browser FPS is limited by presentation/refresh scheduling; report raw values without rounding a sub-60 result into a pass. Earlier submission-only baseline files are explicitly excluded from acceptance evidence.
+
+For a separate, uncapped native throughput diagnostic that waits for GPU completion after every frame, run `cargo test -p belfast-experiment-infinite-walk --test performance -- --ignored --nocapture`. It uses 1920×1080 rgba16float, the full particle simulation, shadows, fog and backdrop. This diagnoses GPU headroom; it is not a substitute for browser FPS.
+
 ## Run
 
 ```sh
@@ -18,7 +36,7 @@ Open <http://localhost:5186>. Scroll down to walk forward or up to walk backward
 
 Press **Ctrl+S** or **⌘S** to download the current canvas frame as a PNG at its rendering resolution.
 
-Move the mouse over the canvas to place a red sphere at the ray's intersection with an invisible, camera-facing plane through the midpoint of the light cylinder. The plane follows the light and camera each frame. The marker respects scene depth and fog, and disappears when the pointer leaves the canvas or enters fullscreen letterboxing. Pointer mapping follows the displayed canvas area in every resolution mode.
+Move the mouse over the canvas to interact at the ray's intersection with an invisible, camera-facing plane through the midpoint of the light cylinder. **Particles → Pointer fluid → Show pointer ball** displays a red sphere at that point (off by default); hiding it keeps the fluid and particle interaction active. The plane follows the light and camera each frame. The marker respects scene depth and fog, and disappears when the pointer leaves the canvas or enters fullscreen letterboxing. Pointer mapping follows the displayed canvas area in every resolution mode.
 
 **Particles → Pointer fluid** lets the moving red sphere drive a 128² `belfast::fluid` grid, whose world-XY velocity then moves nearby drifting particles. The grid stays centered on the light rather than following the pointer and covers 12 × 12 world units. **Radius** sets the injection brush radius and Z falloff distance from the light-center plane (0.05–3, default 0.66). **Strength** scales the red sphere's XY displacement into a fluid impulse (0–10, default 7.2); zero disables and clears the interaction. Splats cover the pointer's path so direction and travel distance drive the flow. A stationary pointer injects nothing, and the field continues to advect and dissipate after movement stops or the pointer leaves. Re-entry and resuming from pause establish a fresh position without a jump impulse. Particles sample the persistent field, including trails behind the pointer, with no direct repulsion or collision against the sphere. Smooth animated noise adds smaller positive and negative Z motion proportional to the sampled fluid speed, so a still field adds no motion. Interaction remains independent of the filament force multiplier. Pausing particles also pauses the fluid. The original PLY cloud stays fixed, and displaced drifting particles continue casting and receiving shadows.
 
@@ -30,7 +48,7 @@ Enable **White particles** to use a white base color; disable it to restore the 
 
 The **Cylinder light** shines from the camera’s upper right, tilted 15° from vertical toward the middle of the path. Its axis meets the forest floor 2.9 units ahead of the camera, and its source sits 4.2 units above camera height. **Radius** sets the beam radius perpendicular to its axis (0.05–5, default 1.45). **Range** sets the distance along the axis (default 7.6). Light fades across the outer third of the radius and with depth. **Forward**, **Height** and **Intensity** (default 100) are adjustable. Lighting uses each point's wrapped position so it stays aligned across walking loops, and applies to both original and white colors.
 
-Particles cast circular silhouettes into a 2048² orthographic shadow map covering the cylinder’s cross section and axial range. A fixed 5×5 tent-weighted PCF kernel with bilinear comparison sampling softens the shadows and reduces moving-light shimmer. **Light → Shadows → Strength** controls their strength (0–1, default 0.97); zero disables shadowing. Shadows attenuate both direct and ambient light inside the cylinder: at strength 1, fully occluded particle surfaces are black. PCF transition regions can remain partially lit, and illuminated fog in front of a dark surface can still contribute brightness. Particle silhouettes face the light in the depth pass and receive shadows at their centers; this approximates solid particles without adding surface geometry. Spatial filtering does not provide temporal antialiasing, so very fine silhouettes can still shimmer in motion. Bloom is not included.
+Particles cast circular silhouettes into a 2048² orthographic shadow map covering the cylinder’s cross section and axial range. A fixed 5×5 tent-weighted PCF kernel, reconstructed with nine phase-aware bilinear comparison samples, softens the shadows and reduces moving-light shimmer. **Light → Shadows → Strength** controls their strength (0–1, default 0.97); zero disables shadowing. Shadows attenuate both direct and ambient light inside the cylinder: at strength 1, fully occluded particle surfaces are black. PCF transition regions can remain partially lit, and illuminated fog in front of a dark surface can still contribute brightness. Particle silhouettes face the light in the depth pass and receive shadows at their centers; this approximates solid particles without adding surface geometry. Spatial filtering does not provide temporal antialiasing, so very fine silhouettes can still shimmer in motion. Bloom is not included.
 
 **Show shadow map** toggles a live square preview in the bottom-left corner (hidden by default). It displays the actual shadow texture as linear depth, with dark pixels near the light and white pixels at the far end or outside the beam. The map continues updating while the preview is visible, even if shadow strength or light intensity is zero.
 
