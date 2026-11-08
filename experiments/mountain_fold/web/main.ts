@@ -1,6 +1,6 @@
 import init, { ExperimentApp } from "../pkg/experiment";
 import { Pane } from "tweakpane";
-import type { BindingApi } from "@tweakpane/core";
+import type { BindingApi, FolderApi } from "@tweakpane/core";
 import { bindOrbitInput } from "./input";
 import { generateTerrain, GRID } from "./terrain";
 import { DEFAULT_HASH, newHash } from "./hash";
@@ -8,10 +8,6 @@ import { savePng, saveSvg, download } from "./export";
 import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
-const status = document.querySelector<HTMLElement>("#status")!;
-const errorOutput = document.querySelector<HTMLElement>("#error")!;
-const counter = document.querySelector<HTMLElement>("#counter")!;
-const debugLabel = document.querySelector<HTMLElement>("#debug-label")!;
 const url = new URL(location.href);
 const values = {
   seed: url.searchParams.get("seed") || DEFAULT_HASH,
@@ -46,15 +42,15 @@ const values = {
   contrast: 1,
   lineWidth: 1,
   heightmap: false,
-  layerSpacing: 6.5,
+  layerSpacing: 8,
   debugView: 0,
   debugGain: 1.6,
-  yaw: 32,
-  pitch: 36,
+  yaw: 43,
+  pitch: 28,
   distance: 30,
-  orthographic: false,
+  orthographic: true,
   fov: 42,
-  orthoBound: 12,
+  orthoBound: 9,
   paperWidth: 148,
   paperHeight: 210,
   margin: 10,
@@ -62,26 +58,34 @@ const values = {
 };
 let app: ExperimentApp | undefined;
 let pane: Pane | undefined;
+let statusFolder: FolderApi | undefined;
+let errorMonitor: BindingApi | undefined;
+const feedback = { status: "Loading WebGPU…", steps: 0, fps: 0, error: "" };
 let detach: (() => void) | undefined;
 let frameId = 0,
   disposed = false;
 let pendingPng = false,
   pendingSvg = false,
   exporting = false;
-let fps = 0,
-  frames = 0,
+let frames = 0,
   lastMeter = performance.now();
 const cameraBindings: BindingApi[] = [];
 let refreshingCamera = false;
 const listeners = new AbortController();
 
 function message(text: string) {
-  status.textContent = text;
+  feedback.status = text;
 }
 function fail(error: unknown) {
-  errorOutput.hidden = false;
-  errorOutput.textContent = error instanceof Error ? error.message : String(error);
+  feedback.error = error instanceof Error ? error.message : String(error);
   message("Unable to render");
+  console.error(error);
+  if (statusFolder) statusFolder.expanded = true;
+  if (errorMonitor) {
+    errorMonitor.hidden = false;
+    errorMonitor.refresh();
+    errorMonitor.element.scrollIntoView({ block: "nearest" });
+  }
 }
 function applyView() {
   app?.setView(
@@ -107,14 +111,6 @@ function applyView() {
     ]),
   );
   app?.setPaused(values.paused);
-  debugLabel.hidden = !values.heightmap;
-  debugLabel.textContent = [
-    "HEIGHT MAP",
-    "INITIAL HEIGHT",
-    "HEIGHT CHANGE · WHITE + / BLACK −",
-    "DEPOSITED SOIL",
-    "TOTAL EROSION",
-  ][values.debugView];
 }
 function applyErosion() {
   app?.setErosion(
@@ -290,11 +286,11 @@ function createPane() {
     applyProjection();
   });
   camera.addButton({ title: "Reset camera" }).on("click", () => {
-    values.yaw = 32;
-    values.pitch = 36;
+    values.yaw = 43;
+    values.pitch = 28;
     values.distance = 30;
     values.fov = 42;
-    values.orthoBound = 12;
+    values.orthoBound = 9;
     app?.resetCamera();
     pane?.refresh();
   });
@@ -350,6 +346,33 @@ function createPane() {
     ["pen", "Pen width mm", 0.05, 1, 0.01],
   ] as const)
     output.addBinding(values, key, { label, min, max, step });
+
+  statusFolder = pane.addFolder({ title: "Status", expanded: false });
+  const monitor = { readonly: true, interval: 250 } as const;
+  statusFolder.addBinding(feedback, "status", {
+    ...monitor,
+    label: "State",
+    multiline: true,
+    rows: 2,
+  });
+  statusFolder.addBinding(feedback, "steps", {
+    ...monitor,
+    label: "Steps",
+    format: (value: number) => value.toLocaleString(),
+  });
+  statusFolder.addBinding(feedback, "fps", {
+    ...monitor,
+    label: "FPS",
+    format: (value: number) => value.toFixed(0),
+  });
+  errorMonitor = statusFolder.addBinding(feedback, "error", {
+    ...monitor,
+    label: "Error",
+    multiline: true,
+    rows: 6,
+    hidden: true,
+  });
+  errorMonitor.element.setAttribute("role", "alert");
 }
 
 function dispose() {
@@ -365,6 +388,7 @@ function dispose() {
 
 async function start() {
   try {
+    createPane();
     if (!("gpu" in navigator))
       throw new Error("WebGPU is unavailable. Use a WebGPU browser on localhost or HTTPS.");
     await init();
@@ -376,8 +400,8 @@ async function start() {
     }
     app = created;
     detach = bindOrbitInput(canvas, created);
-    createPane();
     reset();
+    created.setCamera(values.yaw, values.pitch, values.distance);
     applyProjection();
     function frame(now: number) {
       if (disposed) return;
@@ -386,7 +410,7 @@ async function start() {
         created.frame(now);
         frames++;
         if (now - lastMeter > 500) {
-          fps = Math.round((frames * 1000) / (now - lastMeter));
+          feedback.fps = Math.round((frames * 1000) / (now - lastMeter));
           frames = 0;
           lastMeter = now;
           const camera = created.cameraState();
@@ -396,7 +420,7 @@ async function start() {
           for (const binding of cameraBindings) binding.refresh();
           refreshingCamera = false;
           const steps = created.steps();
-          counter.textContent = `${steps.toLocaleString()} / ${values.iterations.toLocaleString()} STEPS · ${fps} FPS`;
+          feedback.steps = steps;
           message(
             values.before
               ? "Initial terrain · simulation continues unless paused"

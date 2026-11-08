@@ -339,8 +339,8 @@ impl ExperimentApp {
             ..Default::default()
         })
         .map_err(js_error)?;
-        self.set_camera(32.0, 36.0, 30.0);
-        self.set_projection(self.scene.orthographic, 42.0, 12.0)?;
+        self.set_camera(43.0, 28.0, 30.0);
+        self.set_projection(self.scene.orthographic, 42.0, 9.0)?;
         Ok(())
     }
 

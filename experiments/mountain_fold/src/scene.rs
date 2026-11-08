@@ -477,14 +477,14 @@ impl Scene {
             rotate_sensitivity: 0.006,
             ..Default::default()
         })?;
-        control.snap_yaw(32.0_f32.to_radians());
-        control.snap_pitch(36.0_f32.to_radians());
+        control.snap_yaw(43.0_f32.to_radians());
+        control.snap_pitch(28.0_f32.to_radians());
         control.update(0.0, &mut camera);
         let scene = Self {
             camera,
             control,
-            orthographic: false,
-            ortho_bound: 12.0,
+            orthographic: true,
+            ortho_bound: 9.0,
             skeleton: SkeletonInput::default(),
             terrain,
             segments,
@@ -514,7 +514,7 @@ impl Scene {
             steps_per_frame: 6,
             single_steps: 0,
             line_count: 192,
-            layer_spacing: 6.5,
+            layer_spacing: 8.0,
             show_heightmap: false,
             show_initial: false,
             debug_mode: 0.0,
