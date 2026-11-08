@@ -51,6 +51,7 @@ pub struct Scene {
     simulation: Vec<Compute>,
     view_group: wgpu::BindGroup,
     lines_read_group: wgpu::BindGroup,
+    lines_read_layout: wgpu::BindGroupLayout,
     lines_write_layout: wgpu::BindGroupLayout,
     lines_write_group: wgpu::BindGroup,
     lines_compute: Compute,
@@ -72,6 +73,9 @@ pub struct Scene {
     single_steps: u32,
     pub line_count: u32,
     pub line_mode: u32,
+    pub hatch_spacing: f32,
+    pub pixel_ratio: f32,
+    active_strokes: u32,
     pub layer_spacing: f32,
     pub base_thickness: f32,
     pub show_heightmap: bool,
@@ -525,6 +529,7 @@ impl Scene {
             simulation,
             view_group,
             lines_read_group,
+            lines_read_layout,
             lines_write_layout,
             lines_write_group,
             lines_compute,
@@ -546,6 +551,9 @@ impl Scene {
             single_steps: 0,
             line_count: 192,
             line_mode: 0,
+            hatch_spacing: 4.0,
+            pixel_ratio: 1.0,
+            active_strokes: 192,
             layer_spacing: 8.0,
             base_thickness: 0.6,
             show_heightmap: false,
@@ -603,6 +611,55 @@ impl Scene {
     }
     pub fn advance(&mut self, steps: u32) {
         self.single_steps = self.single_steps.saturating_add(steps.min(256));
+    }
+    fn line_view_width(&self) -> f32 {
+        self.width as f32
+            * if self.svg_preview {
+                1.0 - 2.0 * self.paper_size[2] / self.paper_size[0]
+            } else {
+                1.0
+            }
+    }
+    pub fn segment_count(&self) -> u32 {
+        self.active_strokes * SAMPLES * if self.line_mode == 1 { 1 } else { 2 }
+    }
+    pub fn prepare_lines(&mut self, device: &Device) -> Result<(), &'static str> {
+        let strokes = if self.line_mode == 1 {
+            (self.line_view_width() / (2.0 * self.hatch_spacing * self.pixel_ratio)).floor() as u32
+                * 2
+                + 1
+        } else {
+            self.line_count
+        };
+        let bytes =
+            u64::from(strokes) * u64::from(SAMPLES) * 48 * if self.line_mode == 1 { 1 } else { 2 };
+        let limits = device.gpu().limits();
+        let limit = u64::from(limits.max_storage_buffer_binding_size).min(limits.max_buffer_size);
+        if bytes > limit {
+            return Err("Line spacing exceeds GPU capacity. Increase Line spacing px or reduce the canvas size.");
+        }
+        self.active_strokes = strokes;
+        if bytes > self.segments.size() {
+            let chunk = u64::from(SAMPLES) * 64 * 48;
+            self.segments = Buffer::create(
+                device,
+                (bytes.div_ceil(chunk) * chunk).min(limit),
+                BufferUsage::storage() | wgpu::BufferUsages::COPY_SRC,
+                "MountainLineSegments",
+            );
+            self.lines_read_group = device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("MountainLinesReadGroup"),
+                layout: &self.lines_read_layout,
+                entries: &[resource(0, &self.segments)],
+            });
+            self.lines_write_group = write_group(
+                device,
+                &self.lines_write_layout,
+                &self.segments,
+                &self.depth_view,
+            );
+        }
+        Ok(())
     }
     pub fn set_svg_preview(&mut self, enabled: bool, paper: [f32; 4]) -> BelfastResult<()> {
         self.paper_size = paper;
@@ -747,14 +804,19 @@ impl Scene {
                 if self.show_initial { 1.0 } else { 0.0 },
                 self.debug_mode,
             ],
-            counts: [self.line_count, SAMPLES, self.line_seed, self.line_mode],
+            counts: [self.active_strokes, SAMPLES, self.line_seed, self.line_mode],
             line_color: if self.svg_preview {
                 [0.0, 0.0, 0.0, 1.0]
             } else {
                 self.line_color
             },
             base: [self.base_thickness, 0.0, 0.0, 0.0],
-            stroke: [self.line_wobble, self.wobble_scale, 0.0, 0.0],
+            stroke: [
+                self.line_wobble,
+                self.wobble_scale,
+                2.0 * self.hatch_spacing * self.pixel_ratio / self.line_view_width(),
+                0.0,
+            ],
             inverse_matrix: Mat4::from_cols_array(&matrix).inverse().to_cols_array(),
             paper: if self.svg_preview {
                 [
@@ -843,8 +905,10 @@ impl Scene {
             });
             pass.set_bind_group(0, &self.view_group, &[]);
             pass.set_bind_group(1, &self.lines_write_group, &[]);
-            self.lines_compute
-                .dispatch(&mut pass, [(self.line_count * SAMPLES).div_ceil(64), 1, 1]);
+            self.lines_compute.dispatch(
+                &mut pass,
+                [(self.active_strokes * SAMPLES).div_ceil(64), 1, 1],
+            );
         }
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -890,7 +954,7 @@ impl Scene {
             } else {
                 &self.line_pipeline
             });
-            pass.draw(0..6, 0..self.line_count * SAMPLES * 2);
+            pass.draw(0..6, 0..self.segment_count());
             if self.show_heightmap && !self.svg_preview {
                 let size = (height * 0.22).min(width * 0.2).min(height - 24.0).max(1.0);
                 pass.set_viewport(12.0, height - size - 12.0, size, size, 0.0, 1.0);

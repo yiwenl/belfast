@@ -89,11 +89,13 @@ fn hatch_sample(ndc: vec2<f32>, rank: f32) -> vec2<f32> {
     return vec2(depth, select(0.0, 1.0, rank < ink));
 }
 fn write_hatch(column: u32, step: u32) {
-    let x = (f32(column) + 0.5) / f32(view.counts.x * 2u) * 2.0 - 1.0;
+    let x = (f32(column) - f32(view.counts.x / 2u)) * view.stroke.z;
     var a = vec2(x, 1.0 - f32(step) / f32(view.counts.y) * 2.0);
     var b = vec2(x, 1.0 - f32(step + 1u) / f32(view.counts.y) * 2.0);
     let order = array<u32, 8>(0u, 4u, 2u, 6u, 1u, 5u, 3u, 7u);
-    let rank = (f32(order[column % 8u]) + 0.5) / 8.0;
+    // Anchor the density pattern at the center so resizing only adds/removes edge columns.
+    let band = (column + 8u - (view.counts.x / 2u) % 8u) % 8u;
+    let rank = (f32(order[band]) + 0.5) / 8.0;
     var sa = hatch_sample(a, rank);
     var sb = hatch_sample(b, rank);
     var result: Segment;
@@ -123,8 +125,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let ring = id.x / view.counts.y;
     let step = id.x % view.counts.y;
     if (view.counts.w == 1u) {
-        write_hatch(ring * 2u, step);
-        write_hatch(ring * 2u + 1u, step);
+        write_hatch(ring, step);
         return;
     }
     let a = stroke_point(ring, step * 2u);

@@ -41,6 +41,7 @@ const values = {
   shadows: true,
   density: 192,
   lineMode: 0,
+  lineSpacing: 4,
   contrast: 1,
   lineWidth: 1,
   lineWobble: 0.015,
@@ -129,6 +130,7 @@ function applyView() {
       values.lineWobble,
       values.wobbleScale,
       values.lineMode,
+      values.lineSpacing,
     ]),
   );
   app?.setPaused(values.paused);
@@ -292,8 +294,17 @@ function createPane() {
     ["contourStrength", "Contour strength", 0, 0.4, 0.01],
   ] as const)
     render.addBinding(values, key, { label, min, max, step }).on("change", applyView);
-  render
+  const density = render
     .addBinding(values, "density", { label: "Line density", min: 32, max: 320, step: 8 })
+    .on("change", applyView);
+  const spacing = render
+    .addBinding(values, "lineSpacing", {
+      label: "Line spacing px",
+      min: 1,
+      max: 16,
+      step: 0.25,
+      hidden: true,
+    })
     .on("change", applyView);
   render
     .addBinding(values, "contrast", { label: "Line exposure", min: 0.2, max: 2.5, step: 0.05 })
@@ -311,6 +322,8 @@ function createPane() {
     .addBinding(values, "wobbleScale", { label: "Wobble scale", min: 0.2, max: 2, step: 0.05 })
     .on("change", applyView);
   lineMode.on("change", () => {
+    density.hidden = values.lineMode === 1;
+    spacing.hidden = values.lineMode !== 1;
     wobble.hidden = values.lineMode === 1;
     wobbleScale.hidden = values.lineMode === 1;
     applyView();

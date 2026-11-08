@@ -102,8 +102,10 @@ impl ExperimentApp {
         }
         let limit = self.device.gpu().limits().max_texture_dimension_2d as f64;
         let scale = dpr.min(limit / f64::from(width.max(height)));
+        let css_width = width as f32;
         let width = (f64::from(width) * scale).round().max(1.0) as u32;
         let height = (f64::from(height) * scale).round().max(1.0) as u32;
+        self.scene.pixel_ratio = width as f32 / css_width;
         if !self.drawable || self.config.width != width || self.config.height != height {
             self.config.width = width;
             self.config.height = height;
@@ -130,6 +132,7 @@ impl ExperimentApp {
         let previous = self.last_frame_ms.unwrap_or(timestamp_ms);
         let delta_seconds = ((timestamp_ms - previous) * 0.001).clamp(0.0, 0.1) as f32;
         self.last_frame_ms = Some(timestamp_ms.max(previous));
+        self.scene.prepare_lines(&self.device).map_err(js_error)?;
         self.scene.update(&self.device, delta_seconds, timestamp_ms);
         if !self.drawable {
             return Ok(());
@@ -246,7 +249,7 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setView)]
     pub fn set_view(&mut self, values: &[f32]) -> Result<(), JsValue> {
-        if values.len() != 28 || values.iter().any(|v| !v.is_finite()) {
+        if values.len() != 29 || values.iter().any(|v| !v.is_finite()) {
             return Err(js_error("Invalid view settings"));
         }
         self.scene.light_yaw = values[0];
@@ -283,6 +286,7 @@ impl ExperimentApp {
         self.scene.line_wobble = values[25].clamp(0.0, 0.08);
         self.scene.wobble_scale = values[26].clamp(0.2, 2.0);
         self.scene.line_mode = (values[27] as u32).min(1);
+        self.scene.hatch_spacing = values[28].clamp(1.0, 16.0);
         Ok(())
     }
 
@@ -389,7 +393,7 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = readLines)]
     pub fn read_lines(&self) -> js_sys::Promise {
-        let bytes = u64::from(self.scene.line_count * crate::scene::SAMPLES * 2) * 48;
+        let bytes = u64::from(self.scene.segment_count()) * 48;
         read_buffer(&self.device, self.scene.segments.gpu(), bytes)
     }
 
