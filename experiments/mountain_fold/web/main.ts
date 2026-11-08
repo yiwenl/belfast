@@ -45,12 +45,16 @@ const values = {
   density: 192,
   contrast: 1,
   lineWidth: 1,
-  heightmap: true,
+  heightmap: false,
+  layerSpacing: 6.5,
   debugView: 0,
   debugGain: 1.6,
   yaw: 32,
   pitch: 36,
-  distance: 21,
+  distance: 30,
+  orthographic: false,
+  fov: 42,
+  orthoBound: 12,
   paperWidth: 148,
   paperHeight: 210,
   margin: 10,
@@ -99,6 +103,7 @@ function applyView() {
       values.spotFalloff,
       values.contourSpacing,
       values.contourStrength,
+      values.layerSpacing,
     ]),
   );
   app?.setPaused(values.paused);
@@ -126,6 +131,9 @@ function applyErosion() {
       values.repose,
     ]),
   );
+}
+function applyProjection() {
+  if (!refreshingCamera) app?.setProjection(values.orthographic, values.fov, values.orthoBound);
 }
 function reset() {
   if (!app) return;
@@ -174,6 +182,12 @@ function createPane() {
     reset();
   });
   mountain.addButton({ title: "Reset same seed" }).on("click", reset);
+
+  const scene = pane.addFolder({ title: "Scene" });
+  scene
+    .addBinding(values, "layerSpacing", { label: "Layer spacing", min: 0, max: 10, step: 0.1 })
+    .on("change", applyView);
+  scene.addBinding(values, "heightmap", { label: "Height map" }).on("change", applyView);
 
   const simulation = pane.addFolder({ title: "Erosion" });
   simulation.addBinding(values, "paused", { label: "Paused" }).on("change", applyView);
@@ -230,27 +244,62 @@ function createPane() {
     .addBinding(values, "lineWidth", { label: "Preview width", min: 0.5, max: 2, step: 0.1 })
     .on("change", applyView);
   const camera = pane.addFolder({ title: "Camera", expanded: false });
-  for (const [key, label, min, max] of [
-    ["yaw", "Orbit", -180, 180],
-    ["pitch", "Elevation", 5, 89],
-    ["distance", "Distance", 6, 40],
-  ] as const) {
-    cameraBindings.push(
-      camera.addBinding(values, key, { label, min, max, step: 0.5 }).on("change", () => {
+  const projection = camera.addBinding(values, "orthographic", { label: "Orthographic" });
+  const fov = camera
+    .addBinding(values, "fov", {
+      label: "FOV (°)",
+      min: 15,
+      max: 90,
+      step: 1,
+      hidden: values.orthographic,
+    })
+    .on("change", applyProjection);
+  const bounds = camera
+    .addBinding(values, "orthoBound", {
+      label: "Bounds ±",
+      min: 2,
+      max: 30,
+      step: 0.1,
+      hidden: !values.orthographic,
+    })
+    .on("change", applyProjection);
+  const poseBindings = (
+    [
+      ["yaw", "Orbit", -180, 180],
+      ["pitch", "Elevation", 5, 89],
+      ["distance", "Distance", 6, 40],
+    ] as const
+  ).map(([key, label, min, max]) =>
+    camera
+      .addBinding(values, key, {
+        label,
+        min,
+        max,
+        step: 0.5,
+        hidden: key === "distance" && values.orthographic,
+      })
+      .on("change", () => {
         if (!refreshingCamera) app?.setCamera(values.yaw, values.pitch, values.distance);
       }),
-    );
-  }
+  );
+  cameraBindings.push(...poseBindings, bounds);
+  projection.on("change", () => {
+    fov.hidden = values.orthographic;
+    bounds.hidden = !values.orthographic;
+    poseBindings[2].hidden = values.orthographic;
+    applyProjection();
+  });
   camera.addButton({ title: "Reset camera" }).on("click", () => {
     values.yaw = 32;
     values.pitch = 36;
-    values.distance = 21;
+    values.distance = 30;
+    values.fov = 42;
+    values.orthoBound = 12;
     app?.resetCamera();
     pane?.refresh();
   });
-  const debug = pane.addFolder({ title: "Height map" });
+  const debug = pane.addFolder({ title: "Height map settings", expanded: false });
   debug.addBinding(values, "before", { label: "Before erosion" }).on("change", applyView);
-  debug.addBinding(values, "heightmap", { label: "Show map" }).on("change", applyView);
   debug
     .addBinding(values, "debugView", {
       label: "Map",
@@ -264,7 +313,8 @@ function createPane() {
     if (!app) return;
     try {
       const step = app.steps();
-      const settings = { ...values };
+      const camera = Array.from(app.cameraState());
+      const settings = { ...values, orthoBound: camera[6], camera };
       const outputName = filename("json", step, settings.seed);
       const data = (await app.readHeights()) as Float32Array;
       download(
@@ -328,6 +378,7 @@ async function start() {
     detach = bindOrbitInput(canvas, created);
     createPane();
     reset();
+    applyProjection();
     function frame(now: number) {
       if (disposed) return;
       try {
@@ -341,6 +392,7 @@ async function start() {
           const camera = created.cameraState();
           refreshingCamera = true;
           [values.yaw, values.pitch, values.distance] = camera;
+          values.orthoBound = camera[6];
           for (const binding of cameraBindings) binding.refresh();
           refreshingCamera = false;
           const steps = created.steps();
@@ -366,9 +418,10 @@ async function start() {
           pendingSvg = false;
           exporting = true;
           const step = created.steps();
-          const settings = { ...values, steps: step, camera: Array.from(created.cameraState()) };
+          const camera = Array.from(created.cameraState());
+          const settings = { ...values, orthoBound: camera[6], steps: step, camera };
           const outputName = filename("svg", step, settings.seed);
-          const aspect = Math.floor(canvas.width / 2) / canvas.height;
+          const aspect = canvas.width / canvas.height;
           message("Exporting visible lines…");
           void (created.readLines() as Promise<Float32Array>)
             .then((data) =>

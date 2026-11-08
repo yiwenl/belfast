@@ -1,7 +1,7 @@
 use crate::input::SkeletonInput;
 use belfast::{
     BelfastResult, BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device, OrbitalControl,
-    OrbitalControlOptions, PerspectiveCamera,
+    OrbitalControlOptions, OrthographicCamera, PerspectiveCamera,
 };
 use bytemuck::{Pod, Zeroable};
 
@@ -28,6 +28,8 @@ struct ViewUniform {
 pub struct Scene {
     pub camera: PerspectiveCamera,
     pub control: OrbitalControl,
+    pub orthographic: bool,
+    pub ortho_bound: f32,
     pub skeleton: SkeletonInput,
     pub terrain: Buffer,
     pub segments: Buffer,
@@ -43,6 +45,7 @@ pub struct Scene {
     lines_compute: Compute,
     mesh_pipeline: wgpu::RenderPipeline,
     depth_pipeline: wgpu::RenderPipeline,
+    line_depth_pipeline: wgpu::RenderPipeline,
     line_pipeline: wgpu::RenderPipeline,
     debug_pipeline: wgpu::RenderPipeline,
     depth_view: wgpu::TextureView,
@@ -56,6 +59,7 @@ pub struct Scene {
     pub steps_per_frame: u32,
     single_steps: u32,
     pub line_count: u32,
+    pub layer_spacing: f32,
     pub show_heightmap: bool,
     pub show_initial: bool,
     pub debug_mode: f32,
@@ -378,7 +382,7 @@ impl Scene {
         let make_pipeline = |label: &'static str,
                              vertex: &'static str,
                              fragment: &'static str,
-                             depth: bool,
+                             depth: (bool, wgpu::CompareFunction),
                              color: bool,
                              samples: u32| {
             device
@@ -406,12 +410,15 @@ impl Scene {
                         cull_mode: None,
                         ..Default::default()
                     },
-                    depth_stencil: depth.then_some(wgpu::DepthStencilState {
+                    depth_stencil: Some(wgpu::DepthStencilState {
                         format: wgpu::TextureFormat::Depth32Float,
-                        depth_write_enabled: Some(true),
-                        depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                        depth_write_enabled: Some(depth.0),
+                        depth_compare: Some(depth.1),
                         stencil: Default::default(),
-                        bias: Default::default(),
+                        bias: wgpu::DepthBiasState {
+                            constant: if depth.0 { 0 } else { -2 },
+                            ..Default::default()
+                        },
                     }),
                     multisample: wgpu::MultisampleState {
                         count: samples,
@@ -425,7 +432,7 @@ impl Scene {
             "MountainMesh",
             "mesh_vertex",
             "mesh_fragment",
-            true,
+            (true, wgpu::CompareFunction::LessEqual),
             true,
             MSAA_SAMPLES,
         );
@@ -433,7 +440,15 @@ impl Scene {
             "MountainDepth",
             "mesh_vertex",
             "mesh_fragment",
-            true,
+            (true, wgpu::CompareFunction::LessEqual),
+            false,
+            1,
+        );
+        let line_depth_pipeline = make_pipeline(
+            "MountainUpperLayerDepth",
+            "line_depth_vertex",
+            "mesh_fragment",
+            (true, wgpu::CompareFunction::LessEqual),
             false,
             1,
         );
@@ -441,7 +456,7 @@ impl Scene {
             "MountainInk",
             "line_vertex",
             "line_fragment",
-            false,
+            (false, wgpu::CompareFunction::LessEqual),
             true,
             MSAA_SAMPLES,
         );
@@ -449,14 +464,14 @@ impl Scene {
             "MountainHeightmap",
             "debug_vertex",
             "debug_fragment",
-            false,
+            (false, wgpu::CompareFunction::Always),
             true,
             MSAA_SAMPLES,
         );
         let mut camera = PerspectiveCamera::new(42.0_f32.to_radians(), 1.0, 0.1, 100.0);
         let mut control = OrbitalControl::new(OrbitalControlOptions {
             center: [0.0, 0.8, 0.0],
-            radius: 21.0,
+            radius: 30.0,
             min_radius: 6.0,
             max_radius: 40.0,
             rotate_sensitivity: 0.006,
@@ -468,6 +483,8 @@ impl Scene {
         let scene = Self {
             camera,
             control,
+            orthographic: false,
+            ortho_bound: 12.0,
             skeleton: SkeletonInput::default(),
             terrain,
             segments,
@@ -483,6 +500,7 @@ impl Scene {
             lines_compute,
             mesh_pipeline,
             depth_pipeline,
+            line_depth_pipeline,
             line_pipeline,
             debug_pipeline,
             depth_view,
@@ -496,7 +514,8 @@ impl Scene {
             steps_per_frame: 6,
             single_steps: 0,
             line_count: 192,
-            show_heightmap: true,
+            layer_spacing: 6.5,
+            show_heightmap: false,
             show_initial: false,
             debug_mode: 0.0,
             debug_gain: 1.6,
@@ -545,7 +564,7 @@ impl Scene {
         self.width = width;
         self.height = height;
         self.camera
-            .set_aspect((width / 2).max(1) as f32 / height as f32)?;
+            .set_aspect(width.max(1) as f32 / height as f32)?;
         self.depth_view = depth_view(device, width, height, 1);
         self.msaa_color = msaa_color(device, width, height);
         self.msaa_depth = depth_view(device, width, height, MSAA_SAMPLES);
@@ -568,13 +587,35 @@ impl Scene {
             WORLD,
         ];
         let eye = self.camera.position();
+        let (matrix, view_eye) = if self.orthographic {
+            let bound = self.ortho_bound;
+            let horizontal = bound * self.camera.aspect();
+            let center = self.camera.look_at_target();
+            let mut camera =
+                OrthographicCamera::new(-horizontal, horizontal, -bound, bound, 0.1, 100.0);
+            camera.look_at(eye, center);
+            (
+                camera.view_projection_matrix(),
+                [
+                    eye[0] - center[0],
+                    eye[1] - center[1],
+                    eye[2] - center[2],
+                    0.0,
+                ],
+            )
+        } else {
+            (
+                self.camera.view_projection_matrix(),
+                [eye[0], eye[1], eye[2], 1.0],
+            )
+        };
         let uniform = ViewUniform {
-            matrix: self.camera.view_projection_matrix(),
-            eye: [eye[0], eye[1], eye[2], 1.0],
+            matrix,
+            eye: view_eye,
             light,
             style: [
                 self.contrast,
-                self.line_count as f32,
+                self.layer_spacing,
                 self.line_width,
                 if self.shadows { 1.0 } else { 0.0 },
             ],
@@ -591,7 +632,7 @@ impl Scene {
                 self.debug_gain,
             ],
             screen: [
-                (self.width / 2) as f32,
+                self.width as f32,
                 self.height as f32,
                 if self.show_initial { 1.0 } else { 0.0 },
                 self.debug_mode,
@@ -632,7 +673,7 @@ impl Scene {
             }
         }
         self.steps += count;
-        let half = (self.width / 2) as f32;
+        let width = self.width as f32;
         let height = self.height as f32;
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -653,8 +694,10 @@ impl Scene {
             });
             pass.set_bind_group(0, &self.view_group, &[]);
             pass.set_bind_group(1, &self.lines_read_group, &[]);
-            pass.set_viewport(half, 0.0, half, height, 0.0, 1.0);
             pass.set_pipeline(&self.depth_pipeline);
+            pass.draw(0..(GRID - 1) * (GRID - 1) * 6, 0..1);
+            // The upper depth surface hides its own back lines, but is never drawn in color.
+            pass.set_pipeline(&self.line_depth_pipeline);
             pass.draw(0..(GRID - 1) * (GRID - 1) * 6, 0..1);
         }
         {
@@ -669,11 +712,11 @@ impl Scene {
         }
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("MountainMultisampleMesh"),
+                label: Some("MountainLayeredScene"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &self.msaa_color,
                     depth_slice: None,
-                    resolve_target: None,
+                    resolve_target: Some(target),
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
                             r: 0.086,
@@ -681,7 +724,7 @@ impl Scene {
                             b: 0.086,
                             a: 1.0,
                         }),
-                        store: wgpu::StoreOp::Store,
+                        store: wgpu::StoreOp::Discard,
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
@@ -698,34 +741,12 @@ impl Scene {
             });
             pass.set_bind_group(0, &self.view_group, &[]);
             pass.set_bind_group(1, &self.lines_read_group, &[]);
-            pass.set_viewport(0.0, 0.0, half, height, 0.0, 1.0);
             pass.set_pipeline(&self.mesh_pipeline);
             pass.draw(0..(GRID - 1) * (GRID - 1) * 6, 0..1);
-        }
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("MountainLinesAndDebug"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.msaa_color,
-                    depth_slice: None,
-                    resolve_target: Some(target),
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Discard,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-            pass.set_bind_group(0, &self.view_group, &[]);
-            pass.set_bind_group(1, &self.lines_read_group, &[]);
             pass.set_pipeline(&self.line_pipeline);
-            pass.set_viewport(half, 0.0, half, height, 0.0, 1.0);
             pass.draw(0..6, 0..self.line_count * SAMPLES * 2);
             if self.show_heightmap {
-                let size = (height * 0.22).min(half * 0.35).min(height - 24.0).max(1.0);
+                let size = (height * 0.22).min(width * 0.2).min(height - 24.0).max(1.0);
                 pass.set_viewport(12.0, height - size - 12.0, size, size, 0.0, 1.0);
                 pass.set_pipeline(&self.debug_pipeline);
                 pass.draw(0..3, 0..1);

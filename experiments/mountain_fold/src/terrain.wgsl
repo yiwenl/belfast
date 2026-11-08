@@ -3,29 +3,38 @@ struct Vertex {
     @builtin(position) position: vec4<f32>,
     @location(0) grid_position: vec2<f32>,
 };
-@vertex
-fn mesh_vertex(@builtin(vertex_index) id: u32) -> Vertex {
+fn terrain_vertex(id: u32, upper: bool) -> Vertex {
     let side = u32(view.grid.x) - 1u;
     let square = id / 6u;
     let corners = array<vec2<u32>, 6>(vec2(0u, 0u), vec2(0u, 1u), vec2(1u, 0u), vec2(1u, 0u), vec2(0u, 1u), vec2(1u, 1u));
     let p = vec2<f32>(vec2(square % side, square / side) + corners[id % 6u]);
     var out: Vertex;
-    out.position = view.matrix * vec4(world_position(p), 1.0);
+    let position = select(mesh_position(p), line_position(p), upper);
+    out.position = view.matrix * vec4(position, 1.0);
     out.grid_position = p;
     return out;
 }
+@vertex
+fn mesh_vertex(@builtin(vertex_index) id: u32) -> Vertex {
+    return terrain_vertex(id, false);
+}
+@vertex
+fn line_depth_vertex(@builtin(vertex_index) id: u32) -> Vertex {
+    return terrain_vertex(id, true);
+}
 @fragment
 fn mesh_fragment(in: Vertex) -> @location(0) vec4<f32> {
-    let position = world_position(in.grid_position);
+    let terrain = world_position(in.grid_position);
+    let position = mesh_position(in.grid_position);
     let light_to_fragment = normalize(position - view.light.xyz * view.light.w);
     let angle = acos(clamp(dot(-view.light.xyz, light_to_fragment), -1.0, 1.0));
     let spot = pow(max(0.0, 1.0 - angle / view.material.x), view.material.y);
     let diffuse = max(0.0, dot(normal_at(in.grid_position), -light_to_fragment)) * spot;
-    let contour = fract(position.y / view.material.z);
+    let contour = fract(terrain.y / view.material.z);
     let distance = min(contour, 1.0 - contour) * view.material.z;
-    let line = 1.0 - smoothstep(0.0, max(fwidth(position.y) * 2.0, 0.000001), distance);
+    let line = 1.0 - smoothstep(0.0, max(fwidth(terrain.y) * 2.0, 0.000001), distance);
     // Match erosion4's dark diffuse material and faint height contours in grayscale.
-    let shade = (0.3 * mix(0.4, 1.0, diffuse) + line * view.material.w) * terrain_shadow(position);
+    let shade = (0.3 * mix(0.4, 1.0, diffuse) + line * view.material.w) * terrain_shadow(terrain);
     return vec4(vec3(shade), 1.0);
 }
 @vertex

@@ -1,6 +1,6 @@
 # Mountain Fold
 
-Belfast / Rust / WebGPU experiment: a seeded ridge skeleton, hydraulic erosion with visible depositional foothills, and a monochrome split view. Following `erosion4`, the preview uses a near-black background, a dark gray mesh with spotlight shading and faint height contours on the left, and white terrain-following lines on the right. Both use the same terrain, camera and light direction.
+Belfast / Rust / WebGPU experiment: a seeded ridge skeleton, hydraulic erosion with visible depositional foothills, and monochrome terrain layers in one 3D scene. Following `erosion4`, the preview uses a near-black background and a dark gray mesh with spotlight shading and faint height contours. White terrain-following lines float above the mesh. Both layers share the same terrain, camera and light direction.
 
 ## Run
 
@@ -18,12 +18,14 @@ Output is `dist/`. WebGPU needs a supported browser on localhost or HTTPS.
 
 ## Controls
 
-All controls are in Tweakpane. Drag either view to orbit, Shift + drag to pan, and scroll to zoom. Camera controls follow mouse movement.
+All controls are in Tweakpane. Drag the scene to orbit, Shift + drag to pan, and scroll to zoom. Camera controls follow mouse movement.
 
 - **Mountain range:** seed/fxhash, height, ridge width, ridge rounding, branch count, direction and surface noise. **Ridge rounding** controls the rounded crest as a fraction of ridge width (default 0.12); zero restores the sharp profile. The crest keeps its intended peak height and joins the original flank with a continuous slope. Changes regenerate the original terrain and restart erosion.
+- **Scene:** **Layer spacing** separates mesh and lines vertically in world space (default 6.5); zero places the lines on the mesh. Both move equally away from the scene center, so orbiting and zooming affect the pair together. **Height map** toggles the lower-left debug overlay and defaults to off.
 - **Erosion:** pause, fixed stopping step, steps per frame, single batch, water/transport parameters, deposited-soil settling and slope. Reset after changing these parameters when comparing results from the same starting point.
 - **Light & lines:** live azimuth/elevation, cast shadows, mesh spotlight angle/falloff, contour spacing/strength, circular-line density, line exposure and preview stroke width. White lines follow the original eight-level light threshold: illuminated faces carry more lines. Set contour strength to zero to hide the mesh contours.
-- **Height map:** lower-left GPU debug view. Choose current height, initial height, signed height change (white = gain, black = loss), remaining deposited soil, or cumulative erosion. Gain changes only the debug image. **Before erosion** switches both renderers to the initial terrain; pause separately to stop simulation.
+- **Camera:** shared orbit/elevation and an **Orthographic** toggle (off by default). Perspective controls are **FOV (°)** (default 42) and **Distance** (default 30). Orthographic **Bounds ±** is the vertical half-span in world units (default 12 gives −12…12); horizontal bounds follow the canvas aspect ratio. Scrolling changes distance in perspective and bounds in orthographic mode. Switching preserves the orbit/pan pose and each mode's lens settings. **Reset camera** restores pose, FOV and bounds while keeping the selected projection.
+- **Height map settings:** choose current height, initial height, signed height change (white = gain, black = loss), remaining deposited soil, or cumulative erosion. Gain changes only the debug image. **Before erosion** switches both layers to the initial terrain; pause separately to stop simulation.
 - **Export:** PNG canvas capture, or line-only SVG with paper dimensions, margin and pen width in millimetres. **Ctrl/Cmd+S** captures the dark preview after a rendered frame, including the debug map if enabled. DOM controls are not part of the PNG. SVG retains black strokes without a background for plotting; its paths match the white preview lines.
 - **Save height data:** JSON containing the four grid channels, seed, settings and step count, for inspecting the generated terrain.
 
@@ -31,7 +33,7 @@ The URL carries the seed. `?paused=1` starts before erosion; `?steps=2400` selec
 
 ## Simulation
 
-The 512 × 512 height field spans 12 world units. The mesh uses every height sample (522,242 triangles per view) for finer ridge silhouettes. Height data uses grid-cell units. A seeded ridge/branch skeleton is generated once on the CPU; erosion runs entirely in WGSL with 1,024 concurrent droplets.
+The 512 × 512 height field spans 12 world units. Each terrain surface uses every height sample (522,242 triangles) for finer ridge silhouettes. Height data uses grid-cell units. A seeded ridge/branch skeleton is generated once on the CPU; erosion runs entirely in WGSL with 1,024 concurrent droplets.
 
 Each fixed step dispatches six passes:
 
@@ -44,7 +46,9 @@ Each fixed step dispatches six passes:
 
 Evaporation reduces water rather than deleting sediment. Terminal droplets unload before respawning; the terrain boundary is closed. Brush exchanges use one-millionth grid-height units; terminal residuals below 0.00005 grid-height units are discarded. There is no noise injection after initialization. Pausing at the step limit leaves some sediment suspended in active droplets; reset clears the whole simulation.
 
-The renderer samples the same triangles used by its single-sample depth prepass. A compute pass clips circular terrain-following lines against camera depth, surface orientation and light-dependent ink density. Both display halves use 4× MSAA, resolved to the canvas after drawing the mesh, lines and height-map overlay; PNG capture includes that antialiasing. Visibility and SVG remain independent of MSAA. The same visible segment buffer supplies both GPU ink and SVG. SVG export stages a snapshot, geometrically clips to the view, and joins only consecutive segments from the same circle. Curve sampling and depth visibility are finite-resolution approximations, not exact analytic hidden-line removal.
+The renderer uses one full-frame camera, with perspective or orthographic projection. A single-sample depth prepass draws the lower mesh and an invisible upper terrain surface, using the same triangles sampled by the lines. A compute pass clips circular terrain-following lines against this combined depth, surface orientation and light-dependent ink density. Orthographic facing uses a constant view direction. The invisible upper surface hides its own back lines but never covers the lower mesh in the color pass. The mesh and lines then share a depth-tested 4× MSAA render pass, resolved after the optional height-map overlay; PNG capture includes that antialiasing. Visibility and SVG remain independent of MSAA. The same visible segment buffer supplies both GPU ink and SVG, using the selected projection and full canvas aspect ratio. SVG export stages a snapshot, geometrically clips to the view, and joins only consecutive segments from the same circle. Curve sampling and depth visibility are finite-resolution approximations, not exact analytic hidden-line removal.
+
+Depth visibility conservatively samples the four surrounding pixel centers. This avoids false self-occlusion on slopes in orthographic views, with roughly one pixel of allowance at occlusion boundaries.
 
 ## Observed check
 
@@ -53,5 +57,7 @@ Per request, no automated tests were added or run. The initial 256 × 256 versio
 The 512 × 512 update was rebuilt and run to 2,400 steps in Chrome, then inspected with the camera at distance 12 and elevation 20°. Both views rendered and PNG capture succeeded without console errors. Grid-dependent erosion parameters are unchanged, so the finer simulation is not expected to reproduce the earlier 256 × 256 result.
 
 The rounded-crest/MSAA update was compared at rounding 0 and 0.12 with the same seed and camera, including the initial terrain: the regular crest teeth were visibly reduced. The final dark version completed 2,400 steps without console errors; spotlight/contour controls responded, PNG capture produced the expected RGB (22, 22, 22) background, and SVG download succeeded. The preview uses height-field ray-marched shadows, so it does not reproduce `erosion4`'s filtered shadow map exactly.
+
+The shared-scene update was built and inspected in Chrome/WebGPU at 2,400 steps. Height-map visibility, zero/separated layer spacing, orbiting, perspective FOV, orthographic bounds, wheel zoom, projection switching and camera reset responded correctly. The new defaults are spacing 6.5, distance 30 and debug overlay off. Orthographic inspection exposed dashed visible lines; the four-pixel depth footprint removed those false gaps. Both projections exported PNGs, and the orthographic SVG contained 1,677 paths with matching projection/bounds metadata. No console warnings/errors were reported in the final run; no automated tests were added or run.
 
 This is an artistic height-field experiment. Overhangs, multilayer geology, open-boundary sediment export and physical sediment calibration are outside this version.

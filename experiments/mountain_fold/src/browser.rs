@@ -179,7 +179,15 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = pointerMove)]
     pub fn pointer_move(&mut self, x: f32, y: f32, width: f32, height: f32) {
-        self.scene.control.pointer_move([x, y], [width, height]);
+        let radius = self.scene.control.radius();
+        let half_height = if self.scene.orthographic {
+            self.scene.ortho_bound
+        } else {
+            radius * (self.scene.camera.fovy_radians() * 0.5).tan()
+        };
+        self.scene
+            .control
+            .pointer_move([x, y], [width, height * radius / half_height]);
     }
 
     #[wasm_bindgen(js_name = pointerUp)]
@@ -189,7 +197,16 @@ impl ExperimentApp {
     }
 
     pub fn scroll(&mut self, delta: f32) {
-        self.scene.control.scroll(delta);
+        if !delta.is_finite() {
+            return;
+        }
+        if self.scene.orthographic {
+            self.scene.ortho_bound = (self.scene.ortho_bound
+                * (delta * 0.002).clamp(-80.0, 80.0).exp())
+            .clamp(2.0, 30.0);
+        } else {
+            self.scene.control.scroll(delta);
+        }
     }
 
     #[wasm_bindgen(js_name = resetTerrain)]
@@ -229,7 +246,7 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setView)]
     pub fn set_view(&mut self, values: &[f32]) -> Result<(), JsValue> {
-        if values.len() != 17 || values.iter().any(|v| !v.is_finite()) {
+        if values.len() != 18 || values.iter().any(|v| !v.is_finite()) {
             return Err(js_error("Invalid view settings"));
         }
         self.scene.light_yaw = values[0];
@@ -249,6 +266,7 @@ impl ExperimentApp {
         self.scene.spot_falloff = values[14].clamp(0.1, 8.0);
         self.scene.contour_spacing = values[15].clamp(0.02, 0.5);
         self.scene.contour_strength = values[16].clamp(0.0, 0.4);
+        self.scene.layer_spacing = values[17].clamp(0.0, 10.0);
         Ok(())
     }
 
@@ -276,6 +294,25 @@ impl ExperimentApp {
         self.scene.control.snap_radius(radius.clamp(6.0, 40.0));
     }
 
+    #[wasm_bindgen(js_name = setProjection)]
+    pub fn set_projection(
+        &mut self,
+        orthographic: bool,
+        fov: f32,
+        bound: f32,
+    ) -> Result<(), JsValue> {
+        if !fov.is_finite() || !bound.is_finite() {
+            return Err(js_error("Invalid camera projection settings"));
+        }
+        self.scene
+            .camera
+            .set_fovy_radians(fov.clamp(15.0, 90.0).to_radians())
+            .map_err(js_error)?;
+        self.scene.orthographic = orthographic;
+        self.scene.ortho_bound = bound.clamp(2.0, 30.0);
+        Ok(())
+    }
+
     #[wasm_bindgen(js_name = cameraState)]
     pub fn camera_state(&self) -> Vec<f32> {
         let control = &self.scene.control;
@@ -287,6 +324,7 @@ impl ExperimentApp {
             center[0],
             center[1],
             center[2],
+            self.scene.ortho_bound,
         ]
     }
 
@@ -294,14 +332,15 @@ impl ExperimentApp {
     pub fn reset_camera(&mut self) -> Result<(), JsValue> {
         self.scene.control = belfast::OrbitalControl::new(belfast::OrbitalControlOptions {
             center: [0.0, 0.8, 0.0],
-            radius: 21.0,
+            radius: 30.0,
             min_radius: 6.0,
             max_radius: 40.0,
             rotate_sensitivity: 0.006,
             ..Default::default()
         })
         .map_err(js_error)?;
-        self.set_camera(32.0, 36.0, 21.0);
+        self.set_camera(32.0, 36.0, 30.0);
+        self.set_projection(self.scene.orthographic, 42.0, 12.0)?;
         Ok(())
     }
 

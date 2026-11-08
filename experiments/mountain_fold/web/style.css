@@ -34,29 +34,6 @@ header p {
   color: #999;
   margin: 0;
 }
-.view-label {
-  position: fixed;
-  top: 82px;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  pointer-events: none;
-  color: #999;
-}
-#mesh-label {
-  left: 24px;
-}
-#line-label {
-  left: calc(50% + 24px);
-}
-#divider {
-  position: fixed;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: #fff2;
-  pointer-events: none;
-}
 #controls {
   position: fixed;
   top: 16px;
@@ -71,7 +48,8 @@ header p {
 }
 #counter {
   position: fixed;
-  left: calc(50% + 24px);
+  left: 50%;
+  transform: translateX(-50%);
   bottom: 20px;
   font-size: 10px;
   color: #999;
@@ -90,7 +68,7 @@ header p {
 #debug-label {
   position: fixed;
   left: 16px;
-  bottom: calc(min(22vh, 17.5vw) + 14px);
+  bottom: calc(min(22vh, 20vw) + 14px);
   font-size: 9px;
   letter-spacing: 0.08em;
   margin: 0;

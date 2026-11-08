@@ -7,17 +7,14 @@
   </head>
   <body>
     <canvas
-      aria-label="Mountain erosion: shaded mesh on the left and plotter lines on the right"
+      aria-label="Mountain erosion: white terrain lines floating above a shaded mesh in one 3D scene"
     ></canvas>
     <header>
       <h1>MOUNTAIN FOLD</h1>
       <p>Drag to orbit · Shift + drag to pan · Scroll to zoom</p>
     </header>
-    <span id="mesh-label" class="view-label">01 / SURFACE</span>
-    <span id="line-label" class="view-label">02 / INK</span>
-    <div id="divider"></div>
     <div id="controls"></div>
-    <p id="debug-label">HEIGHT MAP</p>
+    <p id="debug-label" hidden>HEIGHT MAP</p>
     <p id="counter"></p>
     <p id="status" role="status">Loading WebGPU…</p>
     <pre id="error" role="alert" hidden></pre>

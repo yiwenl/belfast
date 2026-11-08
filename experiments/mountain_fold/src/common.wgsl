@@ -1,8 +1,8 @@
 struct View {
     matrix: mat4x4<f32>,
-    eye: vec4<f32>,
+    eye: vec4<f32>, // eye position (w=1) or direction toward the orthographic camera (w=0)
     light: vec4<f32>,
-    style: vec4<f32>,
+    style: vec4<f32>, // line exposure, layer spacing, line width, shadows
     material: vec4<f32>,
     grid: vec4<f32>,
     screen: vec4<f32>,
@@ -34,6 +34,12 @@ fn height_at(p: vec2<f32>) -> f32 {
 fn world_position(p: vec2<f32>) -> vec3<f32> {
     let xz = (p - vec2((view.grid.x - 1.0) * 0.5)) * view.grid.y;
     return vec3(xz.x, height_at(p) * view.grid.y, xz.y);
+}
+fn mesh_position(p: vec2<f32>) -> vec3<f32> {
+    return world_position(p) - vec3(0.0, view.style.y * 0.5, 0.0);
+}
+fn line_position(p: vec2<f32>) -> vec3<f32> {
+    return world_position(p) + vec3(0.0, view.style.y * 0.5, 0.0);
 }
 fn normal_at(p: vec2<f32>) -> vec3<f32> {
     return normalize(vec3(height_at(p - vec2(1.0, 0.0)) - height_at(p + vec2(1.0, 0.0)), 2.0,

@@ -3,18 +3,23 @@
 
 fn visible(p: vec2<f32>, rank: f32) -> bool {
     if (any(p < vec2(0.0)) || any(p > vec2(view.grid.x - 1.0))) { return false; }
-    let world = world_position(p);
+    let world = line_position(p);
     let clip = view.matrix * vec4(world, 1.0);
     if (clip.w <= 0.0) { return false; }
     let ndc = clip.xyz / clip.w;
     if (any(abs(ndc.xy) > vec2(1.0)) || ndc.z < 0.0 || ndc.z > 1.0) { return false; }
     let uv = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
-    let screen = vec2<i32>(uv * view.screen.xy) + vec2(i32(view.screen.x), 0);
-    let depth = textureLoad(camera_depth, screen, 0);
+    // Cover the subpixel footprint so steep visible slopes do not self-occlude in orthographic views.
+    let screen = vec2<i32>(floor(uv * view.screen.xy - vec2(0.5)));
+    let edge = vec2<i32>(view.screen.xy) - vec2(1);
+    let lo = clamp(screen, vec2(0), edge);
+    let hi = clamp(screen + vec2(1), vec2(0), edge);
+    let depth = max(max(textureLoad(camera_depth, lo, 0), textureLoad(camera_depth, hi, 0)),
+        max(textureLoad(camera_depth, vec2(lo.x, hi.y), 0), textureLoad(camera_depth, vec2(hi.x, lo.y), 0)));
     if (ndc.z > depth + 0.000035) { return false; }
     let normal = normal_at(p);
-    if (dot(normal, normalize(view.eye.xyz - world)) < 0.25) { return false; }
-    let light = max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world);
+    if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) < 0.25) { return false; }
+    let light = max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world_position(p));
     let ink = smoothstep(0.0, 0.75, pow(clamp(light * view.style.x, 0.0, 1.0), 1.5));
     return rank < ink;
 }
@@ -35,8 +40,8 @@ fn write_segment(index: u32, start: vec2<f32>, end: vec2<f32>, rank: f32, ring: 
             }
             if (va) { b = lo; } else { a = hi; }
         }
-        result.a = view.matrix * vec4(world_position(a), 1.0);
-        result.b = view.matrix * vec4(world_position(b), 1.0);
+        result.a = view.matrix * vec4(line_position(a), 1.0);
+        result.b = view.matrix * vec4(line_position(b), 1.0);
         result.info.x = 1.0;
     }
     segments[index] = result;
