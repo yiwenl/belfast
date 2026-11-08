@@ -81,15 +81,15 @@ fn mesh_fragment(in: Vertex) -> @location(0) vec4<f32> {
 fn line_vertex(@builtin(vertex_index) vertex: u32, @builtin(instance_index) instance: u32) -> @builtin(position) vec4<f32> {
     let s = segments[instance];
     if (s.info.x < 0.5) { return vec4(2.0, 2.0, 2.0, 1.0); }
-    let a = s.a.xy / s.a.w;
-    let b = s.b.xy / s.b.w;
+    let a = s.a.xy / s.a.w * view.paper.xy;
+    let b = s.b.xy / s.b.w * view.paper.xy;
     let direction = (b - a) * view.screen.xy;
     let perpendicular = vec2(-direction.y, direction.x) / max(length(direction), 0.00001);
     let corners = array<vec2<f32>, 6>(vec2(0.0, -1.0), vec2(1.0, -1.0), vec2(0.0, 1.0), vec2(0.0, 1.0), vec2(1.0, -1.0), vec2(1.0, 1.0));
     let corner = corners[vertex];
     let clip = mix(s.a, s.b, corner.x);
     let offset = perpendicular * corner.y * view.style.z / view.screen.xy;
-    return vec4(clip.xy + offset * clip.w, clip.z, clip.w);
+    return vec4(clip.xy * view.paper.xy + offset * clip.w, clip.z, clip.w);
 }
 @fragment
 fn line_fragment() -> @location(0) vec4<f32> { return view.line_color; }

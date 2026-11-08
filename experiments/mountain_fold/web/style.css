@@ -17,6 +17,17 @@ canvas {
   height: 100%;
   touch-action: none;
 }
+body.svg-preview {
+  display: grid;
+  place-items: center;
+  background: #28282b;
+}
+body.svg-preview canvas {
+  width: min(calc(100vw - 32px), calc((100vh - 32px) * var(--paper-ratio)));
+  height: auto;
+  aspect-ratio: var(--paper-ratio);
+  box-shadow: 0 4px 24px #0006;
+}
 #controls {
   position: fixed;
   top: 16px;

@@ -291,6 +291,28 @@ impl ExperimentApp {
         self.scene.paused = paused;
     }
 
+    #[wasm_bindgen(js_name = setSvgPreview)]
+    pub fn set_svg_preview(
+        &mut self,
+        enabled: bool,
+        width: f32,
+        height: f32,
+        margin: f32,
+        pen: f32,
+    ) -> Result<(), JsValue> {
+        if [width, height, margin, pen].iter().any(|v| !v.is_finite())
+            || !(50.0..=600.0).contains(&width)
+            || !(50.0..=600.0).contains(&height)
+            || !(0.0..=20.0).contains(&margin)
+            || !(0.05..=1.0).contains(&pen)
+        {
+            return Err(js_error("Invalid SVG paper settings"));
+        }
+        self.scene
+            .set_svg_preview(enabled, [width, height, margin, pen])
+            .map_err(js_error)
+    }
+
     pub fn advance(&mut self, steps: u32) {
         self.scene.advance(steps);
     }
@@ -307,7 +329,9 @@ impl ExperimentApp {
         self.scene
             .control
             .snap_pitch(pitch.clamp(5.0, 89.0).to_radians());
-        self.scene.control.snap_radius(radius.clamp(6.0, 40.0));
+        self.scene
+            .control
+            .snap_radius(radius.clamp(6.0, if self.scene.svg_preview { 200.0 } else { 40.0 }));
     }
 
     #[wasm_bindgen(js_name = setProjection)]
@@ -357,6 +381,9 @@ impl ExperimentApp {
         .map_err(js_error)?;
         self.set_camera(45.64277, 28.363918, 30.0);
         self.set_projection(self.scene.orthographic, 42.0, 9.0)?;
+        if self.scene.svg_preview {
+            self.scene.center_paper_camera().map_err(js_error)?;
+        }
         Ok(())
     }
 

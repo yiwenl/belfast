@@ -1,5 +1,5 @@
 import init, { ExperimentApp } from "../pkg/experiment";
-import { Pane } from "tweakpane";
+import { Pane, type SliderInputBindingApi } from "tweakpane";
 import type { BindingApi, FolderApi } from "@tweakpane/core";
 import { bindOrbitInput } from "./input";
 import { generateTerrain, GRID } from "./terrain";
@@ -47,6 +47,7 @@ const values = {
   wobbleScale: 0.6,
   lineColor: "#99928a",
   backgroundColor: "#ede5db",
+  svgPreview: false,
   heightmap: false,
   layerSpacing: 8,
   baseThickness: 0.6,
@@ -151,6 +152,33 @@ function applyErosion() {
 function applyProjection() {
   if (!refreshingCamera) app?.setProjection(values.orthographic, values.fov, values.orthoBound);
 }
+function applyPaper() {
+  document.body.classList.toggle("svg-preview", values.svgPreview);
+  document.documentElement.style.setProperty(
+    "--paper-ratio",
+    String(values.paperWidth / values.paperHeight),
+  );
+  canvas.setAttribute(
+    "aria-label",
+    values.svgPreview
+      ? `SVG preview: terrain lines on ${values.paperWidth} by ${values.paperHeight} mm paper`
+      : "Mountain erosion: terrain lines floating above a shaded mesh in one 3D scene",
+  );
+  if (!app) return;
+  app.setSvgPreview(
+    values.svgPreview,
+    values.paperWidth,
+    values.paperHeight,
+    values.margin,
+    values.pen,
+  );
+  const camera = app.cameraState();
+  refreshingCamera = true;
+  [values.yaw, values.pitch, values.distance] = camera;
+  values.orthoBound = camera[6];
+  for (const binding of cameraBindings) binding.refresh();
+  refreshingCamera = false;
+}
 function reset() {
   if (!app) return;
   const { heights, seeds } = generateTerrain(values);
@@ -201,14 +229,19 @@ function createPane() {
   mountain.addButton({ title: "Reset same seed" }).on("click", reset);
 
   const scene = pane.addFolder({ title: "Scene" });
-  scene
+  const preview = scene.addBinding(values, "svgPreview", { label: "SVG preview" });
+  const layerSpacing = scene
     .addBinding(values, "layerSpacing", { label: "Layer spacing", min: 0, max: 10, step: 0.1 })
     .on("change", applyView);
-  scene
+  const baseThickness = scene
     .addBinding(values, "baseThickness", { label: "Base thickness", min: 0, max: 6, step: 0.05 })
     .on("change", applyView);
-  scene.addBinding(values, "heightmap", { label: "Height map" }).on("change", applyView);
-  scene.addBinding(values, "backgroundColor", { label: "Background" }).on("change", applyView);
+  const heightmap = scene
+    .addBinding(values, "heightmap", { label: "Height map" })
+    .on("change", applyView);
+  const background = scene
+    .addBinding(values, "backgroundColor", { label: "Background" })
+    .on("change", applyView);
 
   const simulation = pane.addFolder({ title: "Erosion" });
   simulation.addBinding(values, "paused", { label: "Paused" }).on("change", applyView);
@@ -265,10 +298,12 @@ function createPane() {
   render
     .addBinding(values, "contrast", { label: "Line exposure", min: 0.2, max: 2.5, step: 0.05 })
     .on("change", applyView);
-  render
+  const lineWidth = render
     .addBinding(values, "lineWidth", { label: "Preview width", min: 0.5, max: 2, step: 0.1 })
     .on("change", applyView);
-  render.addBinding(values, "lineColor", { label: "Line color" }).on("change", applyView);
+  const lineColor = render
+    .addBinding(values, "lineColor", { label: "Line color" })
+    .on("change", applyView);
   const wobble = render
     .addBinding(values, "lineWobble", { label: "Hand wobble", min: 0, max: 0.08, step: 0.001 })
     .on("change", applyView);
@@ -320,6 +355,21 @@ function createPane() {
       }),
   );
   cameraBindings.push(...poseBindings, bounds);
+  preview.on("change", () => {
+    (poseBindings[2] as SliderInputBindingApi).max = values.svgPreview ? 200 : 40;
+    applyPaper();
+    for (const binding of [
+      layerSpacing,
+      baseThickness,
+      heightmap,
+      background,
+      lineWidth,
+      lineColor,
+    ]) {
+      binding.hidden = values.svgPreview;
+    }
+    output.expanded = values.svgPreview;
+  });
   projection.on("change", () => {
     fov.hidden = values.orthographic;
     bounds.hidden = !values.orthographic;
@@ -386,7 +436,7 @@ function createPane() {
     ["margin", "Margin mm", 0, 20, 1],
     ["pen", "Pen width mm", 0.05, 1, 0.01],
   ] as const)
-    output.addBinding(values, key, { label, min, max, step });
+    output.addBinding(values, key, { label, min, max, step }).on("change", applyPaper);
 
   statusFolder = pane.addFolder({ title: "Status", expanded: false });
   const monitor = { readonly: true, interval: 250 } as const;
@@ -444,6 +494,7 @@ async function start() {
     reset();
     created.setCamera(values.yaw, values.pitch, values.distance);
     applyProjection();
+    applyPaper();
     function frame(now: number) {
       if (disposed) return;
       try {
@@ -486,7 +537,10 @@ async function start() {
           const camera = Array.from(created.cameraState());
           const settings = { ...values, orthoBound: camera[6], steps: step, camera };
           const outputName = filename("svg", step, settings.seed);
-          const aspect = canvas.width / canvas.height;
+          const aspect = settings.svgPreview
+            ? (settings.paperWidth - 2 * settings.margin) /
+              (settings.paperHeight - 2 * settings.margin)
+            : canvas.width / canvas.height;
           message("Exporting visible lines…");
           void (created.readLines() as Promise<Float32Array>)
             .then((data) =>

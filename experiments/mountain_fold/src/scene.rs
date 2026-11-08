@@ -30,6 +30,7 @@ struct ViewUniform {
     base: [f32; 4],
     stroke: [f32; 4],
     inverse_matrix: [f32; 16],
+    paper: [f32; 4],
 }
 
 pub struct Scene {
@@ -37,6 +38,9 @@ pub struct Scene {
     pub control: OrbitalControl,
     pub orthographic: bool,
     pub ortho_bound: f32,
+    pub svg_preview: bool,
+    paper_size: [f32; 4],
+    scene_camera: Option<(OrbitalControl, f32)>,
     pub skeleton: SkeletonInput,
     pub terrain: Buffer,
     pub segments: Buffer,
@@ -508,6 +512,9 @@ impl Scene {
             control,
             orthographic: true,
             ortho_bound: 9.0,
+            svg_preview: false,
+            paper_size: [148.0, 210.0, 10.0, 0.18],
+            scene_camera: None,
             skeleton: SkeletonInput::default(),
             terrain,
             segments,
@@ -597,11 +604,66 @@ impl Scene {
     pub fn advance(&mut self, steps: u32) {
         self.single_steps = self.single_steps.saturating_add(steps.min(256));
     }
+    pub fn set_svg_preview(&mut self, enabled: bool, paper: [f32; 4]) -> BelfastResult<()> {
+        self.paper_size = paper;
+        if enabled != self.svg_preview {
+            if enabled {
+                let old_bound = self.ortho_bound;
+                let control = self.paper_camera()?;
+                self.scene_camera =
+                    Some((std::mem::replace(&mut self.control, control), old_bound));
+            } else if let Some((control, bound)) = self.scene_camera.take() {
+                self.control = control;
+                self.ortho_bound = bound;
+            }
+            self.svg_preview = enabled;
+        }
+        self.camera.set_aspect(self.view_aspect())?;
+        Ok(())
+    }
+    fn view_aspect(&self) -> f32 {
+        let [width, height, margin, _] = self.paper_size;
+        if self.svg_preview {
+            (width - 2.0 * margin) / (height - 2.0 * margin)
+        } else {
+            self.width as f32 / self.height as f32
+        }
+    }
+    fn paper_camera(&mut self) -> BelfastResult<OrbitalControl> {
+        let [width, height, margin, _] = self.paper_size;
+        let aspect = (width - 2.0 * margin) / (height - 2.0 * margin);
+        let radius = (WORLD * WORLD * 0.5 + (self.terrain_height * 0.5).powi(2)).sqrt();
+        let angle = ((self.camera.fovy_radians() * 0.5).tan() * aspect.min(1.0)).atan();
+        let yaw = self.control.yaw();
+        let pitch = self.control.pitch();
+        let ground = WORLD * 0.5 * (yaw.sin().abs() + yaw.cos().abs()) * pitch.sin();
+        let lift = (self.terrain_height * pitch.cos() - ground).max(0.0) * 0.5;
+        // Frame the projected ground and peak, not empty space above the terrain corners.
+        let mut control = OrbitalControl::new(OrbitalControlOptions {
+            center: [
+                -yaw.sin() * pitch.sin() * lift,
+                pitch.cos() * lift,
+                -yaw.cos() * pitch.sin() * lift,
+            ],
+            radius: (radius / angle.sin()).clamp(6.0, 200.0),
+            min_radius: 6.0,
+            max_radius: 200.0,
+            rotate_sensitivity: 0.006,
+            ..Default::default()
+        })?;
+        control.snap_yaw(self.control.yaw());
+        control.snap_pitch(self.control.pitch());
+        self.ortho_bound = (radius / aspect.min(1.0)).clamp(2.0, 30.0);
+        Ok(control)
+    }
+    pub fn center_paper_camera(&mut self) -> BelfastResult<()> {
+        self.control = self.paper_camera()?;
+        Ok(())
+    }
     pub fn resize(&mut self, device: &Device, width: u32, height: u32) -> BelfastResult<()> {
         self.width = width;
         self.height = height;
-        self.camera
-            .set_aspect(width.max(1) as f32 / height as f32)?;
+        self.camera.set_aspect(self.view_aspect())?;
         self.depth_view = depth_view(device, width, height, 1);
         self.msaa_color = msaa_color(device, width, height);
         self.msaa_depth = depth_view(device, width, height, MSAA_SAMPLES);
@@ -624,12 +686,13 @@ impl Scene {
             WORLD,
         ];
         let eye = self.camera.position();
+        let far = if self.svg_preview { 1000.0 } else { 100.0 };
         let (matrix, view_eye) = if self.orthographic {
             let bound = self.ortho_bound;
             let horizontal = bound * self.camera.aspect();
             let center = self.camera.look_at_target();
             let mut camera =
-                OrthographicCamera::new(-horizontal, horizontal, -bound, bound, 0.1, 100.0);
+                OrthographicCamera::new(-horizontal, horizontal, -bound, bound, 0.1, far);
             camera.look_at(eye, center);
             (
                 camera.view_projection_matrix(),
@@ -642,7 +705,9 @@ impl Scene {
             )
         } else {
             (
-                self.camera.view_projection_matrix(),
+                (Mat4::perspective_rh(self.camera.fovy_radians(), self.camera.aspect(), 0.1, far)
+                    * Mat4::from_cols_array(&self.camera.view_matrix()))
+                .to_cols_array(),
                 [eye[0], eye[1], eye[2], 1.0],
             )
         };
@@ -652,8 +717,16 @@ impl Scene {
             light,
             style: [
                 self.contrast,
-                self.layer_spacing,
-                self.line_width,
+                if self.svg_preview {
+                    0.0
+                } else {
+                    self.layer_spacing
+                },
+                if self.svg_preview {
+                    self.paper_size[3] * self.width as f32 / self.paper_size[0]
+                } else {
+                    self.line_width
+                },
                 if self.shadows { 1.0 } else { 0.0 },
             ],
             material: [
@@ -675,10 +748,24 @@ impl Scene {
                 self.debug_mode,
             ],
             counts: [self.line_count, SAMPLES, self.line_seed, self.line_mode],
-            line_color: self.line_color,
+            line_color: if self.svg_preview {
+                [0.0, 0.0, 0.0, 1.0]
+            } else {
+                self.line_color
+            },
             base: [self.base_thickness, 0.0, 0.0, 0.0],
             stroke: [self.line_wobble, self.wobble_scale, 0.0, 0.0],
             inverse_matrix: Mat4::from_cols_array(&matrix).inverse().to_cols_array(),
+            paper: if self.svg_preview {
+                [
+                    1.0 - 2.0 * self.paper_size[2] / self.paper_size[0],
+                    1.0 - 2.0 * self.paper_size[2] / self.paper_size[1],
+                    0.0,
+                    0.0,
+                ]
+            } else {
+                [1.0, 1.0, 0.0, 0.0]
+            },
         };
         self.view_uniform.write(device, &[uniform], 0);
     }
@@ -741,8 +828,10 @@ impl Scene {
             });
             pass.set_bind_group(0, &self.view_group, &[]);
             pass.set_bind_group(1, &self.lines_read_group, &[]);
-            pass.set_pipeline(&self.depth_pipeline);
-            pass.draw(0..mesh_vertices, 0..1);
+            if !self.svg_preview {
+                pass.set_pipeline(&self.depth_pipeline);
+                pass.draw(0..mesh_vertices, 0..1);
+            }
             // The upper depth surface hides its own back lines, but is never drawn in color.
             pass.set_pipeline(&self.line_depth_pipeline);
             pass.draw(0..SURFACE_VERTICES, 0..1);
@@ -765,7 +854,11 @@ impl Scene {
                     depth_slice: None,
                     resolve_target: Some(target),
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(self.background_color),
+                        load: wgpu::LoadOp::Clear(if self.svg_preview {
+                            wgpu::Color::WHITE
+                        } else {
+                            self.background_color
+                        }),
                         store: wgpu::StoreOp::Discard,
                     },
                 })],
@@ -783,8 +876,14 @@ impl Scene {
             });
             pass.set_bind_group(0, &self.view_group, &[]);
             pass.set_bind_group(1, &self.lines_read_group, &[]);
-            pass.set_pipeline(&self.mesh_pipeline);
-            pass.draw(0..mesh_vertices, 0..1);
+            if self.svg_preview {
+                let x = (width * self.paper_size[2] / self.paper_size[0]).round() as u32;
+                let y = (height * self.paper_size[2] / self.paper_size[1]).round() as u32;
+                pass.set_scissor_rect(x, y, self.width - 2 * x, self.height - 2 * y);
+            } else {
+                pass.set_pipeline(&self.mesh_pipeline);
+                pass.draw(0..mesh_vertices, 0..1);
+            }
             // Hatches already use visible depth texels; interpolated stroke depth can cut gaps.
             pass.set_pipeline(if self.line_mode == 1 {
                 &self.hatch_pipeline
@@ -792,7 +891,7 @@ impl Scene {
                 &self.line_pipeline
             });
             pass.draw(0..6, 0..self.line_count * SAMPLES * 2);
-            if self.show_heightmap {
+            if self.show_heightmap && !self.svg_preview {
                 let size = (height * 0.22).min(width * 0.2).min(height - 24.0).max(1.0);
                 pass.set_viewport(12.0, height - size - 12.0, size, size, 0.0, 1.0);
                 pass.set_pipeline(&self.debug_pipeline);
