@@ -40,6 +40,7 @@ const values = {
   contourStrength: 0.2,
   shadows: true,
   density: 192,
+  lineMode: 0,
   contrast: 1,
   lineWidth: 1,
   lineWobble: 0.015,
@@ -126,6 +127,7 @@ function applyView() {
       values.baseThickness,
       values.lineWobble,
       values.wobbleScale,
+      values.lineMode,
     ]),
   );
   app?.setPaused(values.paused);
@@ -239,6 +241,10 @@ function createPane() {
   simulation.addButton({ title: "Reset erosion" }).on("click", reset);
 
   const render = pane.addFolder({ title: "Light & lines" });
+  const lineMode = render.addBinding(values, "lineMode", {
+    label: "Line render",
+    options: { "Terrain curves": 0, "Straight hatching": 1 },
+  });
   render
     .addBinding(values, "lightYaw", { label: "Light azimuth", min: -180, max: 180, step: 1 })
     .on("change", applyView);
@@ -263,12 +269,17 @@ function createPane() {
     .addBinding(values, "lineWidth", { label: "Preview width", min: 0.5, max: 2, step: 0.1 })
     .on("change", applyView);
   render.addBinding(values, "lineColor", { label: "Line color" }).on("change", applyView);
-  render
+  const wobble = render
     .addBinding(values, "lineWobble", { label: "Hand wobble", min: 0, max: 0.08, step: 0.001 })
     .on("change", applyView);
-  render
+  const wobbleScale = render
     .addBinding(values, "wobbleScale", { label: "Wobble scale", min: 0.2, max: 2, step: 0.05 })
     .on("change", applyView);
+  lineMode.on("change", () => {
+    wobble.hidden = values.lineMode === 1;
+    wobbleScale.hidden = values.lineMode === 1;
+    applyView();
+  });
   const camera = pane.addFolder({ title: "Camera", expanded: false });
   const projection = camera.addBinding(values, "orthographic", { label: "Orthographic" });
   const fov = camera

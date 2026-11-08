@@ -69,12 +69,64 @@ fn write_segment(index: u32, start: vec2<f32>, end: vec2<f32>, rank: f32, ring: 
     }
     segments[index] = result;
 }
+
+fn hatch_sample(ndc: vec2<f32>, rank: f32) -> vec2<f32> {
+    let uv = ndc * vec2(0.5, -0.5) + vec2(0.5);
+    let pixel = clamp(vec2<i32>(floor(uv * view.screen.xy)), vec2(0), vec2<i32>(view.screen.xy) - vec2(1));
+    let depth = textureLoad(camera_depth, pixel, 0);
+    if (depth >= 1.0) { return vec2(depth, 0.0); }
+    // Reconstruct at the depth texel center to identify the visible upper terrain.
+    let sample_ndc = (vec2<f32>(pixel) + vec2(0.5)) / view.screen.xy * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
+    let projected = view.inverse_matrix * vec4(sample_ndc, depth, 1.0);
+    let world = projected.xyz / projected.w;
+    let p = world.xz / view.grid.y + vec2((view.grid.x - 1.0) * 0.5);
+    if (any(p < vec2(0.0)) || any(p > vec2(view.grid.x - 1.0))) { return vec2(depth, 0.0); }
+    if (abs(world.y - line_position(p).y) > view.grid.y * 0.5) { return vec2(depth, 0.0); }
+    let normal = normal_at(p);
+    if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) <= 0.0) { return vec2(depth, 0.0); }
+    let light = max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world_position(p));
+    let ink = 1.0 - smoothstep(0.05, 0.8, clamp(light * view.style.x, 0.0, 1.0));
+    return vec2(depth, select(0.0, 1.0, rank < ink));
+}
+fn write_hatch(column: u32, step: u32) {
+    let x = (f32(column) + 0.5) / f32(view.counts.x * 2u) * 2.0 - 1.0;
+    var a = vec2(x, 1.0 - f32(step) / f32(view.counts.y) * 2.0);
+    var b = vec2(x, 1.0 - f32(step + 1u) / f32(view.counts.y) * 2.0);
+    let order = array<u32, 8>(0u, 4u, 2u, 6u, 1u, 5u, 3u, 7u);
+    let rank = (f32(order[column % 8u]) + 0.5) / 8.0;
+    var sa = hatch_sample(a, rank);
+    var sb = hatch_sample(b, rank);
+    var result: Segment;
+    result.info = vec4(0.0, f32(column), 0.0, 0.0);
+    if (sa.y > 0.5 || sb.y > 0.5) {
+        if (sa.y != sb.y) {
+            var lo = a;
+            var hi = b;
+            for (var i = 0u; i < 6u; i++) {
+                let mid = (lo + hi) * 0.5;
+                if (hatch_sample(mid, rank).y == sa.y) { lo = mid; } else { hi = mid; }
+            }
+            if (sa.y > 0.5) { b = lo; sb = hatch_sample(b, rank); }
+            else { a = hi; sa = hatch_sample(a, rank); }
+        }
+        result.a = vec4(a, sa.x, 1.0);
+        result.b = vec4(b, sb.x, 1.0);
+        result.info.x = 1.0;
+    }
+    // Keep each column contiguous for the shared SVG path joiner.
+    segments[column * view.counts.y + step] = result;
+}
 @compute @workgroup_size(64)
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let count = view.counts.x * view.counts.y;
     if (id.x >= count) { return; }
     let ring = id.x / view.counts.y;
     let step = id.x % view.counts.y;
+    if (view.counts.w == 1u) {
+        write_hatch(ring * 2u, step);
+        write_hatch(ring * 2u + 1u, step);
+        return;
+    }
     let a = stroke_point(ring, step * 2u);
     let b = stroke_point(ring, step * 2u + 1u);
     let c = stroke_point(ring, step * 2u + 2u);

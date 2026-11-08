@@ -4,6 +4,7 @@ use belfast::{
     OrbitalControlOptions, OrthographicCamera, PerspectiveCamera,
 };
 use bytemuck::{Pod, Zeroable};
+use glam::Mat4;
 
 pub const GRID: u32 = 512;
 pub const DROPLETS: u32 = 1024;
@@ -28,6 +29,7 @@ struct ViewUniform {
     line_color: [f32; 4],
     base: [f32; 4],
     stroke: [f32; 4],
+    inverse_matrix: [f32; 16],
 }
 
 pub struct Scene {
@@ -52,6 +54,7 @@ pub struct Scene {
     depth_pipeline: wgpu::RenderPipeline,
     line_depth_pipeline: wgpu::RenderPipeline,
     line_pipeline: wgpu::RenderPipeline,
+    hatch_pipeline: wgpu::RenderPipeline,
     debug_pipeline: wgpu::RenderPipeline,
     depth_view: wgpu::TextureView,
     msaa_color: wgpu::TextureView,
@@ -64,6 +67,7 @@ pub struct Scene {
     pub steps_per_frame: u32,
     single_steps: u32,
     pub line_count: u32,
+    pub line_mode: u32,
     pub layer_spacing: f32,
     pub base_thickness: f32,
     pub show_heightmap: bool,
@@ -471,6 +475,14 @@ impl Scene {
             true,
             MSAA_SAMPLES,
         );
+        let hatch_pipeline = make_pipeline(
+            "MountainHatchInk",
+            "line_vertex",
+            "line_fragment",
+            (false, wgpu::CompareFunction::Always),
+            true,
+            MSAA_SAMPLES,
+        );
         let debug_pipeline = make_pipeline(
             "MountainHeightmap",
             "debug_vertex",
@@ -513,6 +525,7 @@ impl Scene {
             depth_pipeline,
             line_depth_pipeline,
             line_pipeline,
+            hatch_pipeline,
             debug_pipeline,
             depth_view,
             msaa_color,
@@ -525,6 +538,7 @@ impl Scene {
             steps_per_frame: 6,
             single_steps: 0,
             line_count: 192,
+            line_mode: 0,
             layer_spacing: 8.0,
             base_thickness: 0.6,
             show_heightmap: false,
@@ -660,10 +674,11 @@ impl Scene {
                 if self.show_initial { 1.0 } else { 0.0 },
                 self.debug_mode,
             ],
-            counts: [self.line_count, SAMPLES, self.line_seed, 0],
+            counts: [self.line_count, SAMPLES, self.line_seed, self.line_mode],
             line_color: self.line_color,
             base: [self.base_thickness, 0.0, 0.0, 0.0],
             stroke: [self.line_wobble, self.wobble_scale, 0.0, 0.0],
+            inverse_matrix: Mat4::from_cols_array(&matrix).inverse().to_cols_array(),
         };
         self.view_uniform.write(device, &[uniform], 0);
     }
@@ -770,7 +785,12 @@ impl Scene {
             pass.set_bind_group(1, &self.lines_read_group, &[]);
             pass.set_pipeline(&self.mesh_pipeline);
             pass.draw(0..mesh_vertices, 0..1);
-            pass.set_pipeline(&self.line_pipeline);
+            // Hatches already use visible depth texels; interpolated stroke depth can cut gaps.
+            pass.set_pipeline(if self.line_mode == 1 {
+                &self.hatch_pipeline
+            } else {
+                &self.line_pipeline
+            });
             pass.draw(0..6, 0..self.line_count * SAMPLES * 2);
             if self.show_heightmap {
                 let size = (height * 0.22).min(width * 0.2).min(height - 24.0).max(1.0);

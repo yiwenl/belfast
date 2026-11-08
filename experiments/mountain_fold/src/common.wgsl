@@ -6,10 +6,11 @@ struct View {
     material: vec4<f32>,
     grid: vec4<f32>,
     screen: vec4<f32>,
-    counts: vec4<u32>,
+    counts: vec4<u32>, // line density, samples, stroke seed, line mode
     line_color: vec4<f32>,
     base: vec4<f32>, // thickness in world units
     stroke: vec4<f32>, // wobble amplitude and wavelength in world units
+    inverse_matrix: mat4x4<f32>,
 };
 struct Segment { a: vec4<f32>, b: vec4<f32>, info: vec4<f32> };
 @group(0) @binding(0) var<uniform> view: View;
