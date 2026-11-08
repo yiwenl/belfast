@@ -11,6 +11,8 @@ pub const SAMPLES: u32 = 512;
 pub const MAX_LINES: u32 = 320;
 const WORLD: f32 = 12.0;
 const MSAA_SAMPLES: u32 = 4;
+const SURFACE_VERTICES: u32 = (GRID - 1) * (GRID - 1) * 6;
+const BASE_VERTICES: u32 = (GRID - 1) * 4 * 6 + 6;
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -24,6 +26,7 @@ struct ViewUniform {
     screen: [f32; 4],
     counts: [u32; 4],
     line_color: [f32; 4],
+    base: [f32; 4],
 }
 
 pub struct Scene {
@@ -61,6 +64,7 @@ pub struct Scene {
     single_steps: u32,
     pub line_count: u32,
     pub layer_spacing: f32,
+    pub base_thickness: f32,
     pub show_heightmap: bool,
     pub show_initial: bool,
     pub debug_mode: f32,
@@ -518,6 +522,7 @@ impl Scene {
             single_steps: 0,
             line_count: 192,
             layer_spacing: 8.0,
+            base_thickness: 0.6,
             show_heightmap: false,
             show_initial: false,
             debug_mode: 0.0,
@@ -649,6 +654,7 @@ impl Scene {
             ],
             counts: [self.line_count, SAMPLES, 0, 0],
             line_color: self.line_color,
+            base: [self.base_thickness, 0.0, 0.0, 0.0],
         };
         self.view_uniform.write(device, &[uniform], 0);
     }
@@ -686,6 +692,12 @@ impl Scene {
         self.steps += count;
         let width = self.width as f32;
         let height = self.height as f32;
+        let mesh_vertices = SURFACE_VERTICES
+            + if self.base_thickness > 0.0 {
+                BASE_VERTICES
+            } else {
+                0
+            };
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("MountainVisibilityDepth"),
@@ -706,10 +718,10 @@ impl Scene {
             pass.set_bind_group(0, &self.view_group, &[]);
             pass.set_bind_group(1, &self.lines_read_group, &[]);
             pass.set_pipeline(&self.depth_pipeline);
-            pass.draw(0..(GRID - 1) * (GRID - 1) * 6, 0..1);
+            pass.draw(0..mesh_vertices, 0..1);
             // The upper depth surface hides its own back lines, but is never drawn in color.
             pass.set_pipeline(&self.line_depth_pipeline);
-            pass.draw(0..(GRID - 1) * (GRID - 1) * 6, 0..1);
+            pass.draw(0..SURFACE_VERTICES, 0..1);
         }
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -748,7 +760,7 @@ impl Scene {
             pass.set_bind_group(0, &self.view_group, &[]);
             pass.set_bind_group(1, &self.lines_read_group, &[]);
             pass.set_pipeline(&self.mesh_pipeline);
-            pass.draw(0..(GRID - 1) * (GRID - 1) * 6, 0..1);
+            pass.draw(0..mesh_vertices, 0..1);
             pass.set_pipeline(&self.line_pipeline);
             pass.draw(0..6, 0..self.line_count * SAMPLES * 2);
             if self.show_heightmap {

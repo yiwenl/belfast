@@ -45,6 +45,7 @@ const values = {
   backgroundColor: "#ede5db",
   heightmap: false,
   layerSpacing: 8,
+  baseThickness: 0.6,
   debugView: 0,
   debugGain: 1.6,
   yaw: 45.64276885986328,
@@ -119,6 +120,7 @@ function applyView() {
       ((background >> 16) & 255) / 255,
       ((background >> 8) & 255) / 255,
       (background & 255) / 255,
+      values.baseThickness,
     ]),
   );
   app?.setPaused(values.paused);
@@ -193,6 +195,9 @@ function createPane() {
   const scene = pane.addFolder({ title: "Scene" });
   scene
     .addBinding(values, "layerSpacing", { label: "Layer spacing", min: 0, max: 10, step: 0.1 })
+    .on("change", applyView);
+  scene
+    .addBinding(values, "baseThickness", { label: "Base thickness", min: 0, max: 6, step: 0.05 })
     .on("change", applyView);
   scene.addBinding(values, "heightmap", { label: "Height map" }).on("change", applyView);
   scene.addBinding(values, "backgroundColor", { label: "Background" }).on("change", applyView);
