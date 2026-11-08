@@ -1,0 +1,736 @@
+use crate::input::SkeletonInput;
+use belfast::{
+    BelfastResult, BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device, OrbitalControl,
+    OrbitalControlOptions, PerspectiveCamera,
+};
+use bytemuck::{Pod, Zeroable};
+
+pub const GRID: u32 = 512;
+pub const DROPLETS: u32 = 1024;
+pub const SAMPLES: u32 = 512;
+pub const MAX_LINES: u32 = 320;
+const WORLD: f32 = 12.0;
+const MSAA_SAMPLES: u32 = 4;
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct ViewUniform {
+    matrix: [f32; 16],
+    eye: [f32; 4],
+    light: [f32; 4],
+    style: [f32; 4],
+    material: [f32; 4],
+    grid: [f32; 4],
+    screen: [f32; 4],
+    counts: [u32; 4],
+}
+
+pub struct Scene {
+    pub camera: PerspectiveCamera,
+    pub control: OrbitalControl,
+    pub skeleton: SkeletonInput,
+    pub terrain: Buffer,
+    pub segments: Buffer,
+    droplets: Buffer,
+    sim_uniform: Buffer,
+    view_uniform: Buffer,
+    sim_group: BindGroup,
+    simulation: Vec<Compute>,
+    view_group: wgpu::BindGroup,
+    lines_read_group: wgpu::BindGroup,
+    lines_write_layout: wgpu::BindGroupLayout,
+    lines_write_group: wgpu::BindGroup,
+    lines_compute: Compute,
+    mesh_pipeline: wgpu::RenderPipeline,
+    depth_pipeline: wgpu::RenderPipeline,
+    line_pipeline: wgpu::RenderPipeline,
+    debug_pipeline: wgpu::RenderPipeline,
+    depth_view: wgpu::TextureView,
+    msaa_color: wgpu::TextureView,
+    msaa_depth: wgpu::TextureView,
+    width: u32,
+    height: u32,
+    pub steps: u32,
+    pub paused: bool,
+    pub step_limit: u32,
+    pub steps_per_frame: u32,
+    single_steps: u32,
+    pub line_count: u32,
+    pub show_heightmap: bool,
+    pub show_initial: bool,
+    pub debug_mode: f32,
+    pub debug_gain: f32,
+    pub terrain_height: f32,
+    pub light_yaw: f32,
+    pub light_pitch: f32,
+    pub spot_angle: f32,
+    pub spot_falloff: f32,
+    pub contour_spacing: f32,
+    pub contour_strength: f32,
+    pub contrast: f32,
+    pub line_width: f32,
+    pub shadows: bool,
+}
+
+fn buffer_entry(
+    binding: u32,
+    visibility: wgpu::ShaderStages,
+    ty: wgpu::BufferBindingType,
+) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility,
+        ty: wgpu::BindingType::Buffer {
+            ty,
+            has_dynamic_offset: false,
+            min_binding_size: None,
+        },
+        count: None,
+    }
+}
+fn resource(binding: u32, buffer: &Buffer) -> wgpu::BindGroupEntry<'_> {
+    wgpu::BindGroupEntry {
+        binding,
+        resource: buffer.gpu().as_entire_binding(),
+    }
+}
+fn depth_view(device: &Device, width: u32, height: u32, samples: u32) -> wgpu::TextureView {
+    device
+        .gpu()
+        .create_texture(&wgpu::TextureDescriptor {
+            label: Some("MountainCameraDepth"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: samples,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        })
+        .create_view(&Default::default())
+}
+fn msaa_color(device: &Device, width: u32, height: u32) -> wgpu::TextureView {
+    device
+        .gpu()
+        .create_texture(&wgpu::TextureDescriptor {
+            label: Some("MountainMultisampleColor"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: MSAA_SAMPLES,
+            dimension: wgpu::TextureDimension::D2,
+            format: device.format(),
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        })
+        .create_view(&Default::default())
+}
+fn write_group(
+    device: &Device,
+    layout: &wgpu::BindGroupLayout,
+    segments: &Buffer,
+    depth: &wgpu::TextureView,
+) -> wgpu::BindGroup {
+    device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("MountainLineGeneration"),
+        layout,
+        entries: &[
+            resource(0, segments),
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(depth),
+            },
+        ],
+    })
+}
+
+impl Scene {
+    pub fn new(device: &Device) -> BelfastResult<Self> {
+        let terrain = Buffer::create(
+            device,
+            u64::from(GRID * GRID) * 16,
+            BufferUsage::storage() | wgpu::BufferUsages::COPY_SRC,
+            "MountainHeightfield",
+        );
+        let droplets = Buffer::create(
+            device,
+            u64::from(DROPLETS) * 64,
+            BufferUsage::storage(),
+            "MountainDroplets",
+        );
+        let exchanges = Buffer::create(
+            device,
+            u64::from(GRID * GRID) * 16,
+            BufferUsage::storage(),
+            "MountainExchanges",
+        );
+        let soil_flow = Buffer::create(
+            device,
+            u64::from(GRID * GRID) * 16,
+            BufferUsage::storage(),
+            "MountainSoilFlow",
+        );
+        let segments = Buffer::create(
+            device,
+            u64::from(MAX_LINES * SAMPLES * 2) * 48,
+            BufferUsage::storage() | wgpu::BufferUsages::COPY_SRC,
+            "MountainLineSegments",
+        );
+        let sim_uniform = Buffer::create(
+            device,
+            64,
+            BufferUsage::uniform(),
+            "MountainErosionSettings",
+        );
+        let view_uniform = Buffer::create(
+            device,
+            std::mem::size_of::<ViewUniform>() as u64,
+            BufferUsage::uniform(),
+            "MountainView",
+        );
+        let sim_layout = device
+            .gpu()
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("MountainSimulationLayout"),
+                entries: &[
+                    buffer_entry(
+                        0,
+                        wgpu::ShaderStages::COMPUTE,
+                        wgpu::BufferBindingType::Uniform,
+                    ),
+                    buffer_entry(
+                        1,
+                        wgpu::ShaderStages::COMPUTE,
+                        wgpu::BufferBindingType::Storage { read_only: false },
+                    ),
+                    buffer_entry(
+                        2,
+                        wgpu::ShaderStages::COMPUTE,
+                        wgpu::BufferBindingType::Storage { read_only: false },
+                    ),
+                    buffer_entry(
+                        3,
+                        wgpu::ShaderStages::COMPUTE,
+                        wgpu::BufferBindingType::Storage { read_only: false },
+                    ),
+                    buffer_entry(
+                        4,
+                        wgpu::ShaderStages::COMPUTE,
+                        wgpu::BufferBindingType::Storage { read_only: false },
+                    ),
+                ],
+            });
+        let sim_pipeline_layout =
+            device
+                .gpu()
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("MountainSimulationPipelineLayout"),
+                    bind_group_layouts: &[Some(&sim_layout)],
+                    immediate_size: 0,
+                });
+        let sim_group = BindGroup::create(
+            device,
+            &sim_layout,
+            &[
+                resource(0, &sim_uniform),
+                resource(1, &terrain),
+                resource(2, &droplets),
+                resource(3, &exchanges),
+                resource(4, &soil_flow),
+            ],
+            "MountainSimulationGroup",
+        );
+        let simulation = [
+            "clear",
+            "request",
+            "apply",
+            "commit",
+            "settle_flow",
+            "settle_apply",
+        ]
+        .into_iter()
+        .map(|entry| {
+            Compute::new(
+                device,
+                include_str!("erosion.wgsl"),
+                ComputeOptions {
+                    label: entry,
+                    layout: Some(&sim_pipeline_layout),
+                    entry_point: entry,
+                },
+            )
+        })
+        .collect();
+        let view_layout = device
+            .gpu()
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("MountainViewLayout"),
+                entries: &[
+                    buffer_entry(
+                        0,
+                        wgpu::ShaderStages::VERTEX_FRAGMENT | wgpu::ShaderStages::COMPUTE,
+                        wgpu::BufferBindingType::Uniform,
+                    ),
+                    buffer_entry(
+                        1,
+                        wgpu::ShaderStages::VERTEX_FRAGMENT | wgpu::ShaderStages::COMPUTE,
+                        wgpu::BufferBindingType::Storage { read_only: true },
+                    ),
+                ],
+            });
+        let view_group = device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("MountainViewGroup"),
+            layout: &view_layout,
+            entries: &[resource(0, &view_uniform), resource(1, &terrain)],
+        });
+        let lines_read_layout =
+            device
+                .gpu()
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("MountainLinesReadLayout"),
+                    entries: &[buffer_entry(
+                        0,
+                        wgpu::ShaderStages::VERTEX,
+                        wgpu::BufferBindingType::Storage { read_only: true },
+                    )],
+                });
+        let lines_read_group = device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("MountainLinesReadGroup"),
+            layout: &lines_read_layout,
+            entries: &[resource(0, &segments)],
+        });
+        let lines_write_layout =
+            device
+                .gpu()
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("MountainLinesWriteLayout"),
+                    entries: &[
+                        buffer_entry(
+                            0,
+                            wgpu::ShaderStages::COMPUTE,
+                            wgpu::BufferBindingType::Storage { read_only: false },
+                        ),
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Texture {
+                                sample_type: wgpu::TextureSampleType::Depth,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                multisampled: false,
+                            },
+                            count: None,
+                        },
+                    ],
+                });
+        let msaa_depth = depth_view(device, 2, 1, MSAA_SAMPLES);
+        let msaa_color = msaa_color(device, 2, 1);
+        let depth_view = depth_view(device, 2, 1, 1);
+        let lines_write_group = write_group(device, &lines_write_layout, &segments, &depth_view);
+        let lines_pipeline_layout =
+            device
+                .gpu()
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("MountainLinesComputeLayout"),
+                    bind_group_layouts: &[Some(&view_layout), Some(&lines_write_layout)],
+                    immediate_size: 0,
+                });
+        let lines_code = format!(
+            "{}\n{}",
+            include_str!("common.wgsl"),
+            include_str!("lines.wgsl")
+        );
+        let lines_compute = Compute::new(
+            device,
+            &lines_code,
+            ComputeOptions {
+                label: "MountainVisibleLines",
+                layout: Some(&lines_pipeline_layout),
+                entry_point: "cs_main",
+            },
+        );
+        let render_layout = device
+            .gpu()
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("MountainRenderLayout"),
+                bind_group_layouts: &[Some(&view_layout), Some(&lines_read_layout)],
+                immediate_size: 0,
+            });
+        let module = device
+            .gpu()
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("MountainRenderShader"),
+                source: wgpu::ShaderSource::Wgsl(
+                    format!(
+                        "{}\n{}",
+                        include_str!("common.wgsl"),
+                        include_str!("terrain.wgsl")
+                    )
+                    .into(),
+                ),
+            });
+        let make_pipeline = |label: &'static str,
+                             vertex: &'static str,
+                             fragment: &'static str,
+                             depth: bool,
+                             color: bool,
+                             samples: u32| {
+            device
+                .gpu()
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: Some(label),
+                    layout: Some(&render_layout),
+                    vertex: wgpu::VertexState {
+                        module: &module,
+                        entry_point: Some(vertex),
+                        buffers: &[],
+                        compilation_options: Default::default(),
+                    },
+                    fragment: color.then_some(wgpu::FragmentState {
+                        module: &module,
+                        entry_point: Some(fragment),
+                        targets: &[Some(wgpu::ColorTargetState {
+                            format: device.format(),
+                            blend: None,
+                            write_mask: wgpu::ColorWrites::ALL,
+                        })],
+                        compilation_options: Default::default(),
+                    }),
+                    primitive: wgpu::PrimitiveState {
+                        cull_mode: None,
+                        ..Default::default()
+                    },
+                    depth_stencil: depth.then_some(wgpu::DepthStencilState {
+                        format: wgpu::TextureFormat::Depth32Float,
+                        depth_write_enabled: Some(true),
+                        depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                        stencil: Default::default(),
+                        bias: Default::default(),
+                    }),
+                    multisample: wgpu::MultisampleState {
+                        count: samples,
+                        ..Default::default()
+                    },
+                    multiview_mask: None,
+                    cache: None,
+                })
+        };
+        let mesh_pipeline = make_pipeline(
+            "MountainMesh",
+            "mesh_vertex",
+            "mesh_fragment",
+            true,
+            true,
+            MSAA_SAMPLES,
+        );
+        let depth_pipeline = make_pipeline(
+            "MountainDepth",
+            "mesh_vertex",
+            "mesh_fragment",
+            true,
+            false,
+            1,
+        );
+        let line_pipeline = make_pipeline(
+            "MountainInk",
+            "line_vertex",
+            "line_fragment",
+            false,
+            true,
+            MSAA_SAMPLES,
+        );
+        let debug_pipeline = make_pipeline(
+            "MountainHeightmap",
+            "debug_vertex",
+            "debug_fragment",
+            false,
+            true,
+            MSAA_SAMPLES,
+        );
+        let mut camera = PerspectiveCamera::new(42.0_f32.to_radians(), 1.0, 0.1, 100.0);
+        let mut control = OrbitalControl::new(OrbitalControlOptions {
+            center: [0.0, 0.8, 0.0],
+            radius: 21.0,
+            min_radius: 6.0,
+            max_radius: 40.0,
+            rotate_sensitivity: 0.006,
+            ..Default::default()
+        })?;
+        control.snap_yaw(32.0_f32.to_radians());
+        control.snap_pitch(36.0_f32.to_radians());
+        control.update(0.0, &mut camera);
+        let scene = Self {
+            camera,
+            control,
+            skeleton: SkeletonInput::default(),
+            terrain,
+            segments,
+            droplets,
+            sim_uniform,
+            view_uniform,
+            sim_group,
+            simulation,
+            view_group,
+            lines_read_group,
+            lines_write_layout,
+            lines_write_group,
+            lines_compute,
+            mesh_pipeline,
+            depth_pipeline,
+            line_pipeline,
+            debug_pipeline,
+            depth_view,
+            msaa_color,
+            msaa_depth,
+            width: 2,
+            height: 1,
+            steps: 0,
+            paused: false,
+            step_limit: 2400,
+            steps_per_frame: 6,
+            single_steps: 0,
+            line_count: 192,
+            show_heightmap: true,
+            show_initial: false,
+            debug_mode: 0.0,
+            debug_gain: 1.6,
+            terrain_height: 2.8,
+            light_yaw: 74.0,
+            light_pitch: 20.0,
+            spot_angle: 0.5,
+            spot_falloff: 2.0,
+            contour_spacing: 0.1,
+            contour_strength: 0.2,
+            contrast: 1.0,
+            line_width: 1.0,
+            shadows: true,
+        };
+        scene.set_erosion(
+            device,
+            &[0.15, 5.0, 0.3, 0.22, 0.015, 4.0, 1.0, 200.0, 0.2, 0.18],
+        );
+        Ok(scene)
+    }
+
+    pub fn reset(&mut self, device: &Device, heights: &[f32], seeds: &[u32]) {
+        let data: Vec<[f32; 4]> = heights.iter().map(|h| [*h, *h, 0.0, 0.0]).collect();
+        self.terrain.write(device, &data, 0);
+        let mut state = vec![[0u32; 16]; DROPLETS as usize];
+        for (d, seed) in state.iter_mut().zip(seeds) {
+            d[12] = (*seed).max(1);
+        }
+        self.droplets.write(device, &state, 0);
+        self.steps = 0;
+        self.single_steps = 0;
+    }
+    pub fn set_erosion(&self, device: &Device, values: &[f32]) {
+        let mut data = [0u32; 16];
+        data[0] = GRID;
+        data[1] = DROPLETS;
+        for (destination, value) in data[4..].iter_mut().zip(values) {
+            *destination = value.to_bits();
+        }
+        self.sim_uniform.write(device, &data, 0);
+    }
+    pub fn advance(&mut self, steps: u32) {
+        self.single_steps = self.single_steps.saturating_add(steps.min(256));
+    }
+    pub fn resize(&mut self, device: &Device, width: u32, height: u32) -> BelfastResult<()> {
+        self.width = width;
+        self.height = height;
+        self.camera
+            .set_aspect((width / 2).max(1) as f32 / height as f32)?;
+        self.depth_view = depth_view(device, width, height, 1);
+        self.msaa_color = msaa_color(device, width, height);
+        self.msaa_depth = depth_view(device, width, height, MSAA_SAMPLES);
+        self.lines_write_group = write_group(
+            device,
+            &self.lines_write_layout,
+            &self.segments,
+            &self.depth_view,
+        );
+        Ok(())
+    }
+    pub fn update(&mut self, device: &Device, delta_seconds: f32, _now_ms: f64) {
+        self.control.update(delta_seconds, &mut self.camera);
+        let yaw = self.light_yaw.to_radians();
+        let pitch = self.light_pitch.to_radians();
+        let light = [
+            yaw.sin() * pitch.cos(),
+            pitch.sin(),
+            yaw.cos() * pitch.cos(),
+            WORLD,
+        ];
+        let eye = self.camera.position();
+        let uniform = ViewUniform {
+            matrix: self.camera.view_projection_matrix(),
+            eye: [eye[0], eye[1], eye[2], 1.0],
+            light,
+            style: [
+                self.contrast,
+                self.line_count as f32,
+                self.line_width,
+                if self.shadows { 1.0 } else { 0.0 },
+            ],
+            material: [
+                self.spot_angle,
+                self.spot_falloff,
+                self.contour_spacing,
+                self.contour_strength,
+            ],
+            grid: [
+                GRID as f32,
+                WORLD / (GRID - 1) as f32,
+                self.terrain_height * (GRID - 1) as f32 / WORLD,
+                self.debug_gain,
+            ],
+            screen: [
+                (self.width / 2) as f32,
+                self.height as f32,
+                if self.show_initial { 1.0 } else { 0.0 },
+                self.debug_mode,
+            ],
+            counts: [self.line_count, SAMPLES, 0, 0],
+        };
+        self.view_uniform.write(device, &[uniform], 0);
+    }
+    pub fn render(&mut self, device: &Device, target: &wgpu::TextureView) {
+        let mut encoder = device
+            .gpu()
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("MountainFrame"),
+            });
+        let count = if self.single_steps > 0 {
+            let count = self.single_steps.min(16);
+            self.single_steps -= count;
+            count
+        } else if !self.paused {
+            self.steps_per_frame
+                .min(self.step_limit.saturating_sub(self.steps))
+        } else {
+            0
+        };
+        for _ in 0..count {
+            for (index, compute) in self.simulation.iter().enumerate() {
+                let items = if index == 1 || index == 3 {
+                    DROPLETS
+                } else {
+                    GRID * GRID
+                };
+                compute.run(
+                    &mut encoder,
+                    Some(&self.sim_group),
+                    [items.div_ceil(64), 1, 1],
+                    None,
+                );
+            }
+        }
+        self.steps += count;
+        let half = (self.width / 2) as f32;
+        let height = self.height as f32;
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("MountainVisibilityDepth"),
+                // Keep visibility sampling independent of display antialiasing.
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_bind_group(0, &self.view_group, &[]);
+            pass.set_bind_group(1, &self.lines_read_group, &[]);
+            pass.set_viewport(half, 0.0, half, height, 0.0, 1.0);
+            pass.set_pipeline(&self.depth_pipeline);
+            pass.draw(0..(GRID - 1) * (GRID - 1) * 6, 0..1);
+        }
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("MountainLineVisibility"),
+                timestamp_writes: None,
+            });
+            pass.set_bind_group(0, &self.view_group, &[]);
+            pass.set_bind_group(1, &self.lines_write_group, &[]);
+            self.lines_compute
+                .dispatch(&mut pass, [(self.line_count * SAMPLES).div_ceil(64), 1, 1]);
+        }
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("MountainMultisampleMesh"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.msaa_color,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.086,
+                            g: 0.086,
+                            b: 0.086,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.msaa_depth,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_bind_group(0, &self.view_group, &[]);
+            pass.set_bind_group(1, &self.lines_read_group, &[]);
+            pass.set_viewport(0.0, 0.0, half, height, 0.0, 1.0);
+            pass.set_pipeline(&self.mesh_pipeline);
+            pass.draw(0..(GRID - 1) * (GRID - 1) * 6, 0..1);
+        }
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("MountainLinesAndDebug"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.msaa_color,
+                    depth_slice: None,
+                    resolve_target: Some(target),
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Discard,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_bind_group(0, &self.view_group, &[]);
+            pass.set_bind_group(1, &self.lines_read_group, &[]);
+            pass.set_pipeline(&self.line_pipeline);
+            pass.set_viewport(half, 0.0, half, height, 0.0, 1.0);
+            pass.draw(0..6, 0..self.line_count * SAMPLES * 2);
+            if self.show_heightmap {
+                let size = (height * 0.22).min(half * 0.35).min(height - 24.0).max(1.0);
+                pass.set_viewport(12.0, height - size - 12.0, size, size, 0.0, 1.0);
+                pass.set_pipeline(&self.debug_pipeline);
+                pass.draw(0..3, 0..1);
+            }
+        }
+        device.queue().submit([encoder.finish()]);
+    }
+}

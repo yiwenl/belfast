@@ -1,0 +1,27 @@
+# Mountain Fold implementation
+
+**Goal:** Controlled ridges, visible hydraulic channels and smooth depositional foothills, with monochrome mesh/line split rendering and SVG/PNG export.
+
+**Architecture:** Rust/Belfast owns GPU simulation, camera and rendering. TypeScript owns Tweakpane, seeded initial ridge generation and downloads. Droplets request fixed-point erosion/deposition; a grid pass applies bounded exchanges; droplets receive only the accepted amounts. Fixed simulation steps are independent of frame time. GPU visibility produces the same segments used by the preview and SVG.
+
+**Scope:** The design and execution are authorized by the conversation. The user explicitly requests an experiment with no automated tests. Validate by building, running in WebGPU and inspecting before/after height maps; iterate shaders if ridge structure, drainage or depositional foothills are missing. Work directly in the user's new experiment. No additional approval gate.
+
+- [x] Register the experiment; adapt the supplied fxhash/sfc32 utility and seeded ridge height field.
+- [x] Implement GPU droplet exchange and height-map debug views, including reset/pause/fixed step count.
+- [x] Render synchronized mesh/line halves, diffuse light, depth visibility and shadow-dependent line density.
+- [x] Add all controls in Tweakpane, canvas PNG capture on Ctrl/Cmd+S, and plotter SVG export.
+- [x] Build and run; visually inspect the height map, iterate erosion if necessary, verify controls/exports and record observed limitations in README.
+
+Files: `experiments/mountain_fold/src/{scene.rs,browser.rs,erosion.wgsl,terrain.wgsl,lines.wgsl}`, `web/{main.ts,terrain.ts,hash.ts,export.ts}`, stylesheet/index and workspace manifests. Reuse template orbit handling and Belfast's existing buffer/compute interfaces. No new test files or test runs.
+
+Review focus: concurrent erosion cannot over-credit droplets; terminal sediment is deposited before respawn; deterministic batches are frame-rate independent; split viewport depth and projection agree; screenshots capture a rendered frame; SVG contains clipped geometry rather than masking alone.
+
+## Execution notes
+
+- User-requested no-test workflow honored: builds and manual Chrome/WebGPU inspection only.
+- Initial deposition was grainy. Added conservative flux/gather relaxation of deposited soil only; the underlying ridge substrate is not smoothed.
+- Read-only reviewer found triangle/bilinear depth mismatch, stale camera controls and async filename/seed snapshot issues; all three were fixed.
+- Final default run preserves ridges, cuts downhill channels and gains height around the foothills. PNG and SVG export succeeded. Same-seed rerun had identical exported height/soil channels on the inspected browser/GPU.
+- Follow-up: increased mesh/height field to 512 × 512 and replaced the sharp crest with a controllable slope-continuous profile. Manual same-seed comparison at rounding 0 and 0.12 confirmed reduced crest teeth.
+- Added 4× MSAA to both display halves while keeping the single-sample visibility pass used by SVG.
+- Matched the requested `erosion4` style with a near-black background, white light-driven lines, a dark grayscale spotlight material and height contours, with Tweakpane controls. Final build and manual PNG/SVG checks passed; no test suites were run.

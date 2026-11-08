@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mountain Fold — Belfast</title>
+  </head>
+  <body>
+    <canvas
+      aria-label="Mountain erosion: shaded mesh on the left and plotter lines on the right"
+    ></canvas>
+    <header>
+      <h1>MOUNTAIN FOLD</h1>
+      <p>Drag to orbit · Shift + drag to pan · Scroll to zoom</p>
+    </header>
+    <span id="mesh-label" class="view-label">01 / SURFACE</span>
+    <span id="line-label" class="view-label">02 / INK</span>
+    <div id="divider"></div>
+    <div id="controls"></div>
+    <p id="debug-label">HEIGHT MAP</p>
+    <p id="counter"></p>
+    <p id="status" role="status">Loading WebGPU…</p>
+    <pre id="error" role="alert" hidden></pre>
+    <script type="module" src="./web/main.ts"></script>
+  </body>
+</html>

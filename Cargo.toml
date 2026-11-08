@@ -9,6 +9,7 @@ members = [
   "experiments/courtyard02",
   "experiments/firefly_forest",
   "experiments/image_volume",
+  "experiments/mountain_fold",
 ]
 resolver = "2"
 
