@@ -14,6 +14,8 @@ const WORLD: f32 = 12.0;
 const MSAA_SAMPLES: u32 = 4;
 const SURFACE_VERTICES: u32 = (GRID - 1) * (GRID - 1) * 6;
 const BASE_VERTICES: u32 = (GRID - 1) * 4 * 6 + 6;
+const WARM_WHITE: [f32; 4] = [243.0 / 255.0, 238.0 / 255.0, 230.0 / 255.0, 1.0];
+const WARM_BLACK: [f32; 4] = [31.0 / 255.0, 28.0 / 255.0, 25.0 / 255.0, 1.0];
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -41,6 +43,7 @@ pub struct Scene {
     pub orthographic: bool,
     pub ortho_bound: f32,
     pub svg_preview: bool,
+    svg_dark: bool,
     paper_size: [f32; 4],
     scene_camera: Option<(OrbitalControl, f32)>,
     pub skeleton: SkeletonInput,
@@ -539,6 +542,7 @@ impl Scene {
             orthographic: true,
             ortho_bound: 9.0,
             svg_preview: false,
+            svg_dark: false,
             paper_size: [148.0, 210.0, 10.0, 0.18],
             scene_camera: None,
             skeleton: SkeletonInput::default(),
@@ -713,8 +717,14 @@ impl Scene {
         }
         Ok(())
     }
-    pub fn set_svg_preview(&mut self, enabled: bool, paper: [f32; 4]) -> BelfastResult<()> {
+    pub fn set_svg_preview(
+        &mut self,
+        enabled: bool,
+        dark: bool,
+        paper: [f32; 4],
+    ) -> BelfastResult<()> {
         self.paper_size = paper;
+        self.svg_dark = dark;
         if enabled != self.svg_preview {
             if enabled {
                 let old_bound = self.ortho_bound;
@@ -859,7 +869,7 @@ impl Scene {
             ],
             counts: [self.active_strokes, SAMPLES, self.line_seed, self.line_mode],
             line_color: if self.svg_preview {
-                [0.0, 0.0, 0.0, 1.0]
+                if self.svg_dark { WARM_WHITE } else { WARM_BLACK }
             } else {
                 self.line_color
             },
@@ -979,7 +989,13 @@ impl Scene {
                     resolve_target: Some(target),
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(if self.svg_preview {
-                            wgpu::Color::WHITE
+                            let [r, g, b, _] = if self.svg_dark { WARM_BLACK } else { WARM_WHITE };
+                            wgpu::Color {
+                                r: r.into(),
+                                g: g.into(),
+                                b: b.into(),
+                                a: 1.0,
+                            }
                         } else {
                             self.background_color
                         }),

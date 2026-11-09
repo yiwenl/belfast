@@ -335,6 +335,7 @@ impl ExperimentApp {
     pub fn set_svg_preview(
         &mut self,
         enabled: bool,
+        dark: bool,
         width: f32,
         height: f32,
         margin: f32,
@@ -349,7 +350,7 @@ impl ExperimentApp {
             return Err(js_error("Invalid SVG paper settings"));
         }
         self.scene
-            .set_svg_preview(enabled, [width, height, margin, pen])
+            .set_svg_preview(enabled, dark, [width, height, margin, pen])
             .map_err(js_error)
     }
 

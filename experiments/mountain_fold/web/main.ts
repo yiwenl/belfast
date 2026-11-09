@@ -15,10 +15,11 @@ const values = {
   height: 2.8,
   width: 0.34,
   rounding: 0.12,
-  branches: 8,
+  levels: 3,
   direction: -12,
   noise: 0.12,
   noiseFloor: 0.18,
+  scale: 1,
   inertia: 0.15,
   capacity: 5,
   erosion: 0.3,
@@ -55,6 +56,7 @@ const values = {
   meshColor: "#3c3b3a",
   backgroundColor: "#131313",
   svgPreview: false,
+  svgDark: false,
   heightmap: false,
   layerSpacing: 8,
   baseThickness: 0.6,
@@ -186,6 +188,7 @@ function applyPaper() {
   if (!app) return;
   app.setSvgPreview(
     values.svgPreview,
+    values.svgDark,
     values.paperWidth,
     values.paperHeight,
     values.margin,
@@ -231,8 +234,9 @@ function createPane() {
   for (const [key, label, min, max, step] of [
     ["height", "Height", 0.8, 4.5, 0.05],
     ["width", "Ridge width", 0.15, 0.5, 0.01],
+    ["scale", "Scale", 0.5, 2, 0.05],
     ["rounding", "Ridge rounding", 0, 0.3, 0.01],
-    ["branches", "Branches", 0, 12, 1],
+    ["levels", "Branch levels", 1, 5, 1],
     ["direction", "Direction", -180, 180, 1],
     ["noise", "Surface noise", 0, 0.35, 0.005],
     ["noiseFloor", "Noise floor", 0, 0.4, 0.01],
@@ -249,6 +253,9 @@ function createPane() {
 
   const scene = pane.addFolder({ title: "Scene" });
   const preview = scene.addBinding(values, "svgPreview", { label: "SVG preview" });
+  const darkPaper = scene
+    .addBinding(values, "svgDark", { label: "Dark paper", hidden: !values.svgPreview })
+    .on("change", applyPaper);
   const layerSpacing = scene
     .addBinding(values, "layerSpacing", { label: "Layer spacing", min: 0, max: 10, step: 0.1 })
     .on("change", applyView);
@@ -391,6 +398,7 @@ function createPane() {
   preview.on("change", () => {
     (poseBindings[0] as SliderInputBindingApi).max = values.svgPreview ? 200 : 40;
     applyPaper();
+    darkPaper.hidden = !values.svgPreview;
     for (const binding of [
       layerSpacing,
       baseThickness,

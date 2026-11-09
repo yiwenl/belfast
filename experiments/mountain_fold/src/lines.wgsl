@@ -62,8 +62,7 @@ fn visible(p: vec2<f32>, rank: f32) -> bool {
     let facing = select(0.25, 0.0, view.counts.w == 2u);
     if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) < facing) { return false; }
     let light = max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world_position(p));
-    let ink = select(smoothstep(0.0, 0.75, pow(clamp(light * view.style.x, 0.0, 1.0), 1.5)), shadow_ink(light), view.counts.w == 2u);
-    return rank < ink;
+    return rank < shadow_ink(light);
 }
 fn write_segment(index: u32, start: vec2<f32>, end: vec2<f32>, rank: f32, ring: u32) {
     var a = start;
