@@ -47,7 +47,9 @@ const values = {
   lineSpacing: 4,
   voronoiCells: 64,
   voronoiSpacing: 0.06,
+  voronoiCurve: 0.4,
   contrast: 1,
+  invertInk: false,
   lineWidth: 1,
   lineWobble: 0.015,
   wobbleScale: 0.6,
@@ -99,10 +101,20 @@ function fail(error: unknown) {
 }
 function applyView() {
   if (app && values.lineMode === 2) {
-    const key = JSON.stringify([values.seed, values.voronoiCells, values.voronoiSpacing]);
+    const key = JSON.stringify([
+      values.seed,
+      values.voronoiCells,
+      values.voronoiSpacing,
+      values.voronoiCurve,
+    ]);
     if (key !== voronoiKey) {
       app.setVoronoiSegments(
-        generateVoronoiSegments(values.seed, values.voronoiCells, values.voronoiSpacing),
+        generateVoronoiSegments(
+          values.seed,
+          values.voronoiCells,
+          values.voronoiSpacing,
+          values.voronoiCurve,
+        ),
       );
       voronoiKey = key;
     }
@@ -150,6 +162,7 @@ function applyView() {
       ((mesh >> 8) & 255) / 255,
       (mesh & 255) / 255,
       values.minElevation,
+      +values.invertInk,
     ]),
   );
   app?.setPaused(values.paused);
@@ -328,6 +341,7 @@ function createPane() {
   render
     .addBinding(values, "contrast", { label: "Line exposure", min: 0.2, max: 2.5, step: 0.05 })
     .on("change", applyView);
+  render.addBinding(values, "invertInk", { label: "Ink on light" }).on("change", applyView);
   const lineColor = render
     .addBinding(values, "lineColor", { label: "Line color" })
     .on("change", applyView);
@@ -350,6 +364,11 @@ function createPane() {
       max: 0.1,
       step: 0.001,
     })
+    .on("change", (event) => {
+      if (event.last) applyView();
+    });
+  voronoi
+    .addBinding(values, "voronoiCurve", { label: "Curve", min: 0, max: 1.5, step: 0.01 })
     .on("change", (event) => {
       if (event.last) applyView();
     });

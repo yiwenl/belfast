@@ -101,6 +101,7 @@ pub struct Scene {
     pub line_wobble: f32,
     pub wobble_scale: f32,
     pub min_elevation: f32,
+    pub invert_ink: bool,
     line_seed: u32,
     pub line_color: [f32; 4],
     pub contour_color: [f32; 4],
@@ -223,7 +224,7 @@ impl Scene {
             "MountainLineSegments",
         );
         let voronoi_segments =
-            Buffer::create(device, 32, BufferUsage::storage(), "MountainVoronoiLayout");
+            Buffer::create(device, 48, BufferUsage::storage(), "MountainVoronoiLayout");
         let sim_uniform = Buffer::create(
             device,
             64,
@@ -600,6 +601,7 @@ impl Scene {
             line_wobble: 0.015,
             wobble_scale: 0.6,
             min_elevation: 0.0,
+            invert_ink: false,
             line_seed: 0,
             line_color: [153.0 / 255.0, 146.0 / 255.0, 138.0 / 255.0, 1.0],
             contour_color: [89.0 / 255.0, 89.0 / 255.0, 89.0 / 255.0, 1.0],
@@ -662,7 +664,7 @@ impl Scene {
         }
     }
     pub fn set_voronoi_segments(&mut self, device: &Device, data: &[f32]) {
-        self.voronoi_segment_count = (data.len() / 8) as u32;
+        self.voronoi_segment_count = (data.len() / 12) as u32;
         self.voronoi_segments = Buffer::from_data(
             device,
             data,
@@ -873,7 +875,12 @@ impl Scene {
             } else {
                 self.line_color
             },
-            base: [self.base_thickness, 0.0, 0.0, 0.0],
+            base: [
+                self.base_thickness,
+                if self.invert_ink { 1.0 } else { 0.0 },
+                0.0,
+                0.0,
+            ],
             stroke: [
                 self.line_wobble,
                 self.wobble_scale,

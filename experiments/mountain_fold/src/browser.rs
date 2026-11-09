@@ -249,7 +249,7 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setView)]
     pub fn set_view(&mut self, values: &[f32]) -> Result<(), JsValue> {
-        if values.len() != 36 || values.iter().any(|v| !v.is_finite()) {
+        if values.len() != 37 || values.iter().any(|v| !v.is_finite()) {
             return Err(js_error("Invalid view settings"));
         }
         self.scene.light_yaw = values[0];
@@ -300,6 +300,7 @@ impl ExperimentApp {
             1.0,
         ];
         self.scene.min_elevation = values[35].clamp(0.0, 5.0);
+        self.scene.invert_ink = values[36] > 0.5;
         Ok(())
     }
 
@@ -312,9 +313,9 @@ impl ExperimentApp {
     pub fn set_voronoi_segments(&mut self, data: &[f32]) -> Result<(), JsValue> {
         let limit = self.device.gpu().limits().max_storage_buffer_binding_size as usize;
         if data.is_empty()
-            || data.len() % 8 != 0
-            || data.len() * 6 > limit
-            || data.chunks_exact(8).any(|s| {
+            || data.len() % 12 != 0
+            || data.len() * 4 > limit
+            || data.chunks_exact(12).any(|s| {
                 s.iter().any(|v| !v.is_finite())
                     || s[..4]
                         .iter()
@@ -322,7 +323,7 @@ impl ExperimentApp {
                     || !(0.0..=1.0).contains(&s[4])
                     || s[5] < 0.0
                     || s[5] > 16_777_215.0
-                    || s[6..].iter().any(|v| *v < 0.0)
+                    || s[6..8].iter().any(|v| *v < 0.0)
             })
         {
             return Err(js_error("Invalid or oversized Voronoi line layout"));

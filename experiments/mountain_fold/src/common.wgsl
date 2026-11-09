@@ -8,7 +8,7 @@ struct View {
     screen: vec4<f32>,
     counts: vec4<u32>, // curves, hatch columns or Voronoi segments; samples; seed; mode
     line_color: vec4<f32>,
-    base: vec4<f32>, // thickness in world units
+    base: vec4<f32>, // thickness in world units, inverted ink density (1 = lit faces get more lines)
     stroke: vec4<f32>, // wobble amplitude/wavelength, hatch spacing, min line elevation
     inverse_matrix: mat4x4<f32>,
     paper: vec4<f32>, // printable width/height as fractions of the page

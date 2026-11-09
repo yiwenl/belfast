@@ -1,6 +1,6 @@
 @group(1) @binding(0) var<storage, read_write> segments: array<Segment>;
 @group(1) @binding(1) var camera_depth: texture_depth_2d;
-struct VoronoiSegment { points: vec4<f32>, info: vec4<f32> }; // rank, stroke ID, endpoint clearances
+struct VoronoiSegment { points: vec4<f32>, info: vec4<f32>, direction: vec4<f32> }; // info: rank, stroke ID, endpoint clearances; direction.xy: cell direction
 @group(1) @binding(2) var<storage, read> voronoi_segments: array<VoronoiSegment>;
 
 fn stroke_random(knot: u32, ring: u32) -> f32 {
@@ -26,8 +26,9 @@ fn stroke_point(ring: u32, sample: u32) -> vec2<f32> {
     return vec2((view.grid.x - 1.0) * 0.5) + vec2(cos(angle), sin(angle)) * (radius + offset);
 }
 
-fn shadow_ink(light: f32) -> f32 {
-    return 1.0 - smoothstep(0.05, 0.8, clamp(light * view.style.x, 0.0, 1.0));
+fn ink(light: f32) -> f32 {
+    let lit = smoothstep(0.05, 0.8, clamp(light * view.style.x, 0.0, 1.0));
+    return select(1.0 - lit, lit, view.base.y > 0.5);
 }
 fn voronoi_point(p: vec2<f32>, direction: vec2<f32>, clearance: f32, stroke: u32) -> vec2<f32> {
     if (view.stroke.x <= 0.0) { return p; }
@@ -62,7 +63,7 @@ fn visible(p: vec2<f32>, rank: f32) -> bool {
     let facing = select(0.25, 0.0, view.counts.w == 2u);
     if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) < facing) { return false; }
     let light = max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world_position(p));
-    return rank < shadow_ink(light);
+    return rank < ink(light);
 }
 fn write_segment(index: u32, start: vec2<f32>, end: vec2<f32>, rank: f32, ring: u32) {
     var a = start;
@@ -103,8 +104,7 @@ fn hatch_sample(ndc: vec2<f32>, rank: f32) -> vec2<f32> {
     let normal = normal_at(p);
     if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) <= 0.0) { return vec2(depth, 0.0); }
     let light = max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world_position(p));
-    let ink = shadow_ink(light);
-    return vec2(depth, select(0.0, 1.0, rank < ink));
+    return vec2(depth, select(0.0, 1.0, rank < ink(light)));
 }
 fn write_hatch(column: u32, step: u32) {
     let x = (f32(column) - f32(view.counts.x / 2u)) * view.stroke.z;
@@ -141,8 +141,8 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     if (view.counts.w == 2u) {
         if (id.x >= view.counts.x) { return; }
         let line = voronoi_segments[id.x];
-        let delta = line.points.zw - line.points.xy;
-        let direction = delta / max(length(delta), 0.000001);
+        // Curved strokes share their cell's direction so wobble stays continuous across joints.
+        let direction = line.direction.xy;
         let stroke = u32(line.info.y);
         let a = voronoi_point(line.points.xy, direction, line.info.z, stroke);
         let b = voronoi_point(line.points.zw, direction, line.info.w, stroke);
