@@ -249,7 +249,7 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setView)]
     pub fn set_view(&mut self, values: &[f32]) -> Result<(), JsValue> {
-        if values.len() != 29 || values.iter().any(|v| !v.is_finite()) {
+        if values.len() != 35 || values.iter().any(|v| !v.is_finite()) {
             return Err(js_error("Invalid view settings"));
         }
         self.scene.light_yaw = values[0];
@@ -285,14 +285,49 @@ impl ExperimentApp {
         self.scene.base_thickness = values[24].clamp(0.0, 6.0);
         self.scene.line_wobble = values[25].clamp(0.0, 0.08);
         self.scene.wobble_scale = values[26].clamp(0.2, 2.0);
-        self.scene.line_mode = (values[27] as u32).min(1);
+        self.scene.line_mode = (values[27] as u32).min(2);
         self.scene.hatch_spacing = values[28].clamp(1.0, 16.0);
+        self.scene.contour_color = [
+            values[29].clamp(0.0, 1.0),
+            values[30].clamp(0.0, 1.0),
+            values[31].clamp(0.0, 1.0),
+            1.0,
+        ];
+        self.scene.mesh_color = [
+            values[32].clamp(0.0, 1.0),
+            values[33].clamp(0.0, 1.0),
+            values[34].clamp(0.0, 1.0),
+            1.0,
+        ];
         Ok(())
     }
 
     #[wasm_bindgen(js_name = setPaused)]
     pub fn set_paused(&mut self, paused: bool) {
         self.scene.paused = paused;
+    }
+
+    #[wasm_bindgen(js_name = setVoronoiSegments)]
+    pub fn set_voronoi_segments(&mut self, data: &[f32]) -> Result<(), JsValue> {
+        let limit = self.device.gpu().limits().max_storage_buffer_binding_size as usize;
+        if data.is_empty()
+            || data.len() % 8 != 0
+            || data.len() * 6 > limit
+            || data.chunks_exact(8).any(|s| {
+                s.iter().any(|v| !v.is_finite())
+                    || s[..4]
+                        .iter()
+                        .any(|v| *v < 0.0 || *v > (crate::scene::GRID - 1) as f32)
+                    || !(0.0..=1.0).contains(&s[4])
+                    || s[5] < 0.0
+                    || s[5] > 16_777_215.0
+                    || s[6..].iter().any(|v| *v < 0.0)
+            })
+        {
+            return Err(js_error("Invalid or oversized Voronoi line layout"));
+        }
+        self.scene.set_voronoi_segments(&self.device, data);
+        Ok(())
     }
 
     #[wasm_bindgen(js_name = setSvgPreview)]

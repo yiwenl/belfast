@@ -55,6 +55,10 @@ fn mesh_vertex(@builtin(vertex_index) id: u32) -> Vertex {
 fn line_depth_vertex(@builtin(vertex_index) id: u32) -> Vertex {
     return terrain_vertex(id, true);
 }
+fn mesh_lit(shade: f32) -> vec3<f32> {
+    // 0.3 is the fully lit surface, so the picked color is that face.
+    return view.mesh_color.rgb * shade / 0.3;
+}
 @fragment
 fn mesh_fragment(in: Vertex) -> @location(0) vec4<f32> {
     let terrain = world_position(in.grid_position);
@@ -66,16 +70,18 @@ fn mesh_fragment(in: Vertex) -> @location(0) vec4<f32> {
         let diffuse = max(0.0, dot(in.base_normal, view.light.xyz));
         let local = in.base_position + vec3(0.0, view.style.y * 0.5, 0.0);
         let shade = 0.18 * mix(0.25, 1.0, diffuse) * terrain_shadow(local);
-        return vec4(vec3(shade), 1.0);
+        return vec4(mesh_lit(shade), 1.0);
     }
     let position = mesh_position(in.grid_position);
     let light_to_fragment = normalize(position - view.light.xyz * view.light.w);
     let angle = acos(clamp(dot(-view.light.xyz, light_to_fragment), -1.0, 1.0));
     let spot = pow(max(0.0, 1.0 - angle / view.material.x), view.material.y);
     let diffuse = max(0.0, dot(normal_at(in.grid_position), -light_to_fragment)) * spot;
-    // Match erosion4's dark diffuse material and faint height contours in grayscale.
-    let shade = (0.3 * mix(0.4, 1.0, diffuse) + line * view.material.w) * terrain_shadow(terrain);
-    return vec4(vec3(shade), 1.0);
+    let shadow = terrain_shadow(terrain);
+    let shade = 0.3 * mix(0.4, 1.0, diffuse) * shadow;
+    // Strength 0.2 is a solid stroke. Cast shadows dim it with the surface.
+    let cover = clamp(line * view.material.w / 0.2, 0.0, 1.0);
+    return vec4(mix(mesh_lit(shade), view.contour_color.rgb * shadow, cover), 1.0);
 }
 @vertex
 fn line_vertex(@builtin(vertex_index) vertex: u32, @builtin(instance_index) instance: u32) -> @builtin(position) vec4<f32> {

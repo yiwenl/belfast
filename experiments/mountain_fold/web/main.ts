@@ -3,6 +3,7 @@ import { Pane, type SliderInputBindingApi } from "tweakpane";
 import type { BindingApi, FolderApi } from "@tweakpane/core";
 import { bindOrbitInput } from "./input";
 import { generateTerrain, GRID } from "./terrain";
+import { generateVoronoiSegments } from "./voronoi";
 import { DEFAULT_HASH, newHash } from "./hash";
 import { savePng, saveSvg, download } from "./export";
 import "./style.css";
@@ -37,17 +38,21 @@ const values = {
   spotAngle: 0.5,
   spotFalloff: 2,
   contourSpacing: 0.1,
-  contourStrength: 0.2,
+  contourStrength: 0.12,
   shadows: true,
   density: 192,
   lineMode: 0,
   lineSpacing: 4,
+  voronoiCells: 64,
+  voronoiSpacing: 0.06,
   contrast: 1,
   lineWidth: 1,
   lineWobble: 0.015,
   wobbleScale: 0.6,
   lineColor: "#99928a",
-  backgroundColor: "#ede5db",
+  contourColor: "#595959",
+  meshColor: "#3c3b3a",
+  backgroundColor: "#131313",
   svgPreview: false,
   heightmap: false,
   layerSpacing: 8,
@@ -80,6 +85,7 @@ let frames = 0,
   lastMeter = performance.now();
 const cameraBindings: BindingApi[] = [];
 let refreshingCamera = false;
+let voronoiKey = "";
 const listeners = new AbortController();
 
 function message(text: string) {
@@ -97,7 +103,18 @@ function fail(error: unknown) {
   }
 }
 function applyView() {
+  if (app && values.lineMode === 2) {
+    const key = JSON.stringify([values.seed, values.voronoiCells, values.voronoiSpacing]);
+    if (key !== voronoiKey) {
+      app.setVoronoiSegments(
+        generateVoronoiSegments(values.seed, values.voronoiCells, values.voronoiSpacing),
+      );
+      voronoiKey = key;
+    }
+  }
   const color = Number.parseInt(values.lineColor.slice(1), 16);
+  const contour = Number.parseInt(values.contourColor.slice(1), 16);
+  const mesh = Number.parseInt(values.meshColor.slice(1), 16);
   const background = Number.parseInt(values.backgroundColor.slice(1), 16);
   document.documentElement.style.backgroundColor = values.backgroundColor;
   app?.setView(
@@ -131,6 +148,12 @@ function applyView() {
       values.wobbleScale,
       values.lineMode,
       values.lineSpacing,
+      ((contour >> 16) & 255) / 255,
+      ((contour >> 8) & 255) / 255,
+      (contour & 255) / 255,
+      ((mesh >> 16) & 255) / 255,
+      ((mesh >> 8) & 255) / 255,
+      (mesh & 255) / 255,
     ]),
   );
   app?.setPaused(values.paused);
@@ -278,7 +301,7 @@ function createPane() {
   const render = pane.addFolder({ title: "Light & lines" });
   const lineMode = render.addBinding(values, "lineMode", {
     label: "Line render",
-    options: { "Terrain curves": 0, "Straight hatching": 1 },
+    options: { "Terrain curves": 0, "Straight hatching": 1, "Voronoi hatching": 2 },
   });
   render
     .addBinding(values, "lightYaw", { label: "Light azimuth", min: -180, max: 180, step: 1 })
@@ -294,6 +317,12 @@ function createPane() {
     ["contourStrength", "Contour strength", 0, 0.4, 0.01],
   ] as const)
     render.addBinding(values, key, { label, min, max, step }).on("change", applyView);
+  const meshColor = render
+    .addBinding(values, "meshColor", { label: "Mesh color" })
+    .on("change", applyView);
+  const contourColor = render
+    .addBinding(values, "contourColor", { label: "Contour color" })
+    .on("change", applyView);
   const density = render
     .addBinding(values, "density", { label: "Line density", min: 32, max: 320, step: 8 })
     .on("change", applyView);
@@ -321,11 +350,28 @@ function createPane() {
   const wobbleScale = render
     .addBinding(values, "wobbleScale", { label: "Wobble scale", min: 0.2, max: 2, step: 0.05 })
     .on("change", applyView);
+  const voronoi = pane.addFolder({ title: "Voronoi hatching", hidden: true });
+  voronoi
+    .addBinding(values, "voronoiCells", { label: "Cells", min: 4, max: 256, step: 1 })
+    .on("change", (event) => {
+      if (event.last) applyView();
+    });
+  voronoi
+    .addBinding(values, "voronoiSpacing", {
+      label: "Spacing (world)",
+      min: 0.01,
+      max: 0.1,
+      step: 0.001,
+    })
+    .on("change", (event) => {
+      if (event.last) applyView();
+    });
   lineMode.on("change", () => {
-    density.hidden = values.lineMode === 1;
+    density.hidden = values.lineMode !== 0;
     spacing.hidden = values.lineMode !== 1;
     wobble.hidden = values.lineMode === 1;
     wobbleScale.hidden = values.lineMode === 1;
+    voronoi.hidden = values.lineMode !== 2;
     applyView();
   });
   const camera = pane.addFolder({ title: "Camera", expanded: false });
@@ -378,6 +424,8 @@ function createPane() {
       background,
       lineWidth,
       lineColor,
+      contourColor,
+      meshColor,
     ]) {
       binding.hidden = values.svgPreview;
     }

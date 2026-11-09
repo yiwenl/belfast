@@ -6,12 +6,14 @@ struct View {
     material: vec4<f32>,
     grid: vec4<f32>,
     screen: vec4<f32>,
-    counts: vec4<u32>, // curves or hatch columns, samples, stroke seed, line mode
+    counts: vec4<u32>, // curves, hatch columns or Voronoi segments; samples; seed; mode
     line_color: vec4<f32>,
     base: vec4<f32>, // thickness in world units
     stroke: vec4<f32>, // wobble amplitude/wavelength in world units, hatch spacing in NDC
     inverse_matrix: mat4x4<f32>,
     paper: vec4<f32>, // printable width/height as fractions of the page
+    contour_color: vec4<f32>,
+    mesh_color: vec4<f32>,
 };
 struct Segment { a: vec4<f32>, b: vec4<f32>, info: vec4<f32> };
 @group(0) @binding(0) var<uniform> view: View;

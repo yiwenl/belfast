@@ -1,5 +1,7 @@
 @group(1) @binding(0) var<storage, read_write> segments: array<Segment>;
 @group(1) @binding(1) var camera_depth: texture_depth_2d;
+struct VoronoiSegment { points: vec4<f32>, info: vec4<f32> }; // rank, stroke ID, endpoint clearances
+@group(1) @binding(2) var<storage, read> voronoi_segments: array<VoronoiSegment>;
 
 fn stroke_random(knot: u32, ring: u32) -> f32 {
     var hash = knot * 374761393u + ring * 668265263u + view.counts.z;
@@ -24,6 +26,19 @@ fn stroke_point(ring: u32, sample: u32) -> vec2<f32> {
     return vec2((view.grid.x - 1.0) * 0.5) + vec2(cos(angle), sin(angle)) * (radius + offset);
 }
 
+fn shadow_ink(light: f32) -> f32 {
+    return 1.0 - smoothstep(0.05, 0.8, clamp(light * view.style.x, 0.0, 1.0));
+}
+fn voronoi_point(p: vec2<f32>, direction: vec2<f32>, clearance: f32, stroke: u32) -> vec2<f32> {
+    if (view.stroke.x <= 0.0) { return p; }
+    let t = dot(p, direction) * view.grid.y / view.stroke.y;
+    let knot = i32(floor(t));
+    let f = fract(t);
+    let noise = mix(stroke_random(bitcast<u32>(knot), stroke), stroke_random(bitcast<u32>(knot + 1), stroke), f * f * (3.0 - 2.0 * f));
+    // Limit displacement to the cell's interior, including the endpoints at its border.
+    let amplitude = min(view.stroke.x / view.grid.y, clearance);
+    return p + vec2(-direction.y, direction.x) * noise * amplitude;
+}
 fn visible(p: vec2<f32>, rank: f32) -> bool {
     if (any(p < vec2(0.0)) || any(p > vec2(view.grid.x - 1.0))) { return false; }
     let world = line_position(p);
@@ -41,9 +56,10 @@ fn visible(p: vec2<f32>, rank: f32) -> bool {
         max(textureLoad(camera_depth, vec2(lo.x, hi.y), 0), textureLoad(camera_depth, vec2(hi.x, lo.y), 0)));
     if (ndc.z > depth + 0.000035) { return false; }
     let normal = normal_at(p);
-    if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) < 0.25) { return false; }
+    let facing = select(0.25, 0.0, view.counts.w == 2u);
+    if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) < facing) { return false; }
     let light = max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world_position(p));
-    let ink = smoothstep(0.0, 0.75, pow(clamp(light * view.style.x, 0.0, 1.0), 1.5));
+    let ink = select(smoothstep(0.0, 0.75, pow(clamp(light * view.style.x, 0.0, 1.0), 1.5)), shadow_ink(light), view.counts.w == 2u);
     return rank < ink;
 }
 fn write_segment(index: u32, start: vec2<f32>, end: vec2<f32>, rank: f32, ring: u32) {
@@ -85,7 +101,7 @@ fn hatch_sample(ndc: vec2<f32>, rank: f32) -> vec2<f32> {
     let normal = normal_at(p);
     if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) <= 0.0) { return vec2(depth, 0.0); }
     let light = max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world_position(p));
-    let ink = 1.0 - smoothstep(0.05, 0.8, clamp(light * view.style.x, 0.0, 1.0));
+    let ink = shadow_ink(light);
     return vec2(depth, select(0.0, 1.0, rank < ink));
 }
 fn write_hatch(column: u32, step: u32) {
@@ -120,6 +136,17 @@ fn write_hatch(column: u32, step: u32) {
 }
 @compute @workgroup_size(64)
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
+    if (view.counts.w == 2u) {
+        if (id.x >= view.counts.x) { return; }
+        let line = voronoi_segments[id.x];
+        let delta = line.points.zw - line.points.xy;
+        let direction = delta / max(length(delta), 0.000001);
+        let stroke = u32(line.info.y);
+        let a = voronoi_point(line.points.xy, direction, line.info.z, stroke);
+        let b = voronoi_point(line.points.zw, direction, line.info.w, stroke);
+        write_segment(id.x, a, b, line.info.x, stroke);
+        return;
+    }
     let count = view.counts.x * view.counts.y;
     if (id.x >= count) { return; }
     let ring = id.x / view.counts.y;

@@ -31,6 +31,8 @@ struct ViewUniform {
     stroke: [f32; 4],
     inverse_matrix: [f32; 16],
     paper: [f32; 4],
+    contour_color: [f32; 4],
+    mesh_color: [f32; 4],
 }
 
 pub struct Scene {
@@ -44,6 +46,8 @@ pub struct Scene {
     pub skeleton: SkeletonInput,
     pub terrain: Buffer,
     pub segments: Buffer,
+    voronoi_segments: Buffer,
+    voronoi_segment_count: u32,
     droplets: Buffer,
     sim_uniform: Buffer,
     view_uniform: Buffer,
@@ -95,6 +99,8 @@ pub struct Scene {
     pub wobble_scale: f32,
     line_seed: u32,
     pub line_color: [f32; 4],
+    pub contour_color: [f32; 4],
+    pub mesh_color: [f32; 4],
     pub background_color: wgpu::Color,
     pub shadows: bool,
 }
@@ -164,6 +170,7 @@ fn write_group(
     layout: &wgpu::BindGroupLayout,
     segments: &Buffer,
     depth: &wgpu::TextureView,
+    voronoi: &Buffer,
 ) -> wgpu::BindGroup {
     device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("MountainLineGeneration"),
@@ -174,6 +181,7 @@ fn write_group(
                 binding: 1,
                 resource: wgpu::BindingResource::TextureView(depth),
             },
+            resource(2, voronoi),
         ],
     })
 }
@@ -210,6 +218,8 @@ impl Scene {
             BufferUsage::storage() | wgpu::BufferUsages::COPY_SRC,
             "MountainLineSegments",
         );
+        let voronoi_segments =
+            Buffer::create(device, 32, BufferUsage::storage(), "MountainVoronoiLayout");
         let sim_uniform = Buffer::create(
             device,
             64,
@@ -354,12 +364,23 @@ impl Scene {
                             },
                             count: None,
                         },
+                        buffer_entry(
+                            2,
+                            wgpu::ShaderStages::COMPUTE,
+                            wgpu::BufferBindingType::Storage { read_only: true },
+                        ),
                     ],
                 });
         let msaa_depth = depth_view(device, 2, 1, MSAA_SAMPLES);
         let msaa_color = msaa_color(device, 2, 1);
         let depth_view = depth_view(device, 2, 1, 1);
-        let lines_write_group = write_group(device, &lines_write_layout, &segments, &depth_view);
+        let lines_write_group = write_group(
+            device,
+            &lines_write_layout,
+            &segments,
+            &depth_view,
+            &voronoi_segments,
+        );
         let lines_pipeline_layout =
             device
                 .gpu()
@@ -522,6 +543,8 @@ impl Scene {
             skeleton: SkeletonInput::default(),
             terrain,
             segments,
+            voronoi_segments,
+            voronoi_segment_count: 0,
             droplets,
             sim_uniform,
             view_uniform,
@@ -566,17 +589,19 @@ impl Scene {
             spot_angle: 0.5,
             spot_falloff: 2.0,
             contour_spacing: 0.1,
-            contour_strength: 0.2,
+            contour_strength: 0.12,
             contrast: 1.0,
             line_width: 1.0,
             line_wobble: 0.015,
             wobble_scale: 0.6,
             line_seed: 0,
             line_color: [153.0 / 255.0, 146.0 / 255.0, 138.0 / 255.0, 1.0],
+            contour_color: [89.0 / 255.0, 89.0 / 255.0, 89.0 / 255.0, 1.0],
+            mesh_color: [60.0 / 255.0, 59.0 / 255.0, 58.0 / 255.0, 1.0],
             background_color: wgpu::Color {
-                r: 237.0 / 255.0,
-                g: 229.0 / 255.0,
-                b: 219.0 / 255.0,
+                r: 19.0 / 255.0,
+                g: 19.0 / 255.0,
+                b: 19.0 / 255.0,
                 a: 1.0,
             },
             shadows: true,
@@ -621,18 +646,42 @@ impl Scene {
             }
     }
     pub fn segment_count(&self) -> u32 {
-        self.active_strokes * SAMPLES * if self.line_mode == 1 { 1 } else { 2 }
+        self.active_strokes * self.segments_per_stroke()
+    }
+    fn segments_per_stroke(&self) -> u32 {
+        match self.line_mode {
+            0 => SAMPLES * 2,
+            1 => SAMPLES,
+            _ => 1,
+        }
+    }
+    pub fn set_voronoi_segments(&mut self, device: &Device, data: &[f32]) {
+        self.voronoi_segment_count = (data.len() / 8) as u32;
+        self.voronoi_segments = Buffer::from_data(
+            device,
+            data,
+            BufferUsage::storage(),
+            "MountainVoronoiLayout",
+        );
+        self.lines_write_group = write_group(
+            device,
+            &self.lines_write_layout,
+            &self.segments,
+            &self.depth_view,
+            &self.voronoi_segments,
+        );
     }
     pub fn prepare_lines(&mut self, device: &Device) -> Result<(), &'static str> {
         let strokes = if self.line_mode == 1 {
             (self.line_view_width() / (2.0 * self.hatch_spacing * self.pixel_ratio)).floor() as u32
                 * 2
                 + 1
+        } else if self.line_mode == 2 {
+            self.voronoi_segment_count
         } else {
             self.line_count
         };
-        let bytes =
-            u64::from(strokes) * u64::from(SAMPLES) * 48 * if self.line_mode == 1 { 1 } else { 2 };
+        let bytes = u64::from(strokes) * u64::from(self.segments_per_stroke()) * 48;
         let limits = device.gpu().limits();
         let limit = u64::from(limits.max_storage_buffer_binding_size).min(limits.max_buffer_size);
         if bytes > limit {
@@ -657,6 +706,7 @@ impl Scene {
                 &self.lines_write_layout,
                 &self.segments,
                 &self.depth_view,
+                &self.voronoi_segments,
             );
         }
         Ok(())
@@ -729,6 +779,7 @@ impl Scene {
             &self.lines_write_layout,
             &self.segments,
             &self.depth_view,
+            &self.voronoi_segments,
         );
         Ok(())
     }
@@ -828,6 +879,8 @@ impl Scene {
             } else {
                 [1.0, 1.0, 0.0, 0.0]
             },
+            contour_color: self.contour_color,
+            mesh_color: self.mesh_color,
         };
         self.view_uniform.write(device, &[uniform], 0);
     }
@@ -907,7 +960,12 @@ impl Scene {
             pass.set_bind_group(1, &self.lines_write_group, &[]);
             self.lines_compute.dispatch(
                 &mut pass,
-                [(self.active_strokes * SAMPLES).div_ceil(64), 1, 1],
+                [
+                    (self.active_strokes * if self.line_mode == 2 { 1 } else { SAMPLES })
+                        .div_ceil(64),
+                    1,
+                    1,
+                ],
             );
         }
         {
@@ -948,8 +1006,8 @@ impl Scene {
                 pass.set_pipeline(&self.mesh_pipeline);
                 pass.draw(0..mesh_vertices, 0..1);
             }
-            // Hatches already use visible depth texels; interpolated stroke depth can cut gaps.
-            pass.set_pipeline(if self.line_mode == 1 {
+            // Compute already clips hatches to visible terrain; a second depth check can cut gaps.
+            pass.set_pipeline(if self.line_mode != 0 {
                 &self.hatch_pipeline
             } else {
                 &self.line_pipeline
