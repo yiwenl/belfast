@@ -39,8 +39,11 @@ fn voronoi_point(p: vec2<f32>, direction: vec2<f32>, clearance: f32, stroke: u32
     let amplitude = min(view.stroke.x / view.grid.y, clearance);
     return p + vec2(-direction.y, direction.x) * noise * amplitude;
 }
+fn above_floor(p: vec2<f32>) -> bool {
+    return height_at(p) * view.grid.y >= view.stroke.w;
+}
 fn visible(p: vec2<f32>, rank: f32) -> bool {
-    if (any(p < vec2(0.0)) || any(p > vec2(view.grid.x - 1.0))) { return false; }
+    if (any(p < vec2(0.0)) || any(p > vec2(view.grid.x - 1.0)) || !above_floor(p)) { return false; }
     let world = line_position(p);
     let clip = view.matrix * vec4(world, 1.0);
     if (clip.w <= 0.0) { return false; }
@@ -96,7 +99,7 @@ fn hatch_sample(ndc: vec2<f32>, rank: f32) -> vec2<f32> {
     let projected = view.inverse_matrix * vec4(sample_ndc, depth, 1.0);
     let world = projected.xyz / projected.w;
     let p = world.xz / view.grid.y + vec2((view.grid.x - 1.0) * 0.5);
-    if (any(p < vec2(0.0)) || any(p > vec2(view.grid.x - 1.0))) { return vec2(depth, 0.0); }
+    if (any(p < vec2(0.0)) || any(p > vec2(view.grid.x - 1.0)) || !above_floor(p)) { return vec2(depth, 0.0); }
     if (abs(world.y - line_position(p).y) > view.grid.y * 0.5) { return vec2(depth, 0.0); }
     let normal = normal_at(p);
     if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) <= 0.0) { return vec2(depth, 0.0); }

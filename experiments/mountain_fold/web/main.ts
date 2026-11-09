@@ -1,11 +1,11 @@
 import init, { ExperimentApp } from "../pkg/experiment";
 import { Pane, type SliderInputBindingApi } from "tweakpane";
-import type { BindingApi, FolderApi } from "@tweakpane/core";
+import type { BindingApi } from "@tweakpane/core";
 import { bindOrbitInput } from "./input";
-import { generateTerrain, GRID } from "./terrain";
+import { generateTerrain } from "./terrain";
 import { generateVoronoiSegments } from "./voronoi";
 import { DEFAULT_HASH, newHash } from "./hash";
-import { savePng, saveSvg, download } from "./export";
+import { savePng, saveSvg } from "./export";
 import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
@@ -39,6 +39,7 @@ const values = {
   spotFalloff: 2,
   contourSpacing: 0.1,
   contourStrength: 0.12,
+  minElevation: 0,
   shadows: true,
   density: 192,
   lineMode: 0,
@@ -72,8 +73,6 @@ const values = {
 };
 let app: ExperimentApp | undefined;
 let pane: Pane | undefined;
-let statusFolder: FolderApi | undefined;
-let errorMonitor: BindingApi | undefined;
 const feedback = { status: "Loading WebGPU…", steps: 0, fps: 0, error: "" };
 let detach: (() => void) | undefined;
 let frameId = 0,
@@ -95,12 +94,6 @@ function fail(error: unknown) {
   feedback.error = error instanceof Error ? error.message : String(error);
   message("Unable to render");
   console.error(error);
-  if (statusFolder) statusFolder.expanded = true;
-  if (errorMonitor) {
-    errorMonitor.hidden = false;
-    errorMonitor.refresh();
-    errorMonitor.element.scrollIntoView({ block: "nearest" });
-  }
 }
 function applyView() {
   if (app && values.lineMode === 2) {
@@ -154,6 +147,7 @@ function applyView() {
       ((mesh >> 16) & 255) / 255,
       ((mesh >> 8) & 255) / 255,
       (mesh & 255) / 255,
+      values.minElevation,
     ]),
   );
   app?.setPaused(values.paused);
@@ -261,27 +255,11 @@ function createPane() {
   const baseThickness = scene
     .addBinding(values, "baseThickness", { label: "Base thickness", min: 0, max: 6, step: 0.05 })
     .on("change", applyView);
-  const heightmap = scene
-    .addBinding(values, "heightmap", { label: "Height map" })
-    .on("change", applyView);
   const background = scene
     .addBinding(values, "backgroundColor", { label: "Background" })
     .on("change", applyView);
 
   const simulation = pane.addFolder({ title: "Erosion" });
-  simulation.addBinding(values, "paused", { label: "Paused" }).on("change", applyView);
-  simulation
-    .addBinding(values, "iterations", { label: "Stop at step", min: 100, max: 20000, step: 100 })
-    .on("change", applyView);
-  simulation
-    .addBinding(values, "speed", { label: "Steps / frame", min: 1, max: 16, step: 1 })
-    .on("change", applyView);
-  simulation.addButton({ title: "Advance 100 steps" }).on("click", () => {
-    values.paused = true;
-    applyView();
-    pane?.refresh();
-    app?.advance(100);
-  });
   const physics = simulation.addFolder({ title: "Water & sediment", expanded: false });
   for (const [key, label, min, max, step] of [
     ["inertia", "Inertia", 0, 0.95, 0.01],
@@ -309,14 +287,19 @@ function createPane() {
   render
     .addBinding(values, "lightPitch", { label: "Light elevation", min: 5, max: 85, step: 1 })
     .on("change", applyView);
-  render.addBinding(values, "shadows", { label: "Cast shadows" }).on("change", applyView);
   for (const [key, label, min, max, step] of [
-    ["spotAngle", "Spot angle", 0.15, 1.4, 0.01],
-    ["spotFalloff", "Spot falloff", 0.1, 8, 0.1],
     ["contourSpacing", "Contour spacing", 0.02, 0.5, 0.01],
     ["contourStrength", "Contour strength", 0, 0.4, 0.01],
   ] as const)
     render.addBinding(values, key, { label, min, max, step }).on("change", applyView);
+  render
+    .addBinding(values, "minElevation", {
+      label: "Min elevation",
+      min: 0,
+      max: 5,
+      step: 0.05,
+    })
+    .on("change", applyView);
   const meshColor = render
     .addBinding(values, "meshColor", { label: "Mesh color" })
     .on("change", applyView);
@@ -337,9 +320,6 @@ function createPane() {
     .on("change", applyView);
   render
     .addBinding(values, "contrast", { label: "Line exposure", min: 0.2, max: 2.5, step: 0.05 })
-    .on("change", applyView);
-  const lineWidth = render
-    .addBinding(values, "lineWidth", { label: "Preview width", min: 0.5, max: 2, step: 0.1 })
     .on("change", applyView);
   const lineColor = render
     .addBinding(values, "lineColor", { label: "Line color" })
@@ -394,13 +374,7 @@ function createPane() {
       hidden: !values.orthographic,
     })
     .on("change", applyProjection);
-  const poseBindings = (
-    [
-      ["yaw", "Orbit", -180, 180],
-      ["pitch", "Elevation", 5, 89],
-      ["distance", "Distance", 6, 40],
-    ] as const
-  ).map(([key, label, min, max]) =>
+  const poseBindings = ([["distance", "Distance", 6, 40]] as const).map(([key, label, min, max]) =>
     camera
       .addBinding(values, key, {
         label,
@@ -415,26 +389,23 @@ function createPane() {
   );
   cameraBindings.push(...poseBindings, bounds);
   preview.on("change", () => {
-    (poseBindings[2] as SliderInputBindingApi).max = values.svgPreview ? 200 : 40;
+    (poseBindings[0] as SliderInputBindingApi).max = values.svgPreview ? 200 : 40;
     applyPaper();
     for (const binding of [
       layerSpacing,
       baseThickness,
-      heightmap,
       background,
-      lineWidth,
       lineColor,
       contourColor,
       meshColor,
     ]) {
       binding.hidden = values.svgPreview;
     }
-    output.expanded = values.svgPreview;
   });
   projection.on("change", () => {
     fov.hidden = values.orthographic;
     bounds.hidden = !values.orthographic;
-    poseBindings[2].hidden = values.orthographic;
+    poseBindings[0].hidden = values.orthographic;
     applyProjection();
   });
   camera.addButton({ title: "Reset camera" }).on("click", () => {
@@ -446,85 +417,13 @@ function createPane() {
     app?.resetCamera();
     pane?.refresh();
   });
-  const debug = pane.addFolder({ title: "Height map settings", expanded: false });
-  debug.addBinding(values, "before", { label: "Before erosion" }).on("change", applyView);
-  debug
-    .addBinding(values, "debugView", {
-      label: "Map",
-      options: { Height: 0, Initial: 1, "Height change": 2, Deposition: 3, Erosion: 4 },
-    })
-    .on("change", applyView);
-  debug
-    .addBinding(values, "debugGain", { label: "Map gain", min: 0.1, max: 10, step: 0.1 })
-    .on("change", applyView);
-  debug.addButton({ title: "Save height data" }).on("click", async () => {
-    if (!app) return;
-    try {
-      const step = app.steps();
-      const camera = Array.from(app.cameraState());
-      const settings = { ...values, orthoBound: camera[6], camera };
-      const outputName = filename("json", step, settings.seed);
-      const data = (await app.readHeights()) as Float32Array;
-      download(
-        new Blob(
-          [
-            JSON.stringify({
-              size: GRID,
-              worldSize: 12,
-              heightUnit: "grid cell",
-              channels: ["height", "initial", "depositedSoil", "erosion"],
-              seed: settings.seed,
-              settings,
-              steps: step,
-              data: Array.from(data),
-            }),
-          ],
-          { type: "application/json" },
-        ),
-        outputName,
-      );
-      message("Height data saved");
-    } catch (error) {
-      message(String(error));
-    }
-  });
-  const output = pane.addFolder({ title: "Export", expanded: false });
-  output.addButton({ title: "Save canvas PNG · ⌘/Ctrl S" }).on("click", capturePng);
-  output.addButton({ title: "Export line SVG" }).on("click", captureSvg);
-  for (const [key, label, min, max, step] of [
-    ["paperWidth", "Paper width mm", 50, 600, 1],
-    ["paperHeight", "Paper height mm", 50, 600, 1],
-    ["margin", "Margin mm", 0, 20, 1],
-    ["pen", "Pen width mm", 0.05, 1, 0.01],
-  ] as const)
-    output.addBinding(values, key, { label, min, max, step }).on("change", applyPaper);
-
-  statusFolder = pane.addFolder({ title: "Status", expanded: false });
-  const monitor = { readonly: true, interval: 250 } as const;
-  statusFolder.addBinding(feedback, "status", {
-    ...monitor,
-    label: "State",
-    multiline: true,
-    rows: 2,
-  });
-  statusFolder.addBinding(feedback, "steps", {
-    ...monitor,
-    label: "Steps",
-    format: (value: number) => value.toLocaleString(),
-  });
-  statusFolder.addBinding(feedback, "fps", {
-    ...monitor,
+  pane.addButton({ title: "Export line SVG" }).on("click", captureSvg);
+  pane.addBinding(feedback, "fps", {
+    readonly: true,
+    interval: 250,
     label: "FPS",
     format: (value: number) => value.toFixed(0),
   });
-  errorMonitor = statusFolder.addBinding(feedback, "error", {
-    ...monitor,
-    label: "Error",
-    multiline: true,
-    rows: 6,
-    hidden: true,
-  });
-  errorMonitor.element.setAttribute("role", "alert");
 }
 
 function dispose() {

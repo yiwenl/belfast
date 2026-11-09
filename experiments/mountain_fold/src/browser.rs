@@ -249,7 +249,7 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setView)]
     pub fn set_view(&mut self, values: &[f32]) -> Result<(), JsValue> {
-        if values.len() != 35 || values.iter().any(|v| !v.is_finite()) {
+        if values.len() != 36 || values.iter().any(|v| !v.is_finite()) {
             return Err(js_error("Invalid view settings"));
         }
         self.scene.light_yaw = values[0];
@@ -299,6 +299,7 @@ impl ExperimentApp {
             values[34].clamp(0.0, 1.0),
             1.0,
         ];
+        self.scene.min_elevation = values[35].clamp(0.0, 5.0);
         Ok(())
     }
 
