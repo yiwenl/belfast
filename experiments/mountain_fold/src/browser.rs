@@ -370,7 +370,7 @@ impl ExperimentApp {
         self.scene.control.snap_yaw(yaw.to_radians());
         self.scene
             .control
-            .snap_pitch(pitch.clamp(5.0, 89.0).to_radians());
+            .snap_pitch(pitch.clamp(5.0, 89.99).to_radians());
         self.scene
             .control
             .snap_radius(radius.clamp(6.0, if self.scene.svg_preview { 200.0 } else { 40.0 }));

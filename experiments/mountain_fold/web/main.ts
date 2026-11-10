@@ -77,10 +77,12 @@ const values = {
 };
 let app: ExperimentApp | undefined;
 let pane: Pane | undefined;
+let spacingBinding: BindingApi | undefined;
 const feedback = { status: "Loading WebGPU…", steps: 0, fps: 0, error: "" };
 let detach: (() => void) | undefined;
 let frameId = 0,
-  disposed = false;
+  disposed = false,
+  demo = 0;
 let pendingPng = false,
   pendingSvg = false,
   exporting = false;
@@ -272,6 +274,7 @@ function createPane() {
   const layerSpacing = scene
     .addBinding(values, "layerSpacing", { label: "Layer spacing", min: 0, max: 10, step: 0.1 })
     .on("change", applyView);
+  spacingBinding = layerSpacing;
   const baseThickness = scene
     .addBinding(values, "baseThickness", { label: "Base thickness", min: 0, max: 6, step: 0.05 })
     .on("change", applyView);
@@ -453,9 +456,51 @@ function createPane() {
   });
 }
 
+const ease = (t: number) => t * t * (3 - 2 * t);
+const DEMO_YAW = 45.64276885986328;
+// Overhead with the lines on the mesh, tilt to 30°, then lift the lines off it.
+function playDemo() {
+  if (!app) return;
+  const token = ++demo;
+  if (values.svgPreview) {
+    values.svgPreview = false;
+    applyPaper();
+  }
+  app.resetCamera();
+  values.orthoBound = 15;
+  applyProjection();
+  values.layerSpacing = 0;
+  applyView();
+  spacingBinding?.refresh();
+  pane?.refresh();
+  app.setCamera(DEMO_YAW, 90, 30);
+  const start = performance.now();
+  const holdTop = 900;
+  const tilt = 2200;
+  const lift = 1800;
+  // Spacing starts while the camera is still arriving, so the two moves never both stop.
+  const overlap = 900;
+  const tiltStart = holdTop;
+  const liftStart = tiltStart + tilt - overlap;
+  const liftEnd = liftStart + lift;
+  const span = (time: number, from: number, duration: number) =>
+    ease(Math.min(1, Math.max(0, (time - from) / duration)));
+  const frame = (now: number) => {
+    if (token !== demo || !app) return;
+    const t = now - start;
+    if (t >= liftEnd) return;
+    app.setCamera(DEMO_YAW, 90 + (30 - 90) * span(t, tiltStart, tilt), 30);
+    values.layerSpacing = 10 * span(t, liftStart, lift);
+    applyView();
+    spacingBinding?.refresh();
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
 function dispose() {
   if (disposed) return;
   disposed = true;
+  demo++;
   cancelAnimationFrame(frameId);
   listeners.abort();
   detach?.();
@@ -569,9 +614,26 @@ window.addEventListener(
       event.preventDefault();
       capturePng();
     }
+    const typing =
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLTextAreaElement ||
+      event.target instanceof HTMLSelectElement;
+    if (
+      event.key.toLowerCase() === "p" &&
+      !event.repeat &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !typing
+    ) {
+      event.preventDefault();
+      playDemo();
+    }
   },
   { signal: listeners.signal },
 );
+canvas.addEventListener("pointerdown", () => demo++, { signal: listeners.signal });
+canvas.addEventListener("wheel", () => demo++, { signal: listeners.signal });
 window.addEventListener(
   "pagehide",
   (event) => {
