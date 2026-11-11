@@ -695,13 +695,13 @@ impl Scene {
             ..Default::default()
         })?;
         control.snap_yaw(45.64277_f32.to_radians());
-        control.snap_pitch(28.363918_f32.to_radians());
+        control.snap_pitch(30.0_f32.to_radians());
         control.update(0.0, &mut camera);
         let scene = Self {
             camera,
             control,
             orthographic: true,
-            ortho_bound: 9.0,
+            ortho_bound: 15.0,
             svg_preview: false,
             svg_dark: false,
             paper_size: [148.0, 210.0, 10.0, 0.18],
@@ -749,20 +749,20 @@ impl Scene {
             hatch_spacing: 4.0,
             pixel_ratio: 1.0,
             active_strokes: 192,
-            layer_spacing: 8.0,
+            layer_spacing: 10.0,
             base_thickness: 0.6,
             show_heightmap: false,
             show_initial: false,
             debug_mode: 0.0,
             debug_gain: 1.6,
             terrain_height: 2.8,
-            light_yaw: -4.0,
-            light_pitch: 7.0,
-            diffuse_gain: 0.0,
-            spot_gain: 0.0,
+            light_yaw: 0.0,
+            light_pitch: 14.0,
+            diffuse_gain: 0.65,
+            spot_gain: 0.65,
             roughness: 1.0,
             env_gain: 1.0,
-            metallic: 0.0,
+            metallic: 0.48,
             spot_angle: 0.5,
             spot_falloff: 2.0,
             contour_spacing: 0.1,
@@ -787,7 +787,7 @@ impl Scene {
         };
         scene.set_erosion(
             device,
-            &[0.15, 5.0, 0.3, 0.22, 0.015, 4.0, 1.0, 200.0, 0.2, 0.18],
+            &[0.15, 5.0, 0.8, 0.22, 0.015, 4.0, 1.0, 200.0, 0.2, 0.18],
         );
         Ok(scene)
     }

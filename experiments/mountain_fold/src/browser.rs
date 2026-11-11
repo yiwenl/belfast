@@ -311,7 +311,8 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setEnvironment)]
     pub fn set_environment(&mut self, bytes: &[u8]) -> Result<Vec<f32>, JsValue> {
-        let map = EnvironmentMap::from_radiance_hdr(bytes).map_err(|error| js_error(error.to_string()))?;
+        let map = EnvironmentMap::from_radiance_hdr(bytes)
+            .map_err(|error| js_error(error.to_string()))?;
         Ok(self.scene.set_environment(&self.device, &map).to_vec())
     }
 
@@ -432,8 +433,8 @@ impl ExperimentApp {
             ..Default::default()
         })
         .map_err(js_error)?;
-        self.set_camera(45.64277, 28.363918, 30.0);
-        self.set_projection(self.scene.orthographic, 42.0, 9.0)?;
+        self.set_camera(45.64277, 30.0, 30.0);
+        self.set_projection(self.scene.orthographic, 42.0, 15.0)?;
         if self.scene.svg_preview {
             self.scene.center_paper_camera().map_err(js_error)?;
         }

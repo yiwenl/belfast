@@ -1,6 +1,6 @@
 // fxhash base58 decoding and sfc32 adapted from fxhash-projects/_templateAlfrid/src/hash.js.
 const alphabet = "123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ";
-export const DEFAULT_HASH = "oocmSek2jaE3hQG7q7ezuhoePGppALdx2Gdoxz5Wvkgvv3Hsqyy";
+export const DEFAULT_HASH = "ooXPar81Rntm6WRtG8qmQXja3fnrHQ9rAH4LL7dMHTDAgU7f5tL";
 
 export function seededRandom(hash: string) {
   let words: number[];

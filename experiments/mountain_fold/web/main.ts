@@ -22,7 +22,7 @@ const values = {
   scale: 1,
   inertia: 0.15,
   capacity: 5,
-  erosion: 0.3,
+  erosion: 0.8,
   deposition: 0.22,
   evaporation: 0.015,
   gravity: 4,
@@ -34,14 +34,14 @@ const values = {
   speed: 6,
   iterations: Number(url.searchParams.get("steps")) || 2400,
   before: false,
-  lightYaw: -4,
-  lightPitch: 7,
-  diffuseGain: 0,
-  spotGain: 0,
+  lightYaw: 0,
+  lightPitch: 14,
+  diffuseGain: 0.65,
+  spotGain: 0.65,
   roughness: 1,
   envGain: 1,
-  metallic: 0,
-  hdr: "golden_gate_hills_2k.hdr",
+  metallic: 0.48,
+  hdr: "ludwikowice_farmland_2k.hdr",
   spotAngle: 0.5,
   spotFalloff: 2,
   contourSpacing: 0.1,
@@ -66,16 +66,16 @@ const values = {
   svgPreview: false,
   svgDark: false,
   heightmap: false,
-  layerSpacing: 8,
+  layerSpacing: 10,
   baseThickness: 0.6,
   debugView: 0,
   debugGain: 1.6,
   yaw: 45.64276885986328,
-  pitch: 28.36391830444336,
+  pitch: 30,
   distance: 30,
   orthographic: true,
   fov: 42,
-  orthoBound: 9,
+  orthoBound: 15,
   paperWidth: 148,
   paperHeight: 210,
   margin: 10,
@@ -189,7 +189,7 @@ function applyView() {
   );
   app?.setPaused(values.paused);
 }
-function loadEnvironment(file: string) {
+function loadEnvironment(file: string, alignLight = true) {
   if (!app || loadedHdr === file) return;
   const request = file;
   loadedHdr = file;
@@ -201,8 +201,10 @@ function loadEnvironment(file: string) {
     .then((buffer) => {
       if (disposed || values.hdr !== request || !app) return;
       const sun = app.setEnvironment(new Uint8Array(buffer));
-      values.lightYaw = sun[0];
-      values.lightPitch = sun[1];
+      if (alignLight) {
+        values.lightYaw = sun[0];
+        values.lightPitch = sun[1];
+      }
       pane?.refresh();
       applyView();
     })
@@ -507,10 +509,10 @@ function createPane() {
   });
   camera.addButton({ title: "Reset camera" }).on("click", () => {
     values.yaw = 45.64276885986328;
-    values.pitch = 28.36391830444336;
+    values.pitch = 30;
     values.distance = 30;
     values.fov = 42;
-    values.orthoBound = 9;
+    values.orthoBound = 15;
     app?.resetCamera();
     pane?.refresh();
   });
@@ -594,7 +596,8 @@ async function start() {
     created.setCamera(values.yaw, values.pitch, values.distance);
     applyProjection();
     applyPaper();
-    loadEnvironment(values.hdr);
+    // Keep the captured light orientation when loading the startup environment.
+    loadEnvironment(values.hdr, false);
     function frame(now: number) {
       if (disposed) return;
       try {
@@ -682,10 +685,9 @@ window.addEventListener(
       event.preventDefault();
       capturePng();
     }
+    // Selects retain focus after changing HDR; they must not suppress the demo shortcut.
     const typing =
-      event.target instanceof HTMLInputElement ||
-      event.target instanceof HTMLTextAreaElement ||
-      event.target instanceof HTMLSelectElement;
+      event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
     if (
       event.key.toLowerCase() === "p" &&
       !event.repeat &&
