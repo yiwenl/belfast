@@ -1,7 +1,8 @@
 use crate::input::SkeletonInput;
 use belfast::{
-    BelfastResult, BindGroup, Buffer, BufferUsage, Compute, ComputeOptions, Device, OrbitalControl,
-    OrbitalControlOptions, OrthographicCamera, PerspectiveCamera,
+    rotation_from_to, BelfastResult, BindGroup, Buffer, BufferUsage, Compute, ComputeOptions,
+    Device, EnvironmentMap, OrbitalControl, OrbitalControlOptions, OrthographicCamera,
+    PerspectiveCamera,
 };
 use bytemuck::{Pod, Zeroable};
 use glam::Mat4;
@@ -35,6 +36,12 @@ struct ViewUniform {
     paper: [f32; 4],
     contour_color: [f32; 4],
     mesh_color: [f32; 4],
+    env_x: [f32; 4],
+    env_y: [f32; 4],
+    env_z: [f32; 4],
+    sun_color: [f32; 4],
+    light_gain: [f32; 4],
+    surface: [f32; 4],
 }
 
 pub struct Scene {
@@ -54,6 +61,12 @@ pub struct Scene {
     droplets: Buffer,
     sim_uniform: Buffer,
     view_uniform: Buffer,
+    view_layout: wgpu::BindGroupLayout,
+    env_irradiance: wgpu::Texture,
+    env_specular: wgpu::Texture,
+    env_sampler: wgpu::Sampler,
+    sun_direction: [f32; 3],
+    sun_color: [f32; 4],
     sim_group: BindGroup,
     simulation: Vec<Compute>,
     view_group: wgpu::BindGroup,
@@ -92,6 +105,11 @@ pub struct Scene {
     pub terrain_height: f32,
     pub light_yaw: f32,
     pub light_pitch: f32,
+    pub diffuse_gain: f32,
+    pub spot_gain: f32,
+    pub roughness: f32,
+    pub env_gain: f32,
+    pub metallic: f32,
     pub spot_angle: f32,
     pub spot_falloff: f32,
     pub contour_spacing: f32,
@@ -131,6 +149,129 @@ fn resource(binding: u32, buffer: &Buffer) -> wgpu::BindGroupEntry<'_> {
         binding,
         resource: buffer.gpu().as_entire_binding(),
     }
+}
+fn texture_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        },
+        count: None,
+    }
+}
+fn sampler_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        count: None,
+    }
+}
+fn half_bits(value: f32) -> u16 {
+    let bits = value.to_bits();
+    let sign = ((bits >> 16) & 0x8000) as u16;
+    let exponent = ((bits >> 23) & 0xff) as i32 - 127 + 15;
+    let mantissa = bits & 0x7fffff;
+    if exponent <= 0 {
+        if exponent < -10 {
+            return sign;
+        }
+        return sign | (((mantissa | 0x800000) >> (1 - exponent)) >> 13) as u16;
+    }
+    if exponent >= 31 {
+        return sign | 0x7bff;
+    }
+    sign | ((exponent as u16) << 10) | ((mantissa >> 13) as u16)
+}
+fn rgba16_texture(
+    device: &Device,
+    width: u32,
+    height: u32,
+    rgba: &[f32],
+    label: &str,
+) -> wgpu::Texture {
+    let texture = device.gpu().create_texture(&wgpu::TextureDescriptor {
+        label: Some(label),
+        size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba16Float,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    let row_bytes = (width * 8).div_ceil(256) * 256;
+    let mut packed = vec![0_u8; row_bytes as usize * height as usize];
+    for y in 0..height as usize {
+        for x in 0..width as usize {
+            let source = (y * width as usize + x) * 4;
+            let destination = y * row_bytes as usize + x * 8;
+            for channel in 0..4 {
+                let bits = half_bits(rgba[source + channel]);
+                packed[destination + channel * 2] = bits as u8;
+                packed[destination + channel * 2 + 1] = (bits >> 8) as u8;
+            }
+        }
+    }
+    device.queue().write_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        &packed,
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(row_bytes),
+            rows_per_image: Some(height),
+        },
+        wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+    );
+    texture
+}
+fn view_bind_group(
+    device: &Device,
+    layout: &wgpu::BindGroupLayout,
+    uniform: &Buffer,
+    terrain: &Buffer,
+    irradiance: &wgpu::Texture,
+    specular: &wgpu::Texture,
+    sampler: &wgpu::Sampler,
+) -> wgpu::BindGroup {
+    let irradiance_view = irradiance.create_view(&wgpu::TextureViewDescriptor::default());
+    let specular_view = specular.create_view(&wgpu::TextureViewDescriptor::default());
+    device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("MountainViewGroup"),
+        layout,
+        entries: &[
+            resource(0, uniform),
+            resource(1, terrain),
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(&irradiance_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::TextureView(&specular_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            },
+        ],
+    })
 }
 fn depth_view(device: &Device, width: u32, height: u32, samples: u32) -> wgpu::TextureView {
     device
@@ -325,13 +466,31 @@ impl Scene {
                         wgpu::ShaderStages::VERTEX_FRAGMENT | wgpu::ShaderStages::COMPUTE,
                         wgpu::BufferBindingType::Storage { read_only: true },
                     ),
+                    texture_entry(2),
+                    texture_entry(3),
+                    sampler_entry(4),
                 ],
             });
-        let view_group = device.gpu().create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("MountainViewGroup"),
-            layout: &view_layout,
-            entries: &[resource(0, &view_uniform), resource(1, &terrain)],
+        let env_sampler = device.gpu().create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("MountainEnvironmentSampler"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
         });
+        let env_irradiance =
+            rgba16_texture(device, 1, 1, &[0.0, 0.0, 0.0, 1.0], "MountainIrradiance");
+        let env_specular = rgba16_texture(device, 1, 1, &[0.0, 0.0, 0.0, 1.0], "MountainSpecular");
+        let view_group = view_bind_group(
+            device,
+            &view_layout,
+            &view_uniform,
+            &terrain,
+            &env_irradiance,
+            &env_specular,
+            &env_sampler,
+        );
         let lines_read_layout =
             device
                 .gpu()
@@ -421,7 +580,8 @@ impl Scene {
                 label: Some("MountainRenderShader"),
                 source: wgpu::ShaderSource::Wgsl(
                     format!(
-                        "{}\n{}",
+                        "const OUTPUT_SRGB_ATTACHMENT: bool = {};\n{}\n{}",
+                        device.format().is_srgb(),
                         include_str!("common.wgsl"),
                         include_str!("terrain.wgsl")
                     )
@@ -554,6 +714,12 @@ impl Scene {
             droplets,
             sim_uniform,
             view_uniform,
+            view_layout,
+            env_irradiance,
+            env_specular,
+            env_sampler,
+            sun_direction: [0.0, 1.0, 0.0],
+            sun_color: [1.0, 1.0, 1.0, 0.0],
             sim_group,
             simulation,
             view_group,
@@ -592,6 +758,11 @@ impl Scene {
             terrain_height: 2.8,
             light_yaw: -4.0,
             light_pitch: 7.0,
+            diffuse_gain: 0.0,
+            spot_gain: 0.0,
+            roughness: 1.0,
+            env_gain: 1.0,
+            metallic: 0.0,
             spot_angle: 0.5,
             spot_falloff: 2.0,
             contour_spacing: 0.1,
@@ -641,6 +812,37 @@ impl Scene {
             *destination = value.to_bits();
         }
         self.sim_uniform.write(device, &data, 0);
+    }
+    pub fn set_environment(&mut self, device: &Device, map: &EnvironmentMap) -> [f32; 2] {
+        self.env_irradiance = rgba16_texture(
+            device,
+            map.irradiance.width,
+            map.irradiance.height,
+            &map.irradiance.rgba,
+            "MountainIrradiance",
+        );
+        self.env_specular = rgba16_texture(
+            device,
+            map.specular.width,
+            map.specular.height,
+            &map.specular.rgba,
+            "MountainSpecular",
+        );
+        self.view_group = view_bind_group(
+            device,
+            &self.view_layout,
+            &self.view_uniform,
+            &self.terrain,
+            &self.env_irradiance,
+            &self.env_specular,
+            &self.env_sampler,
+        );
+        self.sun_direction = map.sun_direction;
+        self.sun_color = [map.sun_color[0], map.sun_color[1], map.sun_color[2], 1.0];
+        let [yaw, pitch] = map.sun_yaw_pitch_degrees();
+        self.light_yaw = yaw;
+        self.light_pitch = pitch.clamp(5.0, 85.0);
+        [self.light_yaw, self.light_pitch]
     }
     pub fn advance(&mut self, steps: u32) {
         self.single_steps = self.single_steps.saturating_add(steps.min(256));
@@ -807,6 +1009,11 @@ impl Scene {
             yaw.cos() * pitch.cos(),
             WORLD,
         ];
+        let columns = if self.sun_color[3] > 0.5 {
+            rotation_from_to(self.sun_direction, [light[0], light[1], light[2]])
+        } else {
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+        };
         let eye = self.camera.position();
         let far = if self.svg_preview { 1000.0 } else { 100.0 };
         let (matrix, view_eye) = if self.orthographic {
@@ -871,7 +1078,11 @@ impl Scene {
             ],
             counts: [self.active_strokes, SAMPLES, self.line_seed, self.line_mode],
             line_color: if self.svg_preview {
-                if self.svg_dark { WARM_WHITE } else { WARM_BLACK }
+                if self.svg_dark {
+                    WARM_WHITE
+                } else {
+                    WARM_BLACK
+                }
             } else {
                 self.line_color
             },
@@ -900,6 +1111,17 @@ impl Scene {
             },
             contour_color: self.contour_color,
             mesh_color: self.mesh_color,
+            env_x: [columns[0][0], columns[0][1], columns[0][2], 0.0],
+            env_y: [columns[1][0], columns[1][1], columns[1][2], 0.0],
+            env_z: [columns[2][0], columns[2][1], columns[2][2], 0.0],
+            sun_color: self.sun_color,
+            light_gain: [
+                self.diffuse_gain,
+                self.spot_gain,
+                self.roughness,
+                self.env_gain,
+            ],
+            surface: [self.metallic, 0.0, 0.0, 0.0],
         };
         self.view_uniform.write(device, &[uniform], 0);
     }
@@ -996,7 +1218,11 @@ impl Scene {
                     resolve_target: Some(target),
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(if self.svg_preview {
-                            let [r, g, b, _] = if self.svg_dark { WARM_BLACK } else { WARM_WHITE };
+                            let [r, g, b, _] = if self.svg_dark {
+                                WARM_BLACK
+                            } else {
+                                WARM_WHITE
+                            };
                             wgpu::Color {
                                 r: r.into(),
                                 g: g.into(),

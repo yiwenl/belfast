@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use belfast::{Device, OrbitalPointerButton};
+use belfast::{Device, EnvironmentMap, OrbitalPointerButton};
 use wasm_bindgen::prelude::*;
 
 use crate::scene::Scene;
@@ -249,7 +249,7 @@ impl ExperimentApp {
 
     #[wasm_bindgen(js_name = setView)]
     pub fn set_view(&mut self, values: &[f32]) -> Result<(), JsValue> {
-        if values.len() != 37 || values.iter().any(|v| !v.is_finite()) {
+        if values.len() != 42 || values.iter().any(|v| !v.is_finite()) {
             return Err(js_error("Invalid view settings"));
         }
         self.scene.light_yaw = values[0];
@@ -301,7 +301,18 @@ impl ExperimentApp {
         ];
         self.scene.min_elevation = values[35].clamp(0.0, 5.0);
         self.scene.invert_ink = values[36] > 0.5;
+        self.scene.diffuse_gain = values[37].clamp(0.0, 2.0);
+        self.scene.spot_gain = values[38].clamp(0.0, 2.0);
+        self.scene.roughness = values[39].clamp(0.0, 1.0);
+        self.scene.env_gain = values[40].clamp(0.0, 2.0);
+        self.scene.metallic = values[41].clamp(0.0, 1.0);
         Ok(())
+    }
+
+    #[wasm_bindgen(js_name = setEnvironment)]
+    pub fn set_environment(&mut self, bytes: &[u8]) -> Result<Vec<f32>, JsValue> {
+        let map = EnvironmentMap::from_radiance_hdr(bytes).map_err(|error| js_error(error.to_string()))?;
+        Ok(self.scene.set_environment(&self.device, &map).to_vec())
     }
 
     #[wasm_bindgen(js_name = setPaused)]

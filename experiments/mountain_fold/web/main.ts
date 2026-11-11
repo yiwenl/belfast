@@ -36,6 +36,12 @@ const values = {
   before: false,
   lightYaw: -4,
   lightPitch: 7,
+  diffuseGain: 0,
+  spotGain: 0,
+  roughness: 1,
+  envGain: 1,
+  metallic: 0,
+  hdr: "golden_gate_hills_2k.hdr",
   spotAngle: 0.5,
   spotFalloff: 2,
   contourSpacing: 0.1,
@@ -91,6 +97,15 @@ let frames = 0,
 const cameraBindings: BindingApi[] = [];
 let refreshingCamera = false;
 let voronoiKey = "";
+const environments = [
+  "bambanani_sunset_2k.hdr",
+  "drackenstein_quarry_2k.hdr",
+  "golden_gate_hills_2k.hdr",
+  "hay_bales_2k.hdr",
+  "ludwikowice_farmland_2k.hdr",
+  "waterkloof_farm_2k.hdr",
+];
+let loadedHdr = "";
 const listeners = new AbortController();
 
 function message(text: string) {
@@ -165,9 +180,36 @@ function applyView() {
       (mesh & 255) / 255,
       values.minElevation,
       +values.invertInk,
+      values.diffuseGain,
+      values.spotGain,
+      values.roughness,
+      values.envGain,
+      values.metallic,
     ]),
   );
   app?.setPaused(values.paused);
+}
+function loadEnvironment(file: string) {
+  if (!app || loadedHdr === file) return;
+  const request = file;
+  loadedHdr = file;
+  void fetch(`/${file}`)
+    .then((response) => {
+      if (!response.ok) throw new Error(`HDR map failed to load (${response.status})`);
+      return response.arrayBuffer();
+    })
+    .then((buffer) => {
+      if (disposed || values.hdr !== request || !app) return;
+      const sun = app.setEnvironment(new Uint8Array(buffer));
+      values.lightYaw = sun[0];
+      values.lightPitch = sun[1];
+      pane?.refresh();
+      applyView();
+    })
+    .catch((error: unknown) => {
+      if (loadedHdr === request) loadedHdr = "";
+      console.error(error);
+    });
 }
 function applyErosion() {
   app?.setErosion(
@@ -310,6 +352,31 @@ function createPane() {
   render
     .addBinding(values, "lightPitch", { label: "Light elevation", min: 5, max: 85, step: 1 })
     .on("change", applyView);
+  render
+    .addBinding(values, "diffuseGain", { label: "Diffuse", min: 0, max: 2, step: 0.05 })
+    .on("change", applyView);
+  render
+    .addBinding(values, "spotGain", { label: "Spot", min: 0, max: 2, step: 0.05 })
+    .on("change", applyView);
+  render
+    .addBinding(values, "roughness", { label: "Roughness", min: 0, max: 1, step: 0.01 })
+    .on("change", applyView);
+  render
+    .addBinding(values, "metallic", { label: "Metallic", min: 0, max: 1, step: 0.01 })
+    .on("change", applyView);
+  render
+    .addBinding(values, "hdr", {
+      label: "Environment map",
+      options: Object.fromEntries(
+        environments.map((file) => [file.replace(/\.hdr$/, "").replaceAll("_", " "), file]),
+      ),
+    })
+    .on("change", (event) => {
+      if (event.last) loadEnvironment(values.hdr);
+    });
+  render
+    .addBinding(values, "envGain", { label: "Environment", min: 0, max: 2, step: 0.05 })
+    .on("change", applyView);
   for (const [key, label, min, max, step] of [
     ["contourSpacing", "Contour spacing", 0.02, 0.5, 0.01],
     ["contourStrength", "Contour strength", 0, 0.4, 0.01],
@@ -324,7 +391,7 @@ function createPane() {
     })
     .on("change", applyView);
   const meshColor = render
-    .addBinding(values, "meshColor", { label: "Mesh color" })
+    .addBinding(values, "meshColor", { label: "Material color" })
     .on("change", applyView);
   const contourColor = render
     .addBinding(values, "contourColor", { label: "Contour color" })
@@ -527,6 +594,7 @@ async function start() {
     created.setCamera(values.yaw, values.pitch, values.distance);
     applyProjection();
     applyPaper();
+    loadEnvironment(values.hdr);
     function frame(now: number) {
       if (disposed) return;
       try {

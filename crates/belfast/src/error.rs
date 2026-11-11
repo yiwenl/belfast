@@ -102,4 +102,6 @@ pub enum BelfastError {
     TextureDimensionsExceedLimit { width: u32, height: u32, limit: u32 },
     #[error("RGBA texture data requires {expected} bytes, got {actual}")]
     InvalidTextureDataLength { expected: usize, actual: usize },
+    #[error("invalid Radiance HDR: {0}")]
+    InvalidRadianceHdr(&'static str),
 }

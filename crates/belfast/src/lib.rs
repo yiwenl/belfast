@@ -7,6 +7,7 @@ mod compute;
 mod controls;
 mod device;
 mod draw;
+mod environment;
 mod error;
 pub mod filament;
 pub mod fluid;
@@ -25,6 +26,7 @@ pub use compute::{Compute, ComputeOptions};
 pub use controls::{OrbitalControl, OrbitalControlOptions, OrbitalPointerButton};
 pub use device::{Device, DeviceOptions};
 pub use draw::{Draw, DrawOptions};
+pub use environment::{rotation_from_to, EnvironmentImage, EnvironmentMap};
 pub use error::{BelfastError, BelfastResult};
 pub use geom::{Geom, GeometryData};
 pub use helpers::{

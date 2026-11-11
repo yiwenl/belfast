@@ -14,6 +14,12 @@ struct View {
     paper: vec4<f32>, // printable width/height as fractions of the page
     contour_color: vec4<f32>,
     mesh_color: vec4<f32>,
+    env_x: vec4<f32>, // columns of the rotation that maps the HDR sun onto the light
+    env_y: vec4<f32>,
+    env_z: vec4<f32>,
+    sun_color: vec4<f32>, // rgb sun irradiance, w = 1 once the HDR is loaded
+    light_gain: vec4<f32>, // diffuse, spot, roughness, environment strength
+    surface: vec4<f32>, // metallic
 };
 struct Segment { a: vec4<f32>, b: vec4<f32>, info: vec4<f32> };
 @group(0) @binding(0) var<uniform> view: View;
