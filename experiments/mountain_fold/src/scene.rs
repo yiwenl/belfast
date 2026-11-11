@@ -895,7 +895,9 @@ impl Scene {
         };
         let bytes = u64::from(strokes) * u64::from(self.segments_per_stroke()) * 48;
         let limits = device.gpu().limits();
-        let limit = u64::from(limits.max_storage_buffer_binding_size).min(limits.max_buffer_size);
+        let limit = limits
+            .max_storage_buffer_binding_size
+            .min(limits.max_buffer_size);
         if bytes > limit {
             return Err("Line spacing exceeds GPU capacity. Increase Line spacing px or reduce the canvas size.");
         }

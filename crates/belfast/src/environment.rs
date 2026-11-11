@@ -199,8 +199,8 @@ fn downsample(pixels: &[[f32; 3]], width: u32, height: u32, dw: u32, dh: u32) ->
     }
     for (pixel, samples) in sum.iter_mut().zip(count) {
         let samples = samples.max(1) as f32;
-        for channel in 0..3 {
-            pixel[channel] /= samples;
+        for channel in pixel.iter_mut() {
+            *channel /= samples;
         }
     }
     sum
@@ -354,10 +354,7 @@ fn read_scanline(bytes: &[u8], cursor: &mut usize, width: u32) -> BelfastResult<
         .checked_add(width as usize * 4)
         .filter(|end| *end <= bytes.len())
         .ok_or(BelfastError::InvalidRadianceHdr("truncated scanline"))?;
-    let raw = bytes[*cursor..end]
-        .chunks_exact(4)
-        .map(|pixel| [pixel[0], pixel[1], pixel[2], pixel[3]])
-        .collect();
+    let raw = bytes[*cursor..end].as_chunks::<4>().0.to_vec();
     *cursor = end;
     Ok(raw)
 }
@@ -379,7 +376,7 @@ fn read_rle_channel(bytes: &[u8], cursor: &mut usize, width: usize) -> BelfastRe
             if row.len() + run > width {
                 return Err(BelfastError::InvalidRadianceHdr("run exceeds width"));
             }
-            row.extend(std::iter::repeat(value).take(run));
+            row.extend(std::iter::repeat_n(value, run));
         } else if count == 0 {
             return Err(BelfastError::InvalidRadianceHdr("empty run"));
         } else {
