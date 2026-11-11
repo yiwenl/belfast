@@ -30,6 +30,14 @@ fn ink(light: f32) -> f32 {
     let lit = smoothstep(0.05, 0.8, clamp(light * view.style.x, 0.0, 1.0));
     return select(1.0 - lit, lit, view.base.y > 0.5);
 }
+fn surface_light(p: vec2<f32>, normal: vec3<f32>) -> f32 {
+    if (view.sun_color.w > 0.5) {
+        // Match the displayed PBR brightness before decorative mesh contours.
+        let color = linear_to_srgb(tone_map(surface_pbr(p, normal)));
+        return dot(color, vec3(0.2126, 0.7152, 0.0722));
+    }
+    return max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world_position(p));
+}
 fn voronoi_point(p: vec2<f32>, direction: vec2<f32>, clearance: f32, stroke: u32) -> vec2<f32> {
     if (view.stroke.x <= 0.0) { return p; }
     let t = dot(p, direction) * view.grid.y / view.stroke.y;
@@ -62,7 +70,7 @@ fn visible(p: vec2<f32>, rank: f32) -> bool {
     let normal = normal_at(p);
     let facing = select(0.25, 0.0, view.counts.w == 2u);
     if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) < facing) { return false; }
-    let light = max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world_position(p));
+    let light = surface_light(p, normal);
     return rank < ink(light);
 }
 fn write_segment(index: u32, start: vec2<f32>, end: vec2<f32>, rank: f32, ring: u32) {
@@ -103,7 +111,7 @@ fn hatch_sample(ndc: vec2<f32>, rank: f32) -> vec2<f32> {
     if (abs(world.y - line_position(p).y) > view.grid.y * 0.5) { return vec2(depth, 0.0); }
     let normal = normal_at(p);
     if (dot(normal, normalize(view.eye.xyz - world * view.eye.w)) <= 0.0) { return vec2(depth, 0.0); }
-    let light = max(0.0, dot(normal, view.light.xyz)) * terrain_shadow(world_position(p));
+    let light = surface_light(p, normal);
     return vec2(depth, select(0.0, 1.0, rank < ink(light)));
 }
 fn write_hatch(column: u32, step: u32) {

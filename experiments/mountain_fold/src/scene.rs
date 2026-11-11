@@ -153,7 +153,7 @@ fn resource(binding: u32, buffer: &Buffer) -> wgpu::BindGroupEntry<'_> {
 fn texture_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
-        visibility: wgpu::ShaderStages::FRAGMENT,
+        visibility: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::COMPUTE,
         ty: wgpu::BindingType::Texture {
             sample_type: wgpu::TextureSampleType::Float { filterable: true },
             view_dimension: wgpu::TextureViewDimension::D2,
@@ -165,7 +165,7 @@ fn texture_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
 fn sampler_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
-        visibility: wgpu::ShaderStages::FRAGMENT,
+        visibility: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::COMPUTE,
         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
         count: None,
     }
@@ -554,8 +554,9 @@ impl Scene {
                     immediate_size: 0,
                 });
         let lines_code = format!(
-            "{}\n{}",
+            "{}\n{}\n{}",
             include_str!("common.wgsl"),
+            include_str!("lighting.wgsl"),
             include_str!("lines.wgsl")
         );
         let lines_compute = Compute::new(
@@ -580,9 +581,10 @@ impl Scene {
                 label: Some("MountainRenderShader"),
                 source: wgpu::ShaderSource::Wgsl(
                     format!(
-                        "const OUTPUT_SRGB_ATTACHMENT: bool = {};\n{}\n{}",
+                        "const OUTPUT_SRGB_ATTACHMENT: bool = {};\n{}\n{}\n{}",
                         device.format().is_srgb(),
                         include_str!("common.wgsl"),
+                        include_str!("lighting.wgsl"),
                         include_str!("terrain.wgsl")
                     )
                     .into(),
