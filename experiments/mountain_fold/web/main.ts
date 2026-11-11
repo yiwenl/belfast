@@ -12,6 +12,7 @@ const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
 const url = new URL(location.href);
 const values = {
   seed: url.searchParams.get("seed") || DEFAULT_HASH,
+  rangeMode: 0,
   height: 2.8,
   width: 0.34,
   rounding: 0.12,
@@ -287,6 +288,16 @@ function createPane() {
     container: document.querySelector<HTMLElement>("#controls")!,
   });
   const mountain = pane.addFolder({ title: "Mountain range", expanded: false });
+  const ridgeBindings: BindingApi[] = [];
+  mountain
+    .addBinding(values, "rangeMode", {
+      label: "Initial shape",
+      options: { "Lateral range": 0, "Radial range": 1, Noise: 2 },
+    })
+    .on("change", (event) => {
+      for (const binding of ridgeBindings) binding.hidden = values.rangeMode === 2;
+      if (event.last) reset();
+    });
   mountain.addBinding(values, "seed", { label: "Seed / fxhash" }).on("change", (event) => {
     if (event.last) reset();
   });
@@ -299,10 +310,17 @@ function createPane() {
     ["direction", "Direction", -180, 180, 1],
     ["noise", "Surface noise", 0, 0.35, 0.005],
     ["noiseFloor", "Noise floor", 0, 0.4, 0.01],
-  ] as const)
-    mountain.addBinding(values, key, { label, min, max, step }).on("change", (event) => {
-      if (event.last) reset();
-    });
+  ] as const) {
+    const binding = mountain
+      .addBinding(values, key, { label, min, max, step })
+      .on("change", (event) => {
+        if (event.last) reset();
+      });
+    if (key === "width" || key === "rounding" || key === "levels") {
+      binding.hidden = values.rangeMode === 2;
+      ridgeBindings.push(binding);
+    }
+  }
   mountain.addButton({ title: "New seed" }).on("click", () => {
     values.seed = newHash();
     pane?.refresh();
