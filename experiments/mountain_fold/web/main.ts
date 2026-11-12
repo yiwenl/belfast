@@ -84,6 +84,7 @@ const values = {
 };
 let app: ExperimentApp | undefined;
 let pane: Pane | undefined;
+let simple = true;
 let spacingBinding: BindingApi | undefined;
 const feedback = { status: "Loading WebGPU…", steps: 0, fps: 0, error: "" };
 let detach: (() => void) | undefined;
@@ -98,14 +99,7 @@ let frames = 0,
 const cameraBindings: BindingApi[] = [];
 let refreshingCamera = false;
 let voronoiKey = "";
-const environments = [
-  "bambanani_sunset_2k.hdr",
-  "drackenstein_quarry_2k.hdr",
-  "golden_gate_hills_2k.hdr",
-  "hay_bales_2k.hdr",
-  "ludwikowice_farmland_2k.hdr",
-  "waterkloof_farm_2k.hdr",
-];
+const environments = ["ludwikowice_farmland_2k.hdr"];
 let loadedHdr = "";
 const listeners = new AbortController();
 
@@ -289,18 +283,20 @@ function createPane() {
   });
   const mountain = pane.addFolder({ title: "Mountain range", expanded: false });
   const ridgeBindings: BindingApi[] = [];
-  mountain
-    .addBinding(values, "rangeMode", {
-      label: "Initial shape",
-      options: { "Lateral range": 0, "Radial range": 1, Noise: 2 },
-    })
-    .on("change", (event) => {
-      for (const binding of ridgeBindings) binding.hidden = values.rangeMode === 2;
+  if (!simple) {
+    mountain
+      .addBinding(values, "rangeMode", {
+        label: "Initial shape",
+        options: { "Lateral range": 0, "Radial range": 1, Noise: 2 },
+      })
+      .on("change", (event) => {
+        for (const binding of ridgeBindings) binding.hidden = values.rangeMode === 2;
+        if (event.last) reset();
+      });
+    mountain.addBinding(values, "seed", { label: "Seed / fxhash" }).on("change", (event) => {
       if (event.last) reset();
     });
-  mountain.addBinding(values, "seed", { label: "Seed / fxhash" }).on("change", (event) => {
-    if (event.last) reset();
-  });
+  }
   for (const [key, label, min, max, step] of [
     ["height", "Height", 0.8, 4.5, 0.05],
     ["width", "Ridge width", 0.15, 0.5, 0.01],
@@ -337,15 +333,25 @@ function createPane() {
     .addBinding(values, "layerSpacing", { label: "Layer spacing", min: 0, max: 10, step: 0.1 })
     .on("change", applyView);
   spacingBinding = layerSpacing;
-  const baseThickness = scene
-    .addBinding(values, "baseThickness", { label: "Base thickness", min: 0, max: 6, step: 0.05 })
-    .on("change", applyView);
-  const background = scene
-    .addBinding(values, "backgroundColor", { label: "Background" })
-    .on("change", applyView);
+  const previewHidden: BindingApi[] = [layerSpacing];
+  if (!simple) {
+    previewHidden.push(
+      scene
+        .addBinding(values, "baseThickness", {
+          label: "Base thickness",
+          min: 0,
+          max: 6,
+          step: 0.05,
+        })
+        .on("change", applyView),
+      scene.addBinding(values, "backgroundColor", { label: "Background" }).on("change", applyView),
+    );
+  }
 
-  const simulation = pane.addFolder({ title: "Erosion" });
-  const physics = simulation.addFolder({ title: "Water & sediment", expanded: false });
+  const simulation = pane.addFolder({ title: "Erosion", expanded: !simple });
+  const physics = simple
+    ? simulation
+    : simulation.addFolder({ title: "Water & sediment", expanded: false });
   for (const [key, label, min, max, step] of [
     ["inertia", "Inertia", 0, 0.95, 0.01],
     ["capacity", "Carry capacity", 0.1, 12, 0.1],
@@ -372,50 +378,50 @@ function createPane() {
   render
     .addBinding(values, "lightPitch", { label: "Light elevation", min: 5, max: 85, step: 1 })
     .on("change", applyView);
-  render
-    .addBinding(values, "diffuseGain", { label: "Diffuse", min: 0, max: 2, step: 0.05 })
-    .on("change", applyView);
-  render
-    .addBinding(values, "spotGain", { label: "Spot", min: 0, max: 2, step: 0.05 })
-    .on("change", applyView);
-  render
-    .addBinding(values, "roughness", { label: "Roughness", min: 0, max: 1, step: 0.01 })
-    .on("change", applyView);
-  render
-    .addBinding(values, "metallic", { label: "Metallic", min: 0, max: 1, step: 0.01 })
-    .on("change", applyView);
-  render
-    .addBinding(values, "hdr", {
-      label: "Environment map",
-      options: Object.fromEntries(
-        environments.map((file) => [file.replace(/\.hdr$/, "").replaceAll("_", " "), file]),
-      ),
-    })
-    .on("change", (event) => {
-      if (event.last) loadEnvironment(values.hdr);
-    });
-  render
-    .addBinding(values, "envGain", { label: "Environment", min: 0, max: 2, step: 0.05 })
-    .on("change", applyView);
-  for (const [key, label, min, max, step] of [
-    ["contourSpacing", "Contour spacing", 0.02, 0.5, 0.01],
-    ["contourStrength", "Contour strength", 0, 0.4, 0.01],
-  ] as const)
-    render.addBinding(values, key, { label, min, max, step }).on("change", applyView);
-  render
-    .addBinding(values, "minElevation", {
-      label: "Min elevation",
-      min: 0,
-      max: 5,
-      step: 0.05,
-    })
-    .on("change", applyView);
-  const meshColor = render
-    .addBinding(values, "meshColor", { label: "Material color" })
-    .on("change", applyView);
-  const contourColor = render
-    .addBinding(values, "contourColor", { label: "Contour color" })
-    .on("change", applyView);
+  if (!simple) {
+    render
+      .addBinding(values, "diffuseGain", { label: "Diffuse", min: 0, max: 2, step: 0.05 })
+      .on("change", applyView);
+    render
+      .addBinding(values, "spotGain", { label: "Spot", min: 0, max: 2, step: 0.05 })
+      .on("change", applyView);
+    render
+      .addBinding(values, "roughness", { label: "Roughness", min: 0, max: 1, step: 0.01 })
+      .on("change", applyView);
+    render
+      .addBinding(values, "metallic", { label: "Metallic", min: 0, max: 1, step: 0.01 })
+      .on("change", applyView);
+    render
+      .addBinding(values, "hdr", {
+        label: "Environment map",
+        options: Object.fromEntries(
+          environments.map((file) => [file.replace(/\.hdr$/, "").replaceAll("_", " "), file]),
+        ),
+      })
+      .on("change", (event) => {
+        if (event.last) loadEnvironment(values.hdr);
+      });
+    render
+      .addBinding(values, "envGain", { label: "Environment", min: 0, max: 2, step: 0.05 })
+      .on("change", applyView);
+    for (const [key, label, min, max, step] of [
+      ["contourSpacing", "Contour spacing", 0.02, 0.5, 0.01],
+      ["contourStrength", "Contour strength", 0, 0.4, 0.01],
+    ] as const)
+      render.addBinding(values, key, { label, min, max, step }).on("change", applyView);
+    render
+      .addBinding(values, "minElevation", {
+        label: "Min elevation",
+        min: 0,
+        max: 5,
+        step: 0.05,
+      })
+      .on("change", applyView);
+    previewHidden.push(
+      render.addBinding(values, "meshColor", { label: "Material color" }).on("change", applyView),
+      render.addBinding(values, "contourColor", { label: "Contour color" }).on("change", applyView),
+    );
+  }
   const density = render
     .addBinding(values, "density", { label: "Line density", min: 32, max: 320, step: 8 })
     .on("change", applyView);
@@ -431,16 +437,20 @@ function createPane() {
   render
     .addBinding(values, "contrast", { label: "Line exposure", min: 0.2, max: 2.5, step: 0.05 })
     .on("change", applyView);
-  render.addBinding(values, "invertInk", { label: "Ink on light" }).on("change", applyView);
-  const lineColor = render
-    .addBinding(values, "lineColor", { label: "Line color" })
-    .on("change", applyView);
-  const wobble = render
-    .addBinding(values, "lineWobble", { label: "Hand wobble", min: 0, max: 0.08, step: 0.001 })
-    .on("change", applyView);
-  const wobbleScale = render
-    .addBinding(values, "wobbleScale", { label: "Wobble scale", min: 0.2, max: 2, step: 0.05 })
-    .on("change", applyView);
+  let wobble: BindingApi | undefined;
+  let wobbleScale: BindingApi | undefined;
+  if (!simple) {
+    render.addBinding(values, "invertInk", { label: "Ink on light" }).on("change", applyView);
+    previewHidden.push(
+      render.addBinding(values, "lineColor", { label: "Line color" }).on("change", applyView),
+    );
+    wobble = render
+      .addBinding(values, "lineWobble", { label: "Hand wobble", min: 0, max: 0.08, step: 0.001 })
+      .on("change", applyView);
+    wobbleScale = render
+      .addBinding(values, "wobbleScale", { label: "Wobble scale", min: 0.2, max: 2, step: 0.05 })
+      .on("change", applyView);
+  }
   const voronoi = pane.addFolder({ title: "Voronoi hatching", hidden: true });
   voronoi
     .addBinding(values, "voronoiCells", { label: "Cells", min: 4, max: 256, step: 1 })
@@ -462,85 +472,87 @@ function createPane() {
     .on("change", (event) => {
       if (event.last) applyView();
     });
-  lineMode.on("change", () => {
+  const syncLines = () => {
     density.hidden = values.lineMode !== 0;
     spacing.hidden = values.lineMode !== 1;
-    wobble.hidden = values.lineMode === 1;
-    wobbleScale.hidden = values.lineMode === 1;
+    if (wobble) wobble.hidden = values.lineMode === 1;
+    if (wobbleScale) wobbleScale.hidden = values.lineMode === 1;
     voronoi.hidden = values.lineMode !== 2;
+  };
+  lineMode.on("change", () => {
+    syncLines();
     applyView();
   });
-  const camera = pane.addFolder({ title: "Camera", expanded: false });
-  const projection = camera.addBinding(values, "orthographic", { label: "Orthographic" });
-  const fov = camera
-    .addBinding(values, "fov", {
-      label: "FOV (°)",
-      min: 15,
-      max: 90,
-      step: 1,
-      hidden: values.orthographic,
-    })
-    .on("change", applyProjection);
-  const bounds = camera
-    .addBinding(values, "orthoBound", {
-      label: "Bounds ±",
-      min: 2,
-      max: 30,
-      step: 0.1,
-      hidden: !values.orthographic,
-    })
-    .on("change", applyProjection);
-  const poseBindings = ([["distance", "Distance", 6, 40]] as const).map(([key, label, min, max]) =>
-    camera
-      .addBinding(values, key, {
-        label,
-        min,
-        max,
+  syncLines();
+  let distanceBinding: SliderInputBindingApi | undefined;
+  if (!simple) {
+    const camera = pane.addFolder({ title: "Camera", expanded: false });
+    const projection = camera.addBinding(values, "orthographic", { label: "Orthographic" });
+    const fov = camera
+      .addBinding(values, "fov", {
+        label: "FOV (°)",
+        min: 15,
+        max: 90,
+        step: 1,
+        hidden: values.orthographic,
+      })
+      .on("change", applyProjection);
+    const bounds = camera
+      .addBinding(values, "orthoBound", {
+        label: "Bounds ±",
+        min: 2,
+        max: 30,
+        step: 0.1,
+        hidden: !values.orthographic,
+      })
+      .on("change", applyProjection);
+    const distance = camera
+      .addBinding(values, "distance", {
+        label: "Distance",
+        min: 6,
+        max: 40,
         step: 0.5,
-        hidden: key === "distance" && values.orthographic,
+        hidden: values.orthographic,
       })
       .on("change", () => {
         if (!refreshingCamera) app?.setCamera(values.yaw, values.pitch, values.distance);
-      }),
-  );
-  cameraBindings.push(...poseBindings, bounds);
-  preview.on("change", () => {
-    (poseBindings[0] as SliderInputBindingApi).max = values.svgPreview ? 200 : 40;
-    applyPaper();
+      }) as SliderInputBindingApi;
+    distanceBinding = distance;
+    cameraBindings.push(distance, bounds);
+    projection.on("change", () => {
+      fov.hidden = values.orthographic;
+      bounds.hidden = !values.orthographic;
+      distance.hidden = values.orthographic;
+      applyProjection();
+    });
+    camera.addButton({ title: "Reset camera" }).on("click", () => {
+      values.yaw = 45.64276885986328;
+      values.pitch = 30;
+      values.distance = 30;
+      values.fov = 42;
+      values.orthoBound = 15;
+      app?.resetCamera();
+      pane?.refresh();
+    });
+  }
+  const syncPreview = () => {
+    if (distanceBinding) distanceBinding.max = values.svgPreview ? 200 : 40;
     darkPaper.hidden = !values.svgPreview;
-    for (const binding of [
-      layerSpacing,
-      baseThickness,
-      background,
-      lineColor,
-      contourColor,
-      meshColor,
-    ]) {
-      binding.hidden = values.svgPreview;
-    }
+    for (const binding of previewHidden) binding.hidden = values.svgPreview;
+  };
+  preview.on("change", () => {
+    syncPreview();
+    applyPaper();
   });
-  projection.on("change", () => {
-    fov.hidden = values.orthographic;
-    bounds.hidden = !values.orthographic;
-    poseBindings[0].hidden = values.orthographic;
-    applyProjection();
-  });
-  camera.addButton({ title: "Reset camera" }).on("click", () => {
-    values.yaw = 45.64276885986328;
-    values.pitch = 30;
-    values.distance = 30;
-    values.fov = 42;
-    values.orthoBound = 15;
-    app?.resetCamera();
-    pane?.refresh();
-  });
+  if (values.svgPreview) syncPreview();
   pane.addButton({ title: "Export line SVG" }).on("click", captureSvg);
-  pane.addBinding(feedback, "fps", {
-    readonly: true,
-    interval: 250,
-    label: "FPS",
-    format: (value: number) => value.toFixed(0),
-  });
+  if (!simple)
+    pane.addBinding(feedback, "fps", {
+      readonly: true,
+      interval: 250,
+      label: "FPS",
+      format: (value: number) => value.toFixed(0),
+    });
 }
 
 const ease = (t: number) => t * t * (3 - 2 * t);
@@ -716,6 +728,22 @@ window.addEventListener(
     ) {
       event.preventDefault();
       playDemo();
+    }
+    // Either slash toggles. Skip text fields so a seed can still contain "/".
+    const textField = event.target instanceof HTMLInputElement && event.target.type === "text";
+    if (
+      (event.code === "Backslash" || event.code === "Slash") &&
+      !event.repeat &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !textField
+    ) {
+      event.preventDefault();
+      simple = !simple;
+      cameraBindings.length = 0;
+      pane?.dispose();
+      createPane();
     }
   },
   { signal: listeners.signal },
