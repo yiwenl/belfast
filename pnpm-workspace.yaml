@@ -8,5 +8,6 @@ packages:
   - "experiments/courtyard02"
   - "experiments/firefly_forest"
   - "experiments/image_volume"
+  - "experiments/mountain_fold"
 allowBuilds:
   esbuild: true
