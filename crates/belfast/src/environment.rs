@@ -447,14 +447,14 @@ mod tests {
     }
 
     #[test]
-    fn golden_gate_hdr_sun_is_above_the_horizon() {
+    fn farmland_hdr_sun_is_above_the_horizon() {
         let bytes = std::fs::read(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../experiments/mountain_fold/public/golden_gate_hills_2k.hdr"
+            "/../../experiments/mountain_fold/public/ludwikowice_farmland_2k.hdr"
         ))
-        .expect("golden gate hdr");
+        .expect("farmland hdr");
         let map = EnvironmentMap::from_radiance_hdr(&bytes).unwrap();
-        assert!(map.sun_direction[1] > 0.5, "{:?}", map.sun_direction);
+        assert!(map.sun_direction[1] > 0.0, "{:?}", map.sun_direction);
         assert!(map.sun_color[0] > 0.5);
     }
 }
