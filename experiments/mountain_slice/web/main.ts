@@ -2,11 +2,11 @@ import init, { ExperimentApp } from "../pkg/experiment";
 import { Pane, type SliderInputBindingApi } from "tweakpane";
 import type { BindingApi } from "@tweakpane/core";
 import { bindOrbitInput } from "./input";
-import { generateTerrain } from "./terrain";
+import { generateTerrain, WORLD_SIZE } from "./terrain";
 import { generateVoronoiSegments } from "./voronoi";
-import { generateSectionLayout } from "./sections";
+import { generateSectionLayout, sectionPrintScale } from "./sections";
 import { DEFAULT_HASH, newHash } from "./hash";
-import { savePng, saveSvg, saveSectionSvg } from "./export";
+import { savePng, saveSvg, printSections } from "./export";
 import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("canvas")!;
@@ -69,7 +69,6 @@ const values = {
   svgPreview: true,
   sectionPreview: false,
   zRange: 0.5,
-  materialThickness: 10,
   svgDark: false,
   heightmap: false,
   layerSpacing: 10,
@@ -92,7 +91,7 @@ let pane: Pane | undefined;
 let simple = true;
 let spacingBinding: BindingApi | undefined;
 const feedback = { status: "Loading WebGPU…", steps: 0, fps: 0, error: "" };
-const cutInfo = { modelSize: "" };
+const cutInfo = { modelSize: "", materialThickness: 0, exportStatus: "Ready" };
 let detach: (() => void) | undefined;
 let frameId = 0,
   disposed = false,
@@ -119,12 +118,14 @@ function fail(error: unknown) {
   console.error(error);
 }
 function applyView() {
-  const modelWidth = values.density * values.materialThickness;
+  const sections = generateSectionLayout(values.density, values.sliceAngle, values.zRange);
+  const modelWidth = WORLD_SIZE * sectionPrintScale(sections);
+  cutInfo.materialThickness = modelWidth / values.density;
   cutInfo.modelSize = `${modelWidth.toFixed(1)} × ${(modelWidth * values.zRange).toFixed(1)}`;
   if (app && values.sectionPreview) {
     const key = JSON.stringify(["sections", values.density, values.sliceAngle, values.zRange]);
     if (key !== strokeLayoutKey) {
-      app.setSectionLayout(generateSectionLayout(values.density, values.sliceAngle, values.zRange));
+      app.setSectionLayout(sections);
       strokeLayoutKey = key;
     }
   } else if (app && values.lineMode === 2) {
@@ -366,14 +367,12 @@ function createPane() {
   }
 
   const cuts = pane.addFolder({ title: "Cut sections" });
-  cuts
-    .addBinding(values, "materialThickness", {
-      label: "Material (mm)",
-      min: 0.1,
-      max: 50,
-      step: 0.1,
-    })
-    .on("change", applyView);
+  cuts.addBinding(cutInfo, "materialThickness", {
+    label: "Material (mm)",
+    readonly: true,
+    interval: 250,
+    format: (value: number) => value.toFixed(3),
+  });
   cuts
     .addBinding(values, "baseThickness", {
       label: "Base depth (world)",
@@ -387,7 +386,8 @@ function createPane() {
     readonly: true,
     interval: 250,
   });
-  cuts.addButton({ title: "Export cut SVG" }).on("click", captureSections);
+  cuts.addButton({ title: "Print A4 pages" }).on("click", captureSections);
+  cuts.addBinding(cutInfo, "exportStatus", { label: "Export", readonly: true, interval: 250 });
 
   const simulation = pane.addFolder({ title: "Erosion", expanded: !simple });
   const physics = simple
@@ -769,16 +769,19 @@ async function start() {
           pendingSections = false;
           exporting = true;
           const settings = { ...values, steps: created.steps() };
-          const outputName = filename("svg", settings.steps, settings.seed).replace(
-            "mountain-slice-",
-            "mountain-slice-cuts-",
-          );
-          message("Exporting closed cut sections…");
+          cutInfo.exportStatus = "Preparing A4 pages…";
+          message(cutInfo.exportStatus);
           void (created.readHeights() as Promise<Float32Array>)
-            .then((data) => saveSectionSvg(data, settings, outputName))
+            .then((data) => printSections(data, settings))
             .then(
-              (count) => message(`Cut SVG saved · ${count} closed sections`),
-              (error) => message(String(error)),
+              ({ sections, pages }) => {
+                cutInfo.exportStatus = `${sections} slices / ${pages} A4 pages`;
+                message(cutInfo.exportStatus);
+              },
+              (error) => {
+                cutInfo.exportStatus = String(error);
+                message(cutInfo.exportStatus);
+              },
             )
             .finally(() => {
               exporting = false;

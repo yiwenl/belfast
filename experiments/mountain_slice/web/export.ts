@@ -1,5 +1,11 @@
 import { GRID, WORLD_SIZE } from "./terrain";
-import { generateSectionLayout, sectionHeight, SECTION_SAMPLES } from "./sections";
+import {
+  generateSectionLayout,
+  sectionHeight,
+  sectionPrintScale,
+  SECTION_SAMPLES,
+  CUT_PAPER,
+} from "./sections";
 
 export function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -109,43 +115,32 @@ export async function saveSvg(
   return paths.length;
 }
 
-export async function saveSectionSvg(
+export async function printSections(
   heights: Float32Array,
   settings: {
     density: number;
     sliceAngle: number;
     zRange: number;
     baseThickness: number;
-    materialThickness: number;
     before: boolean;
     pen: number;
   },
-  filename: string,
 ) {
-  if (
-    heights.length !== GRID * GRID * 4 ||
-    !Number.isFinite(settings.materialThickness) ||
-    settings.materialThickness <= 0
-  )
-    throw new Error("Invalid terrain or material thickness for cut sections.");
+  if (heights.length !== GRID * GRID * 4) throw new Error("Invalid terrain for cut sections.");
   const layout = generateSectionLayout(settings.density, settings.sliceAngle, settings.zRange);
-  const scale = (settings.materialThickness * settings.density) / WORLD_SIZE;
-  const margin = 10;
-  const labelHeight = 6;
-  let minAlong = Infinity,
-    maxAlong = -Infinity;
+  const scale = sectionPrintScale(layout);
+  const materialThickness = (WORLD_SIZE * scale) / settings.density;
+  const { width, height, margin } = CUT_PAPER;
+  const labelHeight = 5;
+  const gap = 4;
+  type Page = { paths: string[]; labels: string[] };
+  const pages: Page[] = [{ paths: [], labels: [] }];
+  let x = margin,
+    y = margin,
+    rowHeight = 0;
   for (let i = 0; i < layout.length; i += 12) {
-    minAlong = Math.min(minAlong, layout[i + 8]);
-    maxAlong = Math.max(maxAlong, layout[i + 9]);
-  }
-  const width = (maxAlong - minAlong) * scale + 2 * margin;
-  const originX = margin - minAlong * scale;
-  let row = margin + 12;
-  const paths: string[] = [];
-  const labels: string[] = [];
-  const sections: { id: string; offsetMm: number; startMm: number; endMm: number }[] = [];
-  for (let i = 0; i < layout.length; i += 12) {
-    const id = `slice-${String(i / 12 + 1).padStart(3, "0")}`;
+    const number = String(i / 12 + 1).padStart(3, "0");
+    const id = `slice-${number}`;
     const points: Point[] = [];
     let top = 0;
     for (let step = 0; step <= SECTION_SAMPLES; step++) {
@@ -157,50 +152,58 @@ export async function saveSectionSvg(
       top = Math.max(top, height);
       points.push([layout[i + 8] + (layout[i + 9] - layout[i + 8]) * t, height]);
     }
-    const toPaper = ([x, y]: Point) =>
-      `${(originX + x * scale).toFixed(3)} ${(row + labelHeight + (top - y) * scale).toFixed(3)}`;
     const bottom = -settings.baseThickness;
+    const pieceWidth = (layout[i + 9] - layout[i + 8]) * scale;
+    const blockWidth = Math.max(pieceWidth, 22);
+    const blockHeight = labelHeight + (top - bottom) * scale;
+    if (blockHeight > height - margin * 2)
+      throw new Error(`${id} is too tall for A4. Reduce Base depth or Mountain height.`);
+    // Pack in slice order, keeping the same scale and a cutting gap between every piece.
+    if (x + blockWidth > width - margin + 1e-6) {
+      x = margin;
+      y += rowHeight + gap;
+      rowHeight = 0;
+    }
+    if (y + blockHeight > height - margin + 1e-6) {
+      pages.push({ paths: [], labels: [] });
+      x = margin;
+      y = margin;
+      rowHeight = 0;
+    }
+    const page = pages[pages.length - 1];
+    const originX = x - layout[i + 8] * scale;
+    const toPaper = ([along, elevation]: Point) =>
+      `${(originX + along * scale).toFixed(3)} ${(y + labelHeight + (top - elevation) * scale).toFixed(3)}`;
     const outline = [...points, [layout[i + 9], bottom] as Point, [layout[i + 8], bottom] as Point];
     // One closed path per physical piece; no camera, shadow or viewport clipping.
-    paths.push(`<path id="${id}" d="M ${outline.map(toPaper).join(" L ")} Z"/>`);
-    const offsetMm = layout[i + 10] * scale;
-    labels.push(
-      `<text x="${margin}" y="${(row + 3).toFixed(3)}">${id} / offset ${offsetMm.toFixed(2)} mm / start ${(layout[i + 8] * scale).toFixed(2)} mm</text>`,
+    page.paths.push(`<path id="${id}" d="M ${outline.map(toPaper).join(" L ")} Z"/>`);
+    page.labels.push(
+      `<text x="${x.toFixed(3)}" y="${(y + 3).toFixed(3)}">${number} x=${(layout[i + 8] * scale).toFixed(1)}</text>`,
     );
-    sections.push({
-      id,
-      offsetMm,
-      startMm: layout[i + 8] * scale,
-      endMm: layout[i + 9] * scale,
-    });
-    row += labelHeight + (top - bottom) * scale + margin;
+    x += blockWidth + gap;
+    rowHeight = Math.max(rowHeight, blockHeight);
     if (i % (12 * 8) === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
-  const metadata = JSON.stringify({
-    ...settings,
-    modelSideMm: WORLD_SIZE * scale,
-    modelDepthMm: WORLD_SIZE * settings.zRange * scale,
-    worldUnitMm: scale,
-    originXmm: originX,
-    stackDirectionXZ: [
-      -Math.sin((settings.sliceAngle * Math.PI) / 180),
-      Math.cos((settings.sliceAngle * Math.PI) / 180),
-    ],
-    sections,
-  })
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width.toFixed(3)}mm" height="${row.toFixed(3)}mm" viewBox="0 0 ${width.toFixed(3)} ${row.toFixed(3)}">
-<metadata>${metadata}</metadata>
-<g id="cut-paths" fill="none" stroke="black" stroke-width="${settings.pen}" stroke-linejoin="round">
-${paths.join("\n")}
+  const output = document.getElementById("print-pages") ?? document.createElement("div");
+  output.id = "print-pages";
+  output.innerHTML = pages
+    .map(
+      (page, index) => `<section class="print-page">
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}mm" height="${height}mm" viewBox="0 0 ${width} ${height}">
+<g fill="none" stroke="black" stroke-width="${settings.pen}" stroke-linejoin="round">
+${page.paths.join("\n")}
 </g>
-<g id="labels" fill="black" font-family="monospace" font-size="3">
-<text x="${margin}" y="${margin + 3}">Material ${settings.materialThickness} mm / model X/Z ${(WORLD_SIZE * scale).toFixed(2)} / ${(WORLD_SIZE * settings.zRange * scale).toFixed(2)} mm / print at 100%</text>
-${labels.join("\n")}
+<g fill="black" font-family="monospace" font-size="2.5">
+<text x="${margin}" y="${margin / 2}">A4 / page ${index + 1} of ${pages.length} / print at 100%</text>
+<text x="${margin}" y="${margin / 2 + 4}">Material ${materialThickness.toFixed(3)} mm / widest slice ${(width * 0.8).toFixed(1)} mm</text>
+${page.labels.join("\n")}
 </g>
-</svg>`;
-  download(new Blob([svg], { type: "image/svg+xml" }), filename);
-  return paths.length;
+</svg>
+</section>`,
+    )
+    .join("\n");
+  document.body.append(output);
+  document.body.classList.add("print-sections");
+  window.print();
+  return { sections: layout.length / 12, pages: pages.length };
 }

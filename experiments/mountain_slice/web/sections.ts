@@ -1,8 +1,17 @@
 import { GRID, WORLD_SIZE } from "./terrain";
 
 export const SECTION_SAMPLES = 1024;
+export const CUT_PAPER = { width: 210, height: 297, margin: 21 };
 
-// The preview and cut SVG share these terrain-clipped spans, including their ordering.
+export function sectionPrintScale(layout: Float32Array) {
+  let widest = 0;
+  for (let i = 0; i < layout.length; i += 12)
+    widest = Math.max(widest, layout[i + 9] - layout[i + 8]);
+  if (!Number.isFinite(widest) || widest <= 0) throw new Error("No cut sections to export.");
+  return (CUT_PAPER.width * 0.8) / widest;
+}
+
+// The preview and printed cuts share these terrain-clipped spans, including their ordering.
 export function generateSectionLayout(density: number, angle: number, zRange: number) {
   const radians = (angle * Math.PI) / 180;
   const direction = [Math.cos(radians), Math.sin(radians)];
