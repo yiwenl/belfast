@@ -114,6 +114,7 @@ export async function saveSectionSvg(
   settings: {
     density: number;
     sliceAngle: number;
+    zRange: number;
     baseThickness: number;
     materialThickness: number;
     before: boolean;
@@ -127,7 +128,7 @@ export async function saveSectionSvg(
     settings.materialThickness <= 0
   )
     throw new Error("Invalid terrain or material thickness for cut sections.");
-  const layout = generateSectionLayout(settings.density, settings.sliceAngle);
+  const layout = generateSectionLayout(settings.density, settings.sliceAngle, settings.zRange);
   const scale = (settings.materialThickness * settings.density) / WORLD_SIZE;
   const margin = 10;
   const labelHeight = 6;
@@ -178,6 +179,7 @@ export async function saveSectionSvg(
   const metadata = JSON.stringify({
     ...settings,
     modelSideMm: WORLD_SIZE * scale,
+    modelDepthMm: WORLD_SIZE * settings.zRange * scale,
     worldUnitMm: scale,
     originXmm: originX,
     stackDirectionXZ: [
@@ -195,7 +197,7 @@ export async function saveSectionSvg(
 ${paths.join("\n")}
 </g>
 <g id="labels" fill="black" font-family="monospace" font-size="3">
-<text x="${margin}" y="${margin + 3}">Material ${settings.materialThickness} mm / model side ${(WORLD_SIZE * scale).toFixed(2)} mm / print at 100%</text>
+<text x="${margin}" y="${margin + 3}">Material ${settings.materialThickness} mm / model X/Z ${(WORLD_SIZE * scale).toFixed(2)} / ${(WORLD_SIZE * settings.zRange * scale).toFixed(2)} mm / print at 100%</text>
 ${labels.join("\n")}
 </g>
 </svg>`;

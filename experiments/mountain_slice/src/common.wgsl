@@ -19,12 +19,21 @@ struct View {
     env_z: vec4<f32>,
     sun_color: vec4<f32>, // rgb sun irradiance, w = 1 once the HDR is loaded
     light_gain: vec4<f32>, // diffuse, spot, roughness, environment strength
-    surface: vec4<f32>, // metallic
+    surface: vec4<f32>, // metallic, retained Z fraction
 };
 struct Segment { a: vec4<f32>, b: vec4<f32>, info: vec4<f32> };
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<storage, read> heights: array<vec4<f32>>;
 
+fn terrain_min() -> vec2<f32> {
+    return vec2(0.0, (view.grid.x - 1.0) * (1.0 - view.surface.y) * 0.5);
+}
+fn terrain_max() -> vec2<f32> {
+    return vec2(view.grid.x - 1.0) - terrain_min();
+}
+fn within_terrain(p: vec2<f32>) -> bool {
+    return all(p >= terrain_min()) && all(p <= terrain_max());
+}
 fn cell(p: vec2<i32>) -> vec4<f32> {
     let q = vec2<u32>(clamp(p, vec2(0), vec2(i32(view.grid.x) - 1)));
     return heights[q.x + q.y * u32(view.grid.x)];
@@ -63,7 +72,7 @@ fn terrain_shadow(position: vec3<f32>) -> f32 {
     for (var i = 1u; i < 45u; i++) {
         let ray = position + view.light.xyz * (f32(i) * 0.19);
         let p = ray.xz / view.grid.y + vec2((view.grid.x - 1.0) * 0.5);
-        if (any(p < vec2(0.0)) || any(p > vec2(view.grid.x - 1.0))) { break; }
+        if (!within_terrain(p)) { break; }
         if (height_at(p) * view.grid.y > ray.y + 0.035) { return 0.4; }
     }
     return 1.0;

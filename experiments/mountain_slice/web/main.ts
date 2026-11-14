@@ -68,6 +68,7 @@ const values = {
   backgroundColor: "#131313",
   svgPreview: true,
   sectionPreview: false,
+  zRange: 0.5,
   materialThickness: 10,
   svgDark: false,
   heightmap: false,
@@ -91,7 +92,7 @@ let pane: Pane | undefined;
 let simple = true;
 let spacingBinding: BindingApi | undefined;
 const feedback = { status: "Loading WebGPU…", steps: 0, fps: 0, error: "" };
-const cutInfo = { modelSide: values.density * values.materialThickness };
+const cutInfo = { modelSize: "" };
 let detach: (() => void) | undefined;
 let frameId = 0,
   disposed = false,
@@ -118,11 +119,12 @@ function fail(error: unknown) {
   console.error(error);
 }
 function applyView() {
-  cutInfo.modelSide = values.density * values.materialThickness;
+  const modelWidth = values.density * values.materialThickness;
+  cutInfo.modelSize = `${modelWidth.toFixed(1)} × ${(modelWidth * values.zRange).toFixed(1)}`;
   if (app && values.sectionPreview) {
-    const key = JSON.stringify(["sections", values.density, values.sliceAngle]);
+    const key = JSON.stringify(["sections", values.density, values.sliceAngle, values.zRange]);
     if (key !== strokeLayoutKey) {
-      app.setSectionLayout(generateSectionLayout(values.density, values.sliceAngle));
+      app.setSectionLayout(generateSectionLayout(values.density, values.sliceAngle, values.zRange));
       strokeLayoutKey = key;
     }
   } else if (app && values.lineMode === 2) {
@@ -195,6 +197,7 @@ function applyView() {
       values.envGain,
       values.metallic,
       values.sliceAngle,
+      values.zRange,
     ]),
   );
   app?.setPaused(values.paused);
@@ -345,6 +348,9 @@ function createPane() {
   const scene = pane.addFolder({ title: "Scene" });
   const preview = scene.addBinding(values, "svgPreview", { label: "SVG preview" });
   const sectionPreview = scene.addBinding(values, "sectionPreview", { label: "Section preview" });
+  scene
+    .addBinding(values, "zRange", { label: "Z range", min: 0.5, max: 1, step: 0.01 })
+    .on("change", applyView);
   const darkPaper = scene
     .addBinding(values, "svgDark", { label: "Dark paper", hidden: !values.svgPreview })
     .on("change", applyPaper);
@@ -376,11 +382,10 @@ function createPane() {
       step: 0.05,
     })
     .on("change", applyView);
-  cuts.addBinding(cutInfo, "modelSide", {
-    label: "Model side (mm)",
+  cuts.addBinding(cutInfo, "modelSize", {
+    label: "Model X × Z (mm)",
     readonly: true,
     interval: 250,
-    format: (value: number) => value.toFixed(1),
   });
   cuts.addButton({ title: "Export cut SVG" }).on("click", captureSections);
 

@@ -2,11 +2,12 @@ import { GRID, WORLD_SIZE } from "./terrain";
 
 export const SECTION_SAMPLES = 1024;
 
-// The preview and cut SVG share these square-clipped spans, including their ordering.
-export function generateSectionLayout(density: number, angle: number) {
+// The preview and cut SVG share these terrain-clipped spans, including their ordering.
+export function generateSectionLayout(density: number, angle: number, zRange: number) {
   const radians = (angle * Math.PI) / 180;
   const direction = [Math.cos(radians), Math.sin(radians)];
   const half = WORLD_SIZE / 2;
+  const bounds = [half, half * zRange];
   const scale = (GRID - 1) / WORLD_SIZE;
   const limit = Math.ceil(density / Math.SQRT2);
   const data: number[] = [];
@@ -17,15 +18,16 @@ export function generateSectionLayout(density: number, angle: number) {
     let high = half * Math.SQRT2;
     for (let axis = 0; axis < 2; axis++) {
       if (Math.abs(direction[axis]) < 1e-7) {
-        if (Math.abs(origin[axis]) > half + 1e-7) high = low;
+        if (Math.abs(origin[axis]) > bounds[axis] + 1e-7) high = low;
       } else {
-        const a = (-half - origin[axis]) / direction[axis];
-        const b = (half - origin[axis]) / direction[axis];
+        const a = (-bounds[axis] - origin[axis]) / direction[axis];
+        const b = (bounds[axis] - origin[axis]) / direction[axis];
         low = Math.max(low, Math.min(a, b));
         high = Math.min(high, Math.max(a, b));
       }
     }
     if (high - low <= 1e-7) continue;
+    // Keep the original square's grid coordinates so cropping never compresses the terrain.
     const point = (t: number) =>
       origin.map((v, axis) =>
         Math.max(0, Math.min(GRID - 1, (v + direction[axis] * t + half) * scale)),

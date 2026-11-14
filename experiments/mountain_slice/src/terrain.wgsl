@@ -18,24 +18,36 @@ fn terrain_vertex(id: u32, upper: bool) -> Vertex {
 }
 fn base_vertex(id: u32) -> Vertex {
     let side = u32(view.grid.x) - 1u;
-    let wall_vertices = side * 4u * 6u;
+    let wall_vertices = side * 4u * 12u;
+    let lo = terrain_min();
+    let hi = terrain_max();
     let bottom = -view.style.y * 0.5 - view.base.x;
     let corners = array<vec2<u32>, 6>(vec2(0u, 0u), vec2(0u, 1u), vec2(1u, 0u), vec2(1u, 0u), vec2(0u, 1u), vec2(1u, 1u));
     var out: Vertex;
     if (id < wall_vertices) {
-        let edge = id / (side * 6u);
+        let edge = id / (side * 12u);
         let corner = corners[id % 6u];
-        let starts = array<vec2<f32>, 4>(vec2(0.0), vec2(f32(side), 0.0), vec2(f32(side)), vec2(0.0, f32(side)));
+        let starts = array<vec2<f32>, 4>(lo, vec2(hi.x, lo.y), hi, vec2(lo.x, hi.y));
         let directions = array<vec2<f32>, 4>(vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(-1.0, 0.0), vec2(0.0, -1.0));
         let direction = directions[edge];
-        let p = starts[edge] + direction * f32((id / 6u) % side + corner.x);
-        // Sample every boundary vertex so the walls stay joined to the eroding surface.
+        let sample = (id / 6u) % (side * 2u) + corner.x;
+        var p: vec2<f32>;
+        if (edge % 2u == 0u) {
+            // A cropped edge crosses both grid vertices and triangle diagonals.
+            let split = select(1.0 - fract(starts[edge].y), fract(starts[edge].y), edge == 2u);
+            let along = f32(sample / 2u) + f32(sample % 2u) * split;
+            p = starts[edge] + direction * along;
+        } else {
+            let along = f32(sample) * 0.5;
+            let z = select(along, f32(side) - along, edge == 3u);
+            p = vec2(starts[edge].x, clamp(z, lo.y, hi.y));
+        }
         out.base_position = mesh_position(p);
         if (corner.y == 0u) { out.base_position.y = bottom; }
         out.base_normal = vec3(direction.y, 0.0, -direction.x);
         out.grid_position = p;
     } else {
-        let p = vec2<f32>(corners[id - wall_vertices]) * f32(side);
+        let p = mix(lo, hi, vec2<f32>(corners[id - wall_vertices]));
         out.base_position = mesh_position(p);
         out.base_position.y = bottom;
         out.base_normal = vec3(0.0, -1.0, 0.0);
@@ -55,6 +67,10 @@ fn mesh_vertex(@builtin(vertex_index) id: u32) -> Vertex {
 fn line_depth_vertex(@builtin(vertex_index) id: u32) -> Vertex {
     return terrain_vertex(id, true);
 }
+@fragment
+fn depth_fragment(in: Vertex) {
+    if (dot(in.base_normal, in.base_normal) < 0.5 && !within_terrain(in.grid_position)) { discard; }
+}
 fn pbr_output(color: vec3<f32>) -> vec3<f32> {
     let mapped = tone_map(color);
     if (OUTPUT_SRGB_ATTACHMENT) { return mapped; }
@@ -71,6 +87,7 @@ fn mesh_fragment(in: Vertex) -> @location(0) vec4<f32> {
     let distance = min(contour, 1.0 - contour) * view.material.z;
     let line = 1.0 - smoothstep(0.0, max(fwidth(terrain.y) * 2.0, 0.000001), distance);
     let cover = clamp(line * view.material.w / 0.2, 0.0, 1.0);
+    if (dot(in.base_normal, in.base_normal) < 0.5 && !within_terrain(in.grid_position)) { discard; }
     if (view.sun_color.w > 0.5) {
         if (dot(in.base_normal, in.base_normal) > 0.5) {
             let local = in.base_position + vec3(0.0, view.style.y * 0.5, 0.0);

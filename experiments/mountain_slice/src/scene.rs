@@ -14,7 +14,7 @@ pub const MAX_LINES: u32 = 320;
 const WORLD: f32 = 12.0;
 const MSAA_SAMPLES: u32 = 4;
 const SURFACE_VERTICES: u32 = (GRID - 1) * (GRID - 1) * 6;
-const BASE_VERTICES: u32 = (GRID - 1) * 4 * 6 + 6;
+const BASE_VERTICES: u32 = (GRID - 1) * 4 * 12 + 6;
 const WARM_WHITE: [f32; 4] = [243.0 / 255.0, 238.0 / 255.0, 230.0 / 255.0, 1.0];
 const WARM_BLACK: [f32; 4] = [31.0 / 255.0, 28.0 / 255.0, 25.0 / 255.0, 1.0];
 
@@ -99,6 +99,7 @@ pub struct Scene {
     active_strokes: u32,
     pub layer_spacing: f32,
     pub base_thickness: f32,
+    pub z_range: f32,
     pub show_heightmap: bool,
     pub show_initial: bool,
     pub debug_mode: f32,
@@ -597,6 +598,11 @@ impl Scene {
                              depth: (bool, wgpu::CompareFunction),
                              color: bool,
                              samples: u32| {
+            let targets = [Some(wgpu::ColorTargetState {
+                format: device.format(),
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })];
             device
                 .gpu()
                 .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -608,14 +614,10 @@ impl Scene {
                         buffers: &[],
                         compilation_options: Default::default(),
                     },
-                    fragment: color.then_some(wgpu::FragmentState {
+                    fragment: Some(wgpu::FragmentState {
                         module: &module,
                         entry_point: Some(fragment),
-                        targets: &[Some(wgpu::ColorTargetState {
-                            format: device.format(),
-                            blend: None,
-                            write_mask: wgpu::ColorWrites::ALL,
-                        })],
+                        targets: if color { &targets } else { &[] },
                         compilation_options: Default::default(),
                     }),
                     primitive: wgpu::PrimitiveState {
@@ -651,7 +653,7 @@ impl Scene {
         let depth_pipeline = make_pipeline(
             "MountainDepth",
             "mesh_vertex",
-            "mesh_fragment",
+            "depth_fragment",
             (true, wgpu::CompareFunction::LessEqual),
             false,
             1,
@@ -659,7 +661,7 @@ impl Scene {
         let line_depth_pipeline = make_pipeline(
             "MountainUpperLayerDepth",
             "line_depth_vertex",
-            "mesh_fragment",
+            "depth_fragment",
             (true, wgpu::CompareFunction::LessEqual),
             false,
             1,
@@ -755,6 +757,7 @@ impl Scene {
             active_strokes: 128,
             layer_spacing: 10.0,
             base_thickness: 0.6,
+            z_range: 0.5,
             show_heightmap: false,
             show_initial: false,
             debug_mode: 0.0,
@@ -1131,7 +1134,7 @@ impl Scene {
                 self.roughness,
                 self.env_gain,
             ],
-            surface: [self.metallic, 0.0, 0.0, 0.0],
+            surface: [self.metallic, self.z_range, 0.0, 0.0],
         };
         self.view_uniform.write(device, &[uniform], 0);
     }
