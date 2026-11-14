@@ -9,5 +9,6 @@ packages:
   - "experiments/firefly_forest"
   - "experiments/image_volume"
   - "experiments/mountain_fold"
+  - "experiments/mountain_slice"
 allowBuilds:
   esbuild: true
